@@ -14,6 +14,7 @@ from collections.abc import AsyncIterator
 from pydantic_ai import RunContext
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
+    FunctionToolResultEvent,
     ModelRequest,
     ModelResponse,
     TextPart,
@@ -69,6 +70,9 @@ async def stream_chat(
                 msg = _TOOL_STATUS.get(event.part.tool_name)
                 if msg:
                     emit(AgentStatusEvent(message=msg))
+            elif isinstance(event, FunctionToolResultEvent):
+                # Tool finished; the model is now composing the answer.
+                emit(AgentStatusEvent(message="Writing the answer…"))
 
     async def run() -> None:
         tok_e = emit_var.set(emit)

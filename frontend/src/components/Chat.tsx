@@ -49,6 +49,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const session = useRef(0) // bumps on every chat switch; invalidates in-flight streams
   const abort = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const atBottom = useRef(true) // stick to bottom while the user is at the bottom
 
   const refreshList = useCallback(async () => {
     setConversations(await listAll())
@@ -57,6 +58,14 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   useEffect(() => {
     refreshList()
   }, [refreshList])
+
+  // Stick to the bottom as content streams, unless the user scrolled up to read.
+  useEffect(() => {
+    if (atBottom.current) {
+      const el = scrollRef.current
+      if (el) el.scrollTop = el.scrollHeight
+    }
+  }, [turns])
 
   // Load whatever chat the URL points at (or start empty for an unsaved id).
   // Switching chats stops any in-flight stream and drops its unsaved state, so it
@@ -170,13 +179,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     const controller = new AbortController()
     abort.current = controller
     dirty.current = true // this chat now has unsaved user content
+    atBottom.current = true // follow the new exchange
     setBusy(true)
     setTurns([
       ...base,
       { role: 'user', text: message },
       { role: 'assistant', status: 'Thinking…', agents: [], slots: [] },
     ])
-    queueMicrotask(() => scrollRef.current?.scrollTo({ top: 1e9 }))
 
     try {
       for await (const ev of chatStream(message, mode, history, controller.signal)) {
@@ -225,7 +234,6 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             patchLast((t) => ({ ...t, status: null }))
             break
         }
-        scrollRef.current?.scrollTo({ top: 1e9 })
       }
     } catch (e) {
       if (session.current === mySession) {
@@ -277,7 +285,14 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         </header>
 
         <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col overflow-hidden">
-          <div ref={scrollRef} className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
+          <div
+            ref={scrollRef}
+            onScroll={(e) => {
+              const el = e.currentTarget
+              atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+            }}
+            className="flex-1 space-y-6 overflow-y-auto px-4 py-6"
+          >
             {turns.length === 0 && (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
                 <h1 className="text-2xl font-semibold tracking-tight">Ask me anything</h1>
