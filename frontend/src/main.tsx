@@ -7,9 +7,11 @@ import '@fontsource-variable/bricolage-grotesque'
 import '@fontsource-variable/space-grotesk'
 import './index.css'
 import { applyFont, getFont } from '@/lib/fonts'
+import { applyTheme, getThemeId } from '@/lib/theme'
 import App from './App.tsx'
 
 applyFont(getFont())
+applyTheme(getThemeId())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

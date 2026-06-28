@@ -7,14 +7,15 @@
     <meta name="color-scheme" content="light dark" />
     <title>silly-chat</title>
     <script>
-      // Apply the saved theme before paint to avoid a flash.
+      // Apply the saved theme palette before paint to avoid a flash.
       (function () {
         try {
-          var t = localStorage.getItem('silly:theme') || 'system';
-          var dark =
-            t === 'dark' ||
-            (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.classList.toggle('dark', dark);
+          var s = JSON.parse(localStorage.getItem('silly:themeVars') || 'null');
+          if (!s) return;
+          var r = document.documentElement;
+          for (var k in s.vars) r.style.setProperty('--' + k, s.vars[k]);
+          r.classList.toggle('dark', !!s.dark);
+          r.style.colorScheme = s.scheme || (s.dark ? 'dark' : 'light');
         } catch (e) {}
       })();
     </script>

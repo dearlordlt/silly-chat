@@ -19,12 +19,12 @@ import {
   titleFrom,
 } from '@/lib/history'
 import { setFont, type FontId } from '@/lib/fonts'
+import { setTheme } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
 import { AdminPage } from '@/components/AdminPage'
 import { SettingsPage } from '@/components/SettingsPage'
 import { Sidebar } from '@/components/Sidebar'
 import { UserMenu } from '@/components/UserMenu'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 
@@ -57,11 +57,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     refreshList()
   }, [refreshList])
 
-  // Apply the server-synced font preference (overrides the local default).
+  // Apply server-synced appearance preferences (override local defaults).
   useEffect(() => {
     const f = me.settings?.font as FontId | undefined
     if (f) setFont(f)
-  }, [me.settings?.font])
+    const t = me.settings?.theme as string | undefined
+    if (t) setTheme(t)
+  }, [me.settings?.font, me.settings?.theme])
 
   // Persist the active chat once a turn settles (not mid-stream), per its mode.
   // Opening an existing chat must NOT re-save it (that would bump its order), so we
@@ -222,7 +224,6 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             )}
           </div>
           <div className="flex items-center gap-1">
-            <ThemeToggle />
             <UserMenu
               me={me}
               onSettings={() => setSettingsView(true)}
