@@ -25,6 +25,9 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   return (text ? JSON.parse(text) : null) as T
 }
 
+export type ServerConvSummary = { id: string; title: string; updated_at: string }
+export type ServerConv = ServerConvSummary & { turns: unknown[] }
+
 export const api = {
   me: () => req<Me | null>('GET', '/api/auth/me'),
   login: (username: string, password: string) =>
@@ -34,4 +37,11 @@ export const api = {
   logout: () => req<{ ok: boolean }>('POST', '/api/auth/logout'),
   listUsers: () => req<Me[]>('GET', '/api/admin/users'),
   approve: (id: number) => req<Me>('POST', `/api/admin/users/${id}/approve`),
+
+  // Server-side conversation store ("save to server" mode).
+  listServerConvos: () => req<ServerConvSummary[]>('GET', '/api/conversations'),
+  getServerConvo: (id: string) => req<ServerConv>('GET', `/api/conversations/${id}`),
+  putServerConvo: (id: string, body: { title: string; turns: unknown[] }) =>
+    req<ServerConvSummary>('PUT', `/api/conversations/${id}`, body),
+  deleteServerConvo: (id: string) => req<{ ok: boolean }>('DELETE', `/api/conversations/${id}`),
 }

@@ -1,7 +1,19 @@
 import Dexie, { type Table } from 'dexie'
 import type { Turn } from '@/lib/types'
+import { api } from '@/lib/api'
 
-export interface Conversation {
+// Where a chat is kept. 'off' is a mode (don't save); a saved chat is local|server.
+export type StorageMode = 'off' | 'local' | 'server'
+export type Location = 'local' | 'server'
+
+export interface ConvSummary {
+  id: string
+  title: string
+  updatedAt: number
+  location: Location
+}
+
+export interface FullConv {
   id: string
   title: string
   turns: Turn[]
@@ -9,23 +21,27 @@ export interface Conversation {
   updatedAt: number
 }
 
+// ---- local store (IndexedDB via Dexie) ----
+interface LocalConv extends FullConv {}
+
 class HistoryDB extends Dexie {
-  conversations!: Table<Conversation, string>
+  conversations!: Table<LocalConv, string>
   constructor() {
     super('silly-chat')
     this.version(1).stores({ conversations: 'id, updatedAt' })
   }
 }
+const db = new HistoryDB()
 
-export const db = new HistoryDB()
-
-// Local-on-device saving is the DEFAULT (history is kept in this browser).
-// Users opt OUT for an ephemeral/private session. Server sync is a separate
-// future opt-in (off by default).
-const SAVE_KEY = 'silly:saveHistory'
-export const getSavePref = (): boolean => localStorage.getItem(SAVE_KEY) !== '0'
-export const setSavePref = (on: boolean): void =>
-  localStorage.setItem(SAVE_KEY, on ? '1' : '0')
+// ---- global storage mode (default for new chats) ----
+const MODE_KEY = 'silly:storageMode'
+export function getMode(): StorageMode {
+  const v = localStorage.getItem(MODE_KEY)
+  return v === 'off' || v === 'server' ? v : 'local' // default local
+}
+export function setMode(m: StorageMode): void {
+  localStorage.setItem(MODE_KEY, m)
+}
 
 export function newId(): string {
   return typeof crypto.randomUUID === 'function'
@@ -38,9 +54,55 @@ export function titleFrom(turns: Turn[]): string {
   return first && first.role === 'user' ? first.text.slice(0, 60) : 'New chat'
 }
 
-export const listConversations = () =>
-  db.conversations.orderBy('updatedAt').reverse().toArray()
-export const loadConversation = (id: string) => db.conversations.get(id)
-export const saveConversation = (c: Conversation) => db.conversations.put(c)
-export const deleteConversation = (id: string) => db.conversations.delete(id)
-export const clearAllConversations = () => db.conversations.clear()
+// ---- unified facade ----
+export async function listAll(): Promise<ConvSummary[]> {
+  const local = await db.conversations.toArray()
+  let server: Awaited<ReturnType<typeof api.listServerConvos>> = []
+  try {
+    server = await api.listServerConvos()
+  } catch {
+    /* not logged in / offline — show local only */
+  }
+  const merged: ConvSummary[] = [
+    ...local.map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, location: 'local' as const })),
+    ...server.map((c) => ({
+      id: c.id,
+      title: c.title,
+      updatedAt: Date.parse(c.updated_at),
+      location: 'server' as const,
+    })),
+  ]
+  return merged.sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+export async function loadFull(id: string, location: Location): Promise<FullConv | undefined> {
+  if (location === 'local') return db.conversations.get(id)
+  const c = await api.getServerConvo(id)
+  return {
+    id: c.id,
+    title: c.title,
+    turns: c.turns as Turn[],
+    createdAt: Date.parse(c.updated_at),
+    updatedAt: Date.parse(c.updated_at),
+  }
+}
+
+export async function save(conv: FullConv, location: Location): Promise<void> {
+  if (location === 'local') {
+    await db.conversations.put(conv)
+  } else {
+    await api.putServerConvo(conv.id, { title: conv.title, turns: conv.turns })
+  }
+}
+
+export async function remove(id: string, location: Location): Promise<void> {
+  if (location === 'local') await db.conversations.delete(id)
+  else await api.deleteServerConvo(id)
+}
+
+export async function move(id: string, from: Location, to: Location): Promise<void> {
+  const full = await loadFull(id, from)
+  if (!full) return
+  await save(full, to)
+  await remove(id, from)
+}

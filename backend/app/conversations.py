@@ -1,0 +1,90 @@
+"""Server-side conversation store (per user).
+
+Enables the "save to server" storage mode: history that follows a user across
+devices. Each conversation is owned by a user; the id is the client uuid so a chat
+keeps its identity when moved between local and server.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
+from sqlmodel import select
+
+from app.auth.deps import ApprovedUser, SessionDep
+from app.models import Conversation
+
+router = APIRouter(prefix="/api/conversations", tags=["conversations"])
+
+
+class ConvIn(BaseModel):
+    title: str = ""
+    turns: list[Any] = []
+
+
+class ConvSummary(BaseModel):
+    id: str
+    title: str
+    updated_at: datetime
+
+
+class ConvOut(ConvSummary):
+    turns: list[Any]
+
+
+def _own(session: SessionDep, user: ApprovedUser, cid: str) -> Conversation:
+    c = session.get(Conversation, cid)
+    if not c or c.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such conversation")
+    return c
+
+
+@router.get("")
+def list_conversations(user: ApprovedUser, session: SessionDep) -> list[ConvSummary]:
+    rows = session.exec(
+        select(Conversation)
+        .where(Conversation.user_id == user.id)
+        .order_by(Conversation.updated_at.desc())
+    ).all()
+    return [ConvSummary(id=c.id, title=c.title, updated_at=c.updated_at) for c in rows]
+
+
+@router.get("/{cid}")
+def get_conversation(cid: str, user: ApprovedUser, session: SessionDep) -> ConvOut:
+    c = _own(session, user, cid)
+    return ConvOut(id=c.id, title=c.title, turns=c.turns, updated_at=c.updated_at)
+
+
+@router.put("/{cid}")
+def upsert_conversation(
+    cid: str, body: ConvIn, user: ApprovedUser, session: SessionDep
+) -> ConvSummary:
+    now = datetime.now(timezone.utc)
+    c = session.get(Conversation, cid)
+    if c is not None:
+        if c.user_id != user.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "no such conversation")
+        c.title = body.title
+        c.turns = body.turns
+        c.updated_at = now
+    else:
+        c = Conversation(
+            id=cid, user_id=user.id, title=body.title, turns=body.turns,
+            created_at=now, updated_at=now,
+        )
+    session.add(c)
+    session.commit()
+    session.refresh(c)
+    return ConvSummary(id=c.id, title=c.title, updated_at=c.updated_at)
+
+
+@router.delete("/{cid}")
+def delete_conversation(cid: str, user: ApprovedUser, session: SessionDep) -> dict:
+    c = session.get(Conversation, cid)
+    if c and c.user_id == user.id:
+        session.delete(c)
+        session.commit()
+    return {"ok": True}
