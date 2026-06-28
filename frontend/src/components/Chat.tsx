@@ -22,13 +22,14 @@ export function Chat() {
   const [busy, setBusy] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Mutate the last (assistant) turn in place.
-  const patchLast = (fn: (t: Extract<Turn, { role: 'assistant' }>) => void) =>
+  type Assistant = Extract<Turn, { role: 'assistant' }>
+  // Pure update of the last (assistant) turn — no mutation, so it's safe under
+  // React StrictMode's double-invoked updaters.
+  const patchLast = (fn: (t: Assistant) => Assistant) =>
     setTurns((prev) => {
-      const next = [...prev]
-      const last = next[next.length - 1]
-      if (last?.role === 'assistant') fn(last)
-      return next
+      const last = prev[prev.length - 1]
+      if (last?.role !== 'assistant') return prev
+      return [...prev.slice(0, -1), fn(last)]
     })
 
   async function send() {
@@ -47,39 +48,39 @@ export function Chat() {
       for await (const ev of chatStream(message, mode)) {
         switch (ev.event) {
           case 'agent_status':
-            patchLast((t) => (t.status = ev.message))
+            patchLast((t) => ({ ...t, status: ev.message }))
             break
           case 'block_start':
-            patchLast((t) => {
-              t.status = null
-              t.slots.push({ id: ev.block_id, kind: 'pending', blockType: ev.block_type })
-            })
+            patchLast((t) => ({
+              ...t,
+              status: null,
+              slots: [
+                ...t.slots,
+                { id: ev.block_id, kind: 'pending', blockType: ev.block_type },
+              ],
+            }))
             break
-          case 'block_data':
-            patchLast((t) => {
-              const i = t.slots.findIndex((s) => s.id === ev.block_id)
-              const filled: Slot = { id: ev.block_id, kind: 'filled', block: ev.block }
-              if (i >= 0) t.slots[i] = filled
-              else t.slots.push(filled)
-            })
+          case 'block_data': {
+            const filled: Slot = { id: ev.block_id, kind: 'filled', block: ev.block }
+            patchLast((t) => ({
+              ...t,
+              slots: t.slots.some((s) => s.id === ev.block_id)
+                ? t.slots.map((s) => (s.id === ev.block_id ? filled : s))
+                : [...t.slots, filled],
+            }))
             break
+          }
           case 'error':
-            patchLast((t) => {
-              t.status = null
-              t.error = ev.message
-            })
+            patchLast((t) => ({ ...t, status: null, error: ev.message }))
             break
           case 'done':
-            patchLast((t) => (t.status = null))
+            patchLast((t) => ({ ...t, status: null }))
             break
         }
         scrollRef.current?.scrollTo({ top: 1e9 })
       }
     } catch (e) {
-      patchLast((t) => {
-        t.status = null
-        t.error = String(e)
-      })
+      patchLast((t) => ({ ...t, status: null, error: String(e) }))
     } finally {
       setBusy(false)
     }

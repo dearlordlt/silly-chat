@@ -26,7 +26,8 @@ export async function* chatStream(
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-    buffer += decoder.decode(value, { stream: true })
+    // Normalize CRLF (sse-starlette uses \r\n) so frame/line splitting is simple.
+    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n')
 
     // SSE frames are separated by a blank line.
     let sep: number
