@@ -82,10 +82,10 @@ export function CodeBlockView({ block }: { block: CodeBlock }) {
         />
       ) : (
         <div className="flex max-h-[460px] overflow-auto text-sm">
-          <pre className="sticky left-0 select-none border-r bg-card px-3 py-3 text-right font-mono text-xs leading-relaxed text-muted-foreground">
+          <pre className="sticky left-0 select-none border-r bg-card px-3 py-3 text-right font-mono text-xs leading-[1.625rem] text-muted-foreground">
             {Array.from({ length: lineCount }, (_, i) => i + 1).join('\n')}
           </pre>
-          <pre className="flex-1 whitespace-pre px-3 py-3 font-mono leading-relaxed">
+          <pre className="flex-1 whitespace-pre px-3 py-3 font-mono leading-[1.625rem]">
             <code dangerouslySetInnerHTML={{ __html: highlighted }} />
           </pre>
         </div>
