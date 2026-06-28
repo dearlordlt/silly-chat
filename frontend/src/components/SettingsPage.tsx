@@ -87,7 +87,7 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-background">
+    <div className="flex h-dvh flex-col">
       <header className="flex items-center gap-2 border-b px-3 py-2">
         <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to chat">
           <ArrowLeft />
