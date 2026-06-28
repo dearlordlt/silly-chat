@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowUp, PanelLeftOpen } from 'lucide-react'
+import { ArrowUp, PanelLeftOpen, Pencil } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
@@ -42,6 +42,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [currentMode, setCurrentMode] = useState<StorageMode>(initialMode)
   const [conversations, setConversations] = useState<ConvSummary[]>([])
   const [pendingDelete, setPendingDelete] = useState<{ id: string; location: Location } | null>(null)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editText, setEditText] = useState('')
   const createdAt = useRef<number | null>(null)
   const dirty = useRef(false) // true only when the user changed THIS chat's content
   const session = useRef(0) // bumps on every chat switch; invalidates in-flight streams
@@ -140,18 +142,37 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       return [...prev.slice(0, -1), fn(last)]
     })
 
-  async function send() {
+  function send() {
     const message = input.trim()
     if (!message || busy) return
-    const history = toHistory(turns) // prior conversation, for model context
+    setInput('')
+    runTurn(message, turns)
+  }
+
+  function startEdit(index: number, text: string) {
+    setEditingIndex(index)
+    setEditText(text)
+  }
+
+  function applyEdit() {
+    const message = editText.trim()
+    if (!message || busy || editingIndex === null) return
+    const base = turns.slice(0, editingIndex) // drop the edited message + its reply
+    setEditingIndex(null)
+    runTurn(message, base)
+  }
+
+  // Run one turn: append the user message to `base` and stream the reply, with
+  // `base` (the prior conversation) as the model's context.
+  async function runTurn(message: string, base: Turn[]) {
+    const history = toHistory(base)
     const mySession = session.current
     const controller = new AbortController()
     abort.current = controller
     dirty.current = true // this chat now has unsaved user content
-    setInput('')
     setBusy(true)
-    setTurns((prev) => [
-      ...prev,
+    setTurns([
+      ...base,
       { role: 'user', text: message },
       { role: 'assistant', status: 'Thinking…', agents: [], slots: [] },
     ])
@@ -215,6 +236,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     }
   }
 
+  const lastUserIndex = turns.reduce((acc, t, i) => (t.role === 'user' ? i : acc), -1)
+
   return (
     <div className="flex h-dvh">
       {sidebarOpen && (
@@ -265,11 +288,48 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             )}
             {turns.map((turn, i) =>
               turn.role === 'user' ? (
-                <div key={i} className="flex justify-end">
-                  <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-sm">
-                    {turn.text}
+                editingIndex === i ? (
+                  <div key={i} className="flex flex-col items-end gap-2">
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          applyEdit()
+                        }
+                        if (e.key === 'Escape') setEditingIndex(null)
+                      }}
+                      autoFocus
+                      rows={2}
+                      className="w-full max-w-[80%] resize-none rounded-2xl border border-input bg-card px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setEditingIndex(null)}>
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={applyEdit} disabled={!editText.trim()}>
+                        Send
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div key={i} className="group flex items-center justify-end gap-2">
+                    {i === lastUserIndex && !busy && (
+                      <button
+                        onClick={() => startEdit(i, turn.text)}
+                        aria-label="Edit message"
+                        title="Edit message"
+                        className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100 [&_svg]:size-3.5"
+                      >
+                        <Pencil />
+                      </button>
+                    )}
+                    <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-sm">
+                      {turn.text}
+                    </div>
+                  </div>
+                )
               ) : (
                 <div key={i} className="space-y-3 text-[0.95rem]">
                   {turn.status && (
