@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from pydantic_ai import Agent, BinaryContent, Tool
 
 from app.agent import search
-from app.agent.clock import now_str
+from app.agent.clock import now_str, tz_var
 from app.agent.activity import (
     agent_update,
     agent_var,
@@ -59,7 +59,7 @@ def _worker() -> Agent:
     return Agent(
         worker_model(),
         tools=[Tool(_web_search, name="web_search", description=get_prompt("tools/web_search"))],
-        instructions=get_prompt("subagents/researcher", today=now_str()),
+        instructions=get_prompt("subagents/researcher", today=now_str(tz_var.get())),
         retries=get_settings().limits.output_retries,
     )
 

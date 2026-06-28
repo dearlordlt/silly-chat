@@ -59,6 +59,7 @@ class ChatRequest(BaseModel):
     message: str
     mode: Literal["search", "chat"] = "search"
     history: list[HistoryMessage] = []
+    timezone: str | None = None  # IANA tz, only if the user opted to share it
 
 
 @app.get("/api/health")
@@ -74,7 +75,7 @@ async def chat(req: ChatRequest, user: ApprovedUser) -> EventSourceResponse:
     history = [(m.role, m.content) for m in req.history]
 
     async def event_generator():
-        async for event in stream_chat(req.message, req.mode, history):
+        async for event in stream_chat(req.message, req.mode, history, req.timezone):
             yield {"event": event.event, "data": event.model_dump_json()}
 
     return EventSourceResponse(event_generator())

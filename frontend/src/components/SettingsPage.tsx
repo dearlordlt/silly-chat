@@ -1,20 +1,22 @@
 import { useState } from 'react'
-import { ArrowLeft, Check, CircleUser, Frame, Palette, Sparkles, Type } from 'lucide-react'
+import { ArrowLeft, Check, CircleUser, Frame, Globe, Palette, Sparkles, Type } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { FONTS, type FontId, getFont, setFont } from '@/lib/fonts'
 import { getThemeId, setTheme, THEMES, type Theme, type ThemeCategory } from '@/lib/theme'
 import { getRadius, RADII, type RadiusId, setRadius } from '@/lib/radius'
 import { BACKGROUNDS, type BgId, getBg, setBg } from '@/lib/background'
+import { browserTz, getSendTz, setSendTz } from '@/lib/prefs'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
-type Section = 'theme' | 'background' | 'font' | 'borders' | 'account'
+type Section = 'theme' | 'background' | 'font' | 'borders' | 'privacy' | 'account'
 
 const NAV: { key: Section; label: string; icon: typeof Palette }[] = [
   { key: 'theme', label: 'Theme', icon: Palette },
   { key: 'background', label: 'Background', icon: Sparkles },
   { key: 'font', label: 'Font', icon: Type },
   { key: 'borders', label: 'Borders', icon: Frame },
+  { key: 'privacy', label: 'Privacy', icon: Globe },
   { key: 'account', label: 'Account', icon: CircleUser },
 ]
 
@@ -63,6 +65,13 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
   const [theme, setThemeState] = useState<string>(getThemeId)
   const [radius, setRadiusState] = useState<RadiusId>(getRadius)
   const [bg, setBgState] = useState<BgId>(getBg)
+  const [sendTz, setSendTzState] = useState(getSendTz)
+
+  function toggleSendTz(on: boolean) {
+    setSendTz(on)
+    setSendTzState(on)
+    api.updateSettings({ sendTimezone: on }).catch(() => {})
+  }
 
   function chooseBg(id: BgId) {
     setBg(id)
@@ -201,6 +210,25 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
                 ))}
               </div>
             </div>
+          )}
+
+          {section === 'privacy' && (
+            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border bg-card px-4 py-3">
+              <span>
+                <span className="block text-sm font-medium">Send my timezone</span>
+                <span className="block text-xs text-muted-foreground">
+                  Lets answers use your local date and time
+                  {sendTz && browserTz() ? ` (${browserTz()})` : ''}. Off by default — the
+                  server's clock is used instead.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={sendTz}
+                onChange={(e) => toggleSendTz(e.target.checked)}
+                className="size-4 accent-[var(--color-primary)]"
+              />
+            </label>
           )}
 
           {section === 'account' && (

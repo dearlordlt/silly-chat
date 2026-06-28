@@ -21,13 +21,13 @@ from app.schema import Reply
 Mode = Literal["search", "chat"]
 
 
-def build_orchestrator(mode: Mode = "search") -> Agent[None, Reply]:
+def build_orchestrator(mode: Mode = "search", timezone: str | None = None) -> Agent[None, Reply]:
     limits = get_settings().limits
     instructions = get_prompt(
         "orchestrator",
         mode_bias=get_prompt(f"mode_{mode}"),
         max_agents=limits.max_agents,
-        today=now_str(),
+        today=now_str(timezone),
     )
     return Agent(
         orchestrator_model(),

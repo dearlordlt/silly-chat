@@ -12,12 +12,13 @@ export async function* chatStream(
   message: string,
   mode: 'search' | 'chat',
   history: HistoryMessage[],
+  timezone: string | undefined,
   signal?: AbortSignal,
 ): AsyncGenerator<StreamEvent> {
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, mode, history }),
+    body: JSON.stringify({ message, mode, history, timezone }),
     credentials: 'include',
     signal,
   })

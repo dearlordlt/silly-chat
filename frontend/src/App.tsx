@@ -5,6 +5,7 @@ import { setFont, type FontId } from '@/lib/fonts'
 import { setTheme } from '@/lib/theme'
 import { setRadius, type RadiusId } from '@/lib/radius'
 import { setBg, type BgId } from '@/lib/background'
+import { setSendTz } from '@/lib/prefs'
 import { newId } from '@/lib/history'
 import { Auth } from '@/components/Auth'
 import { Chat } from '@/components/Chat'
@@ -32,6 +33,7 @@ export default function App() {
     if (s.theme) setTheme(s.theme as string)
     if (s.radius) setRadius(s.radius as RadiusId)
     if (s.background) setBg(s.background as BgId)
+    if (s.sendTimezone !== undefined) setSendTz(!!s.sendTimezone)
   }, [me])
 
   async function logout() {

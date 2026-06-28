@@ -24,6 +24,7 @@ from pydantic_ai.messages import (
 from pydantic_ai import Agent
 
 from app.agent.activity import emit_var, findings_var, sources_var
+from app.agent.clock import tz_var
 from app.agent.ollama import orchestrator_model
 from app.agent.orchestrator import Mode, build_orchestrator
 from app.logging_setup import get_logger
@@ -77,8 +78,9 @@ async def stream_chat(
     message: str,
     mode: Mode = "search",
     history: list[tuple[str, str]] | None = None,
+    timezone: str | None = None,
 ) -> AsyncIterator[StreamEvent]:
-    agent = build_orchestrator(mode)
+    agent = build_orchestrator(mode, timezone)
     message_history = _build_history(history or [])
     queue: asyncio.Queue = asyncio.Queue()
     sources: list[Source] = []
@@ -101,6 +103,7 @@ async def stream_chat(
         tok_e = emit_var.set(emit)
         tok_s = sources_var.set(sources)
         tok_f = findings_var.set(findings)
+        tok_tz = tz_var.set(timezone)
         log.info("turn start: mode=%s history=%d msg=%r", mode, len(history or []), message[:120])
         try:
             with capture_run_messages() as messages:
@@ -125,6 +128,7 @@ async def stream_chat(
             emit_var.reset(tok_e)
             sources_var.reset(tok_s)
             findings_var.reset(tok_f)
+            tz_var.reset(tok_tz)
             queue.put_nowait(_DONE)
 
     task = asyncio.create_task(run())
