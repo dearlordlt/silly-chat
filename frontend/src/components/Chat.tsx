@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowUp, PanelLeftOpen, Pencil } from 'lucide-react'
+import { ArrowUp, PanelLeftOpen, Pencil, RotateCw } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
@@ -170,6 +170,15 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     const base = turns.slice(0, editingIndex) // drop the edited message + its reply
     setEditingIndex(null)
     runTurn(message, base)
+  }
+
+  // Re-run the last user message (e.g. after a failed reply) without retyping.
+  function retry() {
+    if (busy) return
+    const idx = turns.reduce((acc, t, i) => (t.role === 'user' ? i : acc), -1)
+    const last = turns[idx]
+    if (idx < 0 || last.role !== 'user') return
+    runTurn(last.text, turns.slice(0, idx))
   }
 
   // Run one turn: append the user message to `base` and stream the reply, with
@@ -367,8 +376,16 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     </div>
                   ))}
                   {turn.error && (
-                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
-                      {turn.error}
+                    <div className="space-y-2">
+                      <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+                        Something went wrong. {turn.error}
+                      </div>
+                      {i === turns.length - 1 && !busy && (
+                        <Button variant="outline" size="sm" onClick={retry}>
+                          <RotateCw />
+                          Retry
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
