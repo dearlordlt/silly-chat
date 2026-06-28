@@ -14,6 +14,8 @@ orchestrator = "deepseek-v4-pro:cloud"
 worker = "qwen3.5:9b"
 # Must be vision-capable (deepseek-v4-pro has no vision).
 vision = "gemini-3-flash-preview:latest"
+# Writes code when the user asks for it; pick a strong coding model.
+coder = "deepseek-v4-pro:cloud"
 
 [search]
 # SearXNG instance reachable by the backend (json format must be enabled).

@@ -29,7 +29,9 @@ REQUIRED_PROMPTS: tuple[str, ...] = (
     "tools/web_search",
     "tools/research",
     "tools/find_images",
+    "tools/write_code",
     "subagents/researcher",
+    "subagents/coder",
 )
 
 _env = Environment(

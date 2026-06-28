@@ -115,6 +115,7 @@ const ROLES: { key: string; label: string; hint: string }[] = [
   { key: 'orchestrator', label: 'Main model', hint: 'Plans, delegates, and writes the final answer. Spend quality here.' },
   { key: 'worker', label: 'Research agents', hint: 'Cheap, fast model the parallel research workers run on.' },
   { key: 'vision', label: 'Vision', hint: 'Looks at images to verify visual details.' },
+  { key: 'coder', label: 'Coding', hint: 'Writes code when the user asks. Pick a strong coding model.' },
 ]
 
 function ModelsSection() {

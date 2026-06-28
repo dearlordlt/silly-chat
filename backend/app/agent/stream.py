@@ -23,12 +23,12 @@ from pydantic_ai.messages import (
 
 from pydantic_ai import Agent
 
-from app.agent.activity import emit_var, findings_var, sources_var
+from app.agent.activity import code_var, emit_var, findings_var, sources_var
 from app.agent.clock import tz_var
 from app.agent.ollama import orchestrator_model
 from app.agent.orchestrator import Mode, build_orchestrator
 from app.logging_setup import get_logger
-from app.schema import Reply, TextBlock
+from app.schema import CodeBlock, Reply, TextBlock
 from app.schema import (
     AgentStatusEvent,
     BlockDataEvent,
@@ -85,6 +85,7 @@ async def stream_chat(
     queue: asyncio.Queue = asyncio.Queue()
     sources: list[Source] = []
     findings: list[tuple[str, str]] = []
+    code: list[tuple[str, str]] = []
 
     def emit(ev: object) -> None:
         queue.put_nowait(ev)
@@ -103,6 +104,7 @@ async def stream_chat(
         tok_e = emit_var.set(emit)
         tok_s = sources_var.set(sources)
         tok_f = findings_var.set(findings)
+        tok_c = code_var.set(code)
         tok_tz = tz_var.set(timezone)
         log.info("turn start: mode=%s history=%d msg=%r", mode, len(history or []), message[:120])
         try:
@@ -128,6 +130,7 @@ async def stream_chat(
             emit_var.reset(tok_e)
             sources_var.reset(tok_s)
             findings_var.reset(tok_f)
+            code_var.reset(tok_c)
             tz_var.reset(tok_tz)
             queue.put_nowait(_DONE)
 
@@ -143,7 +146,7 @@ async def stream_chat(
             if kind == "error":
                 yield ErrorEvent(message=str(payload))
             else:
-                for ev in _final_events(payload, sources):
+                for ev in _final_events(payload, code, sources):
                     yield ev
         else:
             yield item  # AgentStatusEvent / AgentUpdateEvent
@@ -166,8 +169,14 @@ async def _text_fallback(message: str, findings: list[tuple[str, str]], history)
     return Reply(blocks=[TextBlock(markdown=str(result.output))])
 
 
-def _final_events(reply, sources: list[Source]):
+def _final_events(reply, code: list[tuple[str, str]], sources: list[Source]):
     blocks = list(reply.blocks)
+    # Append code written by the coder agent (verbatim — never round-tripped through
+    # the orchestrator's output), unless the model already emitted it as a code block.
+    has_code_block = any(getattr(b, "type", None) == "code" for b in blocks)
+    if not has_code_block:
+        for language, content in code:
+            blocks.append(CodeBlock(language=language, content=content))
     seen: set[str] = set()
     unique: list[Source] = []
     for s in sources:

@@ -21,12 +21,13 @@ from app.agent.clock import now_str, tz_var
 from app.agent.activity import (
     agent_update,
     agent_var,
+    record_code,
     record_findings,
     record_sources,
     status_for_current_agent,
 )
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
-from app.agent.ollama import vision_model, worker_model
+from app.agent.ollama import coder_model, vision_model, worker_model
 from app.config import get_settings
 from app.logging_setup import get_logger
 from app.prompts.registry import get_prompt
@@ -115,6 +116,35 @@ async def find_images(query: str, must_show: str = "") -> list[ImageHit]:
         return []
 
 
+def _strip_fences(code: str) -> str:
+    code = code.strip()
+    if code.startswith("```"):
+        lines = code.splitlines()
+        lines = lines[1:]  # drop opening ```lang
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        code = "\n".join(lines)
+    return code
+
+
+async def write_code(task: str, language: str = "code") -> str:
+    """Write code for the task using the dedicated coding model. The code is shown
+    to the user automatically — do not repeat it in your answer."""
+    aid = uuid.uuid4().hex[:8]
+    agent_update(aid, label=f"Coding: {task[:50]}", status="Writing code…", state="running")
+    try:
+        agent = Agent(coder_model(), instructions=get_prompt("subagents/coder"))
+        result = await agent.run(task)
+        code = _strip_fences(str(result.output))
+        record_code(language or "code", code)
+        agent_update(aid, status="Done", state="done")
+        return f"Wrote {code.count(chr(10)) + 1} lines of {language or 'code'} (shown to the user)."
+    except Exception as exc:
+        agent_update(aid, status="Failed", state="error")
+        log.warning("coder failed: %s", exc)
+        return f"(could not write code: {exc})"
+
+
 async def _vision_yes(image_url: str, question: str) -> bool:
     try:
         data = await fetch_image_bytes(image_url)
@@ -132,4 +162,5 @@ def build_tools() -> list[Tool]:
     return [
         Tool(research, name="research", description=get_prompt("tools/research")),
         Tool(find_images, name="find_images", description=get_prompt("tools/find_images")),
+        Tool(write_code, name="write_code", description=get_prompt("tools/write_code")),
     ]

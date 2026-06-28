@@ -41,3 +41,9 @@ def vision_model() -> OllamaModel:
     from app import runtime
 
     return model(runtime.model_for("vision"))
+
+
+def coder_model() -> OllamaModel:
+    from app import runtime
+
+    return model(runtime.model_for("coder"))

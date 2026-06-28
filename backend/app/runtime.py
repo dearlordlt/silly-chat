@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from app.config import get_settings
 
-ROLES = ("orchestrator", "worker", "vision")
+ROLES = ("orchestrator", "worker", "vision", "coder")
 
 _overrides: dict[str, str] = {}
 

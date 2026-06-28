@@ -30,6 +30,7 @@ class ModelsCfg(BaseModel):
     orchestrator: str
     worker: str
     vision: str
+    coder: str
 
 
 class SearchCfg(BaseModel):
