@@ -32,6 +32,10 @@ max_agents = 4
 user_requests_per_minute = 20
 # Retries for tool calls + structured-output validation (the repair pass).
 output_retries = 4
+# Code-preview hosting (open-in-new-tab): owner-only, temporary, capped.
+preview_ttl_minutes = 30
+preview_max_kb = 2048
+preview_max_per_user = 20
 
 [db]
 path = "data/silly.db"

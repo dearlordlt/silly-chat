@@ -44,6 +44,11 @@ class LimitsCfg(BaseModel):
     user_requests_per_minute: int = 20
     # Retries for tool calls + structured-output validation (the "repair pass").
     output_retries: int = 4
+    # Code-preview hosting (open-in-new-tab). Kept deliberately tight: previews are
+    # owner-only, expire fast, and are size/count capped so we can't be abused as a host.
+    preview_ttl_minutes: int = 30
+    preview_max_kb: int = 2048
+    preview_max_per_user: int = 20
 
 
 class DbCfg(BaseModel):
