@@ -74,6 +74,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     abort.current?.abort()
     session.current += 1
     dirty.current = false
+    atBottom.current = true // a freshly opened chat starts scrolled to the latest
     setBusy(false)
     let cancelled = false
     loadAny(currentId).then((c) => {
