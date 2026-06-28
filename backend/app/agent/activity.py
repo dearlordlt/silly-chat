@@ -19,6 +19,8 @@ emit_var: ContextVar[Callable[[object], None] | None] = ContextVar("emit", defau
 agent_var: ContextVar[str | None] = ContextVar("agent", default=None)
 # Accumulates sources used during the turn (deduped + rendered at the end).
 sources_var: ContextVar[list[Source] | None] = ContextVar("sources", default=None)
+# Accumulates research findings as (subtask, summary) — reused by the text fallback.
+findings_var: ContextVar[list[tuple[str, str]] | None] = ContextVar("findings", default=None)
 
 
 def agent_update(id: str, *, label: str = "", status: str = "", state: str = "running") -> None:
@@ -35,5 +37,11 @@ def status_for_current_agent(status: str) -> None:
 
 def record_sources(items: list[Source]) -> None:
     bucket = sources_var.get()
+    if bucket is not None:
+        bucket.extend(items)
+
+
+def record_findings(items: list[tuple[str, str]]) -> None:
+    bucket = findings_var.get()
     if bucket is not None:
         bucket.extend(items)

@@ -29,7 +29,7 @@ max_agents = 4
 # Per-user guardrails (Phase 4).
 user_requests_per_minute = 20
 # Retries for tool calls + structured-output validation (the repair pass).
-output_retries = 3
+output_retries = 4
 
 [db]
 path = "data/silly.db"

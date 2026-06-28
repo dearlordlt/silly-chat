@@ -17,7 +17,13 @@ from pydantic import BaseModel
 from pydantic_ai import Agent, BinaryContent, Tool
 
 from app.agent import search
-from app.agent.activity import agent_update, agent_var, record_sources, status_for_current_agent
+from app.agent.activity import (
+    agent_update,
+    agent_var,
+    record_findings,
+    record_sources,
+    status_for_current_agent,
+)
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
 from app.agent.ollama import vision_model, worker_model
 from app.config import get_settings
@@ -78,7 +84,9 @@ async def research(subtasks: list[str]) -> list[Finding]:
     if not subtasks:
         return []
     log.info("research: %d subtask(s): %s", len(subtasks), [s[:40] for s in subtasks])
-    return list(await asyncio.gather(*(_run_worker(s) for s in subtasks)))
+    findings = list(await asyncio.gather(*(_run_worker(s) for s in subtasks)))
+    record_findings([(f.subtask, f.summary) for f in findings])
+    return findings
 
 
 async def find_images(query: str, must_show: str = "") -> list[ImageHit]:

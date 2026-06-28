@@ -42,7 +42,7 @@ class LimitsCfg(BaseModel):
     max_agents: int = 4  # most parallel research workers per turn
     user_requests_per_minute: int = 20
     # Retries for tool calls + structured-output validation (the "repair pass").
-    output_retries: int = 3
+    output_retries: int = 4
 
 
 class DbCfg(BaseModel):
