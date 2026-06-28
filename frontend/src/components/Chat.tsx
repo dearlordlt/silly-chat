@@ -16,7 +16,7 @@ import {
 } from '@/lib/history'
 import { Button } from '@/components/ui/button'
 import { Admin } from '@/components/Admin'
-import { HistoryDrawer } from '@/components/HistoryDrawer'
+import { Sidebar } from '@/components/Sidebar'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 
 type Assistant = Extract<Turn, { role: 'assistant' }>
@@ -27,7 +27,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [mode, setMode] = useState<Mode>('search')
   const [busy, setBusy] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
-  const [showDrawer, setShowDrawer] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [saveOn, setSaveOn] = useState(getSavePref)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentId, setCurrentId] = useState(newId)
@@ -66,7 +66,6 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     setTurns([])
     setCurrentId(newId())
     createdAt.current = null
-    setShowDrawer(false)
   }
 
   async function openConversation(id: string) {
@@ -76,7 +75,6 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       setCurrentId(c.id)
       createdAt.current = c.createdAt
     }
-    setShowDrawer(false)
   }
 
   async function removeConversation(id: string) {
@@ -150,46 +148,52 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   }
 
   return (
-    <div className="mx-auto flex h-dvh max-w-2xl flex-col">
-      <header className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            className="h-8 px-2 text-xs"
-            onClick={() => setShowDrawer(true)}
-            aria-label="History"
-          >
-            ☰
-          </Button>
-          <span className="text-sm font-semibold">silly-chat</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {me.role === 'admin' && (
-            <Button variant="ghost" className="h-8 px-3 text-xs" onClick={() => setShowAdmin(true)}>
-              Users
+    <div className="flex h-dvh">
+      {sidebarOpen && (
+        <Sidebar
+          saveOn={saveOn}
+          onToggleSave={toggleSave}
+          conversations={conversations}
+          currentId={currentId}
+          onNew={newChat}
+          onOpen={openConversation}
+          onDelete={removeConversation}
+          onCollapse={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-1">
+            {!sidebarOpen && (
+              <Button
+                variant="ghost"
+                className="h-8 px-2 text-xs"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open sidebar"
+              >
+                ☰
+              </Button>
+            )}
+            {!sidebarOpen && <span className="text-sm font-semibold">silly-chat</span>}
+          </div>
+          <div className="flex items-center gap-1">
+            {me.role === 'admin' && (
+              <Button variant="ghost" className="h-8 px-3 text-xs" onClick={() => setShowAdmin(true)}>
+                Users
+              </Button>
+            )}
+            <span className="px-2 text-xs text-muted-foreground">{me.username}</span>
+            <Button variant="ghost" className="h-8 px-3 text-xs" onClick={logout}>
+              Log out
             </Button>
-          )}
-          <span className="px-2 text-xs text-muted-foreground">{me.username}</span>
-          <Button variant="ghost" className="h-8 px-3 text-xs" onClick={logout}>
-            Log out
-          </Button>
-        </div>
-      </header>
+          </div>
+        </header>
 
-      {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
-      <HistoryDrawer
-        open={showDrawer}
-        onClose={() => setShowDrawer(false)}
-        saveOn={saveOn}
-        onToggleSave={toggleSave}
-        conversations={conversations}
-        currentId={currentId}
-        onNew={newChat}
-        onOpen={openConversation}
-        onDelete={removeConversation}
-      />
+        {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
 
-      <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-4 pb-4">
+        <div className="mx-auto flex w-full max-w-2xl min-w-0 flex-1 flex-col overflow-hidden">
+          <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-4 pb-4">
         {turns.length === 0 && (
           <div className="flex h-full items-center justify-center text-center text-muted-foreground">
             <p>Ask me anything.</p>
@@ -263,6 +267,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           <Button onClick={send} disabled={busy || !input.trim()}>
             Send
           </Button>
+        </div>
+      </div>
         </div>
       </div>
     </div>

@@ -19,9 +19,11 @@ class HistoryDB extends Dexie {
 
 export const db = new HistoryDB()
 
-// "Save to this device" opt-in. Default off => ephemeral (nothing stored).
+// Local-on-device saving is the DEFAULT (history is kept in this browser).
+// Users opt OUT for an ephemeral/private session. Server sync is a separate
+// future opt-in (off by default).
 const SAVE_KEY = 'silly:saveHistory'
-export const getSavePref = (): boolean => localStorage.getItem(SAVE_KEY) === '1'
+export const getSavePref = (): boolean => localStorage.getItem(SAVE_KEY) !== '0'
 export const setSavePref = (on: boolean): void =>
   localStorage.setItem(SAVE_KEY, on ? '1' : '0')
 
