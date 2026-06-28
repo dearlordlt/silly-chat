@@ -16,6 +16,7 @@ from app.auth.deps import ApprovedUser
 from app.auth.routes import admin_router, auth_router
 from app.config import get_settings
 from app.conversations import router as conversations_router
+from app.preview import router as preview_router
 from app.db import init_db
 from app.prompts.registry import validate_prompts
 
@@ -48,6 +49,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(conversations_router)
+app.include_router(preview_router)
 
 
 class HistoryMessage(BaseModel):

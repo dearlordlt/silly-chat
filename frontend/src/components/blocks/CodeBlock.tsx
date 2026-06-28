@@ -32,9 +32,19 @@ export function CodeBlockView({ block }: { block: CodeBlock }) {
     })
   }
 
-  function openPreview() {
-    const blob = new Blob([block.content], { type: 'text/html' })
-    window.open(URL.createObjectURL(blob), '_blank', 'noopener')
+  async function openPreview() {
+    try {
+      const r = await fetch('/api/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: block.content }),
+        credentials: 'include',
+      })
+      const { id } = await r.json()
+      window.open(`/api/preview/${id}`, '_blank', 'noopener')
+    } catch {
+      /* ignore */
+    }
   }
 
   return (
