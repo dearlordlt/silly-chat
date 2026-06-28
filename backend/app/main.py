@@ -22,12 +22,15 @@ from app.prompts.registry import validate_prompts
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app import runtime
+    from app.logging_setup import get_logger, setup_logging
+
+    setup_logging(get_settings().logging.level)
     # Fail fast at boot if any referenced prompt file is missing.
     validate_prompts()
     init_db()
-    from app import runtime
-
     runtime.load_overrides()
+    get_logger("app").info("silly-chat ready — models=%s", runtime.current())
     yield
 
 

@@ -54,6 +54,10 @@ class AuthCfg(BaseModel):
     session_days: int = 30
 
 
+class LoggingCfg(BaseModel):
+    level: str = "INFO"  # DEBUG for verbose tool/search tracing
+
+
 class Settings(BaseSettings):
     """The one config object. Inject via ``get_settings()``."""
 
@@ -79,6 +83,7 @@ class Settings(BaseSettings):
     limits: LimitsCfg = LimitsCfg()
     db: DbCfg = DbCfg()
     auth: AuthCfg = AuthCfg()
+    logging: LoggingCfg = LoggingCfg()
 
     @property
     def db_file(self) -> Path:

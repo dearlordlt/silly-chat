@@ -36,3 +36,6 @@ path = "data/silly.db"
 
 [auth]
 session_days = 30
+
+[logging]
+level = "INFO"  # set DEBUG for verbose tool/search tracing

@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 
-from pydantic_ai import RunContext
+from pydantic_ai import RunContext, capture_run_messages
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
@@ -23,6 +23,7 @@ from pydantic_ai.messages import (
 
 from app.agent.activity import emit_var, sources_var
 from app.agent.orchestrator import Mode, build_orchestrator
+from app.logging_setup import get_logger
 from app.schema import (
     AgentStatusEvent,
     BlockDataEvent,
@@ -34,9 +35,26 @@ from app.schema import (
     StreamEvent,
 )
 
+log = get_logger("chat")
+
 _DONE = object()
 _TOOL_STATUS = {"research": "Planning the research…", "find_images": "Looking for images…"}
 _MAX_HISTORY = 20  # messages of prior context fed to the model
+
+
+def _describe(messages) -> str:
+    """Compactly render the last few model messages for diagnostics."""
+    out = []
+    for m in messages[-3:]:
+        parts = []
+        for p in getattr(m, "parts", []):
+            name = type(p).__name__
+            detail = getattr(p, "content", None)
+            if detail is None:
+                detail = getattr(p, "args", None) or getattr(p, "tool_name", "")
+            parts.append(f"{name}({str(detail)[:160]!r})")
+        out.append(f"{type(m).__name__}: {', '.join(parts)}")
+    return " || ".join(out)
 
 
 def _build_history(history: list[tuple[str, str]]):
@@ -77,12 +95,23 @@ async def stream_chat(
     async def run() -> None:
         tok_e = emit_var.set(emit)
         tok_s = sources_var.set(sources)
+        log.info("turn start: mode=%s history=%d msg=%r", mode, len(history or []), message[:120])
         try:
-            result = await agent.run(
-                message, message_history=message_history, event_stream_handler=on_events
-            )
+            with capture_run_messages() as messages:
+                try:
+                    result = await agent.run(
+                        message, message_history=message_history, event_stream_handler=on_events
+                    )
+                except Exception:
+                    # Surface what the model actually produced — the key to diagnosing
+                    # failures like "exceeded max output retries".
+                    log.error("model trace: %s", _describe(messages))
+                    raise
+            n = len(result.output.blocks)
+            log.info("turn ok: %d block(s), %d source(s)", n, len(sources))
             queue.put_nowait(("result", result.output))
         except Exception as exc:
+            log.exception("turn failed: %s", exc)
             queue.put_nowait(("error", str(exc)))
         finally:
             emit_var.reset(tok_e)

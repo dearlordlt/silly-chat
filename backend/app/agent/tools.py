@@ -21,8 +21,11 @@ from app.agent.activity import agent_update, agent_var, record_sources, status_f
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
 from app.agent.ollama import vision_model, worker_model
 from app.config import get_settings
+from app.logging_setup import get_logger
 from app.prompts.registry import get_prompt
 from app.schema import Source
+
+log = get_logger("agent")
 
 
 class Finding(BaseModel):
@@ -64,6 +67,7 @@ async def _run_worker(subtask: str) -> Finding:
         return Finding(subtask=subtask, summary=str(result.output))
     except Exception as exc:  # one worker failing shouldn't sink the whole answer
         agent_update(aid, status="Failed", state="error")
+        log.warning("worker failed [%s] %r: %s", aid, subtask[:60], exc)
         return Finding(subtask=subtask, summary=f"(could not research: {exc})")
     finally:
         agent_var.reset(token)
@@ -73,6 +77,7 @@ async def research(subtasks: list[str]) -> list[Finding]:
     """Research subtasks in parallel — one worker agent each — and return findings."""
     if not subtasks:
         return []
+    log.info("research: %d subtask(s): %s", len(subtasks), [s[:40] for s in subtasks])
     return list(await asyncio.gather(*(_run_worker(s) for s in subtasks)))
 
 

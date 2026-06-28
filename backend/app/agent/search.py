@@ -11,6 +11,9 @@ from dataclasses import dataclass
 import httpx
 
 from app.config import get_settings
+from app.logging_setup import get_logger
+
+log = get_logger("search")
 
 
 @dataclass
@@ -38,7 +41,8 @@ async def _query(params: dict) -> dict:
 async def search_text(query: str, limit: int = 8) -> list[TextResult]:
     try:
         data = await _query({"q": query})
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        log.warning("searxng text search failed for %r: %s", query[:60], exc)
         return []
     out = []
     for r in data.get("results", [])[:limit]:
@@ -53,7 +57,8 @@ async def search_text(query: str, limit: int = 8) -> list[TextResult]:
 async def search_images(query: str, limit: int = 12) -> list[ImageResult]:
     try:
         data = await _query({"q": query, "categories": "images"})
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        log.warning("searxng image search failed for %r: %s", query[:60], exc)
         return []
     out = []
     for r in data.get("results", [])[:limit]:
