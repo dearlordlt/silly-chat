@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowUp, PanelLeftOpen, Shield } from 'lucide-react'
+import { ArrowUp, PanelLeftOpen } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream } from '@/lib/stream'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { AdminPage } from '@/components/AdminPage'
 import { SettingsPage } from '@/components/SettingsPage'
 import { Sidebar } from '@/components/Sidebar'
+import { UserMenu } from '@/components/UserMenu'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
@@ -221,19 +222,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             )}
           </div>
           <div className="flex items-center gap-1">
-            {me.role === 'admin' && (
-              <Button variant="ghost" size="sm" onClick={() => setAdminView(true)}>
-                <Shield />
-                Admin
-              </Button>
-            )}
             <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={() => setSettingsView(true)}>
-              <span className="grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                {me.username.slice(0, 1).toUpperCase()}
-              </span>
-              {me.username}
-            </Button>
+            <UserMenu
+              me={me}
+              onSettings={() => setSettingsView(true)}
+              onAdmin={() => setAdminView(true)}
+              onLogout={logout}
+            />
           </div>
         </header>
 
