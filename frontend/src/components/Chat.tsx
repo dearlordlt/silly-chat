@@ -4,7 +4,7 @@ import { ArrowUp, PanelLeftOpen, Pencil, RotateCw } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
-import { browserTz, getSendTz } from '@/lib/prefs'
+import { effectiveTz } from '@/lib/prefs'
 import type { Mode, Slot, Turn } from '@/lib/types'
 import {
   type ConvSummary,
@@ -199,8 +199,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     ])
 
     try {
-      const tz = getSendTz() ? browserTz() : undefined
-      for await (const ev of chatStream(message, mode, history, tz, controller.signal)) {
+      for await (const ev of chatStream(message, mode, history, effectiveTz(), controller.signal)) {
         if (session.current !== mySession) return // navigated away mid-stream
         switch (ev.event) {
           case 'agent_status':

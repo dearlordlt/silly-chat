@@ -5,7 +5,15 @@ import { FONTS, type FontId, getFont, setFont } from '@/lib/fonts'
 import { getThemeId, setTheme, THEMES, type Theme, type ThemeCategory } from '@/lib/theme'
 import { getRadius, RADII, type RadiusId, setRadius } from '@/lib/radius'
 import { BACKGROUNDS, type BgId, getBg, setBg } from '@/lib/background'
-import { browserTz, getSendTz, setSendTz } from '@/lib/prefs'
+import {
+  allTimezones,
+  browserTz,
+  getTzManual,
+  getTzMode,
+  setTzManual,
+  setTzMode,
+  type TzMode,
+} from '@/lib/prefs'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -65,12 +73,18 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
   const [theme, setThemeState] = useState<string>(getThemeId)
   const [radius, setRadiusState] = useState<RadiusId>(getRadius)
   const [bg, setBgState] = useState<BgId>(getBg)
-  const [sendTz, setSendTzState] = useState(getSendTz)
+  const [tzMode, setTzModeState] = useState<TzMode>(getTzMode)
+  const [tzManual, setTzManualState] = useState<string>(getTzManual)
 
-  function toggleSendTz(on: boolean) {
-    setSendTz(on)
-    setSendTzState(on)
-    api.updateSettings({ sendTimezone: on }).catch(() => {})
+  function chooseTzMode(m: TzMode) {
+    setTzMode(m)
+    setTzModeState(m)
+    api.updateSettings({ tzMode: m }).catch(() => {})
+  }
+  function chooseTzManual(tz: string) {
+    setTzManual(tz)
+    setTzManualState(tz)
+    api.updateSettings({ tzManual: tz }).catch(() => {})
   }
 
   function chooseBg(id: BgId) {
@@ -213,22 +227,52 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
           )}
 
           {section === 'privacy' && (
-            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border bg-card px-4 py-3">
-              <span>
-                <span className="block text-sm font-medium">Send my timezone</span>
-                <span className="block text-xs text-muted-foreground">
-                  Lets answers use your local date and time
-                  {sendTz && browserTz() ? ` (${browserTz()})` : ''}. Off by default — the
-                  server's clock is used instead.
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                checked={sendTz}
-                onChange={(e) => toggleSendTz(e.target.checked)}
-                className="size-4 accent-[var(--color-primary)]"
-              />
-            </label>
+            <div>
+              <h2 className="mb-1 text-base font-semibold">Timezone</h2>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Which clock answers use for dates and times.
+              </p>
+              <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1 text-xs">
+                {(
+                  [
+                    { value: 'off', label: 'Off' },
+                    { value: 'auto', label: 'Automatic' },
+                    { value: 'manual', label: 'Manual' },
+                  ] as { value: TzMode; label: string }[]
+                ).map((m) => (
+                  <button
+                    key={m.value}
+                    onClick={() => chooseTzMode(m.value)}
+                    className={cn(
+                      'rounded-md px-2 py-1.5 font-medium transition-colors',
+                      tzMode === m.value
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {tzMode === 'off' && "Uses the server's clock — nothing about you is sent."}
+                {tzMode === 'auto' && `Detected from your browser: ${browserTz() ?? 'unknown'}.`}
+                {tzMode === 'manual' && 'Pick a timezone below.'}
+              </p>
+              {tzMode === 'manual' && (
+                <select
+                  value={tzManual}
+                  onChange={(e) => chooseTzManual(e.target.value)}
+                  className="mt-2 h-9 w-full max-w-sm rounded-lg border border-input bg-card px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {allTimezones().map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           )}
 
           {section === 'account' && (
