@@ -20,6 +20,7 @@ import {
 } from '@/lib/history'
 import { setFont, type FontId } from '@/lib/fonts'
 import { setTheme } from '@/lib/theme'
+import { setRadius, type RadiusId } from '@/lib/radius'
 import { Button } from '@/components/ui/button'
 import { AdminPage } from '@/components/AdminPage'
 import { SettingsPage } from '@/components/SettingsPage'
@@ -63,7 +64,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     if (f) setFont(f)
     const t = me.settings?.theme as string | undefined
     if (t) setTheme(t)
-  }, [me.settings?.font, me.settings?.theme])
+    const r = me.settings?.radius as RadiusId | undefined
+    if (r) setRadius(r)
+  }, [me.settings?.font, me.settings?.theme, me.settings?.radius])
 
   // Persist the active chat once a turn settles (not mid-stream), per its mode.
   // Opening an existing chat must NOT re-save it (that would bump its order), so we

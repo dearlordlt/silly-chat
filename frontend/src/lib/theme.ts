@@ -63,7 +63,7 @@ export const THEMES: Theme[] = [
   { id: 'sif', name: 'Sif', category: 'light', mode: 'light', vars: light(85, 80, 0.12, { bgC: 0.01 }) },
   { id: 'eir', name: 'Eir', category: 'light', mode: 'light', vars: light(190, 190, 0.11) },
   { id: 'nanna', name: 'Nanna', category: 'light', mode: 'light', vars: light(305, 300, 0.13) },
-  { id: 'sigyn', name: 'Sigyn', category: 'light', mode: 'light', vars: light(265, 268, 0.13) },
+  { id: 'sigyn', name: 'Sigyn', category: 'light', mode: 'light', vars: light(30, 32, 0.13, { bgC: 0.01 }) },
 
   // Dark — gods
   { id: 'odin', name: 'Odin', category: 'dark', mode: 'dark', vars: dark(270, 268, 0.15) },
@@ -94,8 +94,12 @@ export function applyTheme(id: string): void {
   const root = document.documentElement
   for (const [k, v] of Object.entries(t.vars)) root.style.setProperty(`--${k}`, v)
   root.classList.toggle('dark', t.mode === 'dark')
+  root.dataset.theme = t.id // drives per-theme effects (mixed themes)
   root.style.colorScheme = t.mode
-  localStorage.setItem(CACHE, JSON.stringify({ vars: t.vars, dark: t.mode === 'dark', scheme: t.mode }))
+  localStorage.setItem(
+    CACHE,
+    JSON.stringify({ id: t.id, vars: t.vars, dark: t.mode === 'dark', scheme: t.mode }),
+  )
 }
 
 export function setTheme(id: string): void {

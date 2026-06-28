@@ -1,39 +1,47 @@
 import { useState } from 'react'
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeft, Check, CircleUser, Frame, Palette, Type } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { FONTS, type FontId, getFont, setFont } from '@/lib/fonts'
 import { getThemeId, setTheme, THEMES, type Theme, type ThemeCategory } from '@/lib/theme'
+import { getRadius, RADII, type RadiusId, setRadius } from '@/lib/radius'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
+type Section = 'theme' | 'font' | 'borders' | 'account'
+
+const NAV: { key: Section; label: string; icon: typeof Palette }[] = [
+  { key: 'theme', label: 'Theme', icon: Palette },
+  { key: 'font', label: 'Font', icon: Type },
+  { key: 'borders', label: 'Borders', icon: Frame },
+  { key: 'account', label: 'Account', icon: CircleUser },
+]
+
 const GROUPS: { key: ThemeCategory; label: string }[] = [
-  { key: 'light', label: 'Light — goddesses' },
-  { key: 'dark', label: 'Dark — gods' },
+  { key: 'light', label: 'Light' },
+  { key: 'dark', label: 'Dark' },
   { key: 'mixed', label: 'Mixed' },
 ]
 
-export function SettingsPage({
-  me,
-  onBack,
-  onLogout,
-}: {
-  me: Me
-  onBack: () => void
-  onLogout: () => void
-}) {
+export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => void; onLogout: () => void }) {
+  const [section, setSection] = useState<Section>('theme')
   const [font, setFontState] = useState<FontId>(getFont)
   const [theme, setThemeState] = useState<string>(getThemeId)
+  const [radius, setRadiusState] = useState<RadiusId>(getRadius)
 
   function chooseFont(id: FontId) {
     setFont(id)
     setFontState(id)
     api.updateSettings({ font: id }).catch(() => {})
   }
-
   function chooseTheme(id: string) {
     setTheme(id)
     setThemeState(id)
     api.updateSettings({ theme: id }).catch(() => {})
+  }
+  function chooseRadius(id: RadiusId) {
+    setRadius(id)
+    setRadiusState(id)
+    api.updateSettings({ radius: id }).catch(() => {})
   }
 
   return (
@@ -45,60 +53,100 @@ export function SettingsPage({
         <span className="text-sm font-semibold tracking-tight">Settings</span>
       </header>
 
-      <div className="mx-auto w-full max-w-2xl flex-1 space-y-8 overflow-y-auto p-6">
-        <section>
-          <h2 className="mb-1 text-base font-semibold">Theme</h2>
-          <p className="mb-3 text-sm text-muted-foreground">Pick your pantheon.</p>
-          <div className="space-y-4">
-            {GROUPS.map((g) => (
-              <div key={g.key}>
-                <h3 className="mb-2 text-xs font-medium text-muted-foreground">{g.label}</h3>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {THEMES.filter((t) => t.category === g.key).map((t) => (
-                    <ThemeSwatch key={t.id} theme={t} active={t.id === theme} onClick={() => chooseTheme(t.id)} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="mb-1 text-base font-semibold">Font</h2>
-          <p className="mb-3 text-sm text-muted-foreground">Used across the whole app.</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {FONTS.map((f) => (
+      <div className="mx-auto flex w-full max-w-3xl flex-1 gap-6 overflow-hidden p-4">
+        <nav className="w-40 shrink-0 space-y-1">
+          {NAV.map((n) => {
+            const Icon = n.icon
+            return (
               <button
-                key={f.id}
-                onClick={() => chooseFont(f.id)}
-                style={{ fontFamily: f.stack }}
+                key={n.key}
+                onClick={() => setSection(n.key)}
                 className={cn(
-                  'flex flex-col items-start gap-1 rounded-xl border bg-card p-3 text-left transition-colors',
-                  font === f.id ? 'border-primary ring-1 ring-primary' : 'hover:bg-accent',
+                  'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors [&_svg]:size-4',
+                  section === n.key ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/60',
                 )}
               >
-                <span className="flex w-full items-center justify-between text-sm font-medium">
-                  {f.label}
-                  {font === f.id && <Check className="size-4 text-primary" />}
-                </span>
-                <span className="text-lg">Aa Bb Cc</span>
+                <Icon />
+                {n.label}
               </button>
-            ))}
-          </div>
-        </section>
+            )
+          })}
+        </nav>
 
-        <section>
-          <h2 className="mb-1 text-base font-semibold">Account</h2>
-          <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
-            <div>
-              <p className="text-sm font-medium">{me.username}</p>
-              <p className="text-xs capitalize text-muted-foreground">{me.role}</p>
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          {section === 'theme' && (
+            <div className="space-y-5">
+              {GROUPS.map((g) => (
+                <div key={g.key}>
+                  <h3 className="mb-2 text-xs font-medium text-muted-foreground">{g.label}</h3>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {THEMES.filter((t) => t.category === g.key).map((t) => (
+                      <ThemeSwatch key={t.id} theme={t} active={t.id === theme} onClick={() => chooseTheme(t.id)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-            <Button variant="outline" size="sm" onClick={onLogout}>
-              Log out
-            </Button>
-          </div>
-        </section>
+          )}
+
+          {section === 'font' && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {FONTS.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => chooseFont(f.id)}
+                  style={{ fontFamily: f.stack }}
+                  className={cn(
+                    'flex flex-col items-start gap-1 rounded-xl border bg-card p-3 text-left transition-colors',
+                    font === f.id ? 'border-primary ring-1 ring-primary' : 'hover:bg-accent',
+                  )}
+                >
+                  <span className="flex w-full items-center justify-between text-sm font-medium">
+                    {f.label}
+                    {font === f.id && <Check className="size-4 text-primary" />}
+                  </span>
+                  <span className="text-xl">Aa Bb Cc 123</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {section === 'borders' && (
+            <div>
+              <p className="mb-3 text-sm text-muted-foreground">Corner roundness across the app.</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {RADII.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => chooseRadius(r.id)}
+                    className={cn(
+                      'flex flex-col items-center gap-2 rounded-xl border bg-card p-3 transition-colors',
+                      radius === r.id ? 'border-primary ring-1 ring-primary' : 'hover:bg-accent',
+                    )}
+                  >
+                    <span
+                      className="h-10 w-full border-2 border-primary/60 bg-primary/10"
+                      style={{ borderRadius: r.value }}
+                    />
+                    <span className="text-xs font-medium">{r.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {section === 'account' && (
+            <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">{me.username}</p>
+                <p className="text-xs capitalize text-muted-foreground">{me.role}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={onLogout}>
+                Log out
+              </Button>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   )
