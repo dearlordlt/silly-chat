@@ -26,12 +26,18 @@ def model(name: str) -> OllamaModel:
 
 
 def orchestrator_model() -> OllamaModel:
-    return model(get_settings().models.orchestrator)
+    from app import runtime
+
+    return model(runtime.model_for("orchestrator"))
 
 
 def worker_model() -> OllamaModel:
-    return model(get_settings().models.worker)
+    from app import runtime
+
+    return model(runtime.model_for("worker"))
 
 
 def vision_model() -> OllamaModel:
-    return model(get_settings().models.vision)
+    from app import runtime
+
+    return model(runtime.model_for("vision"))

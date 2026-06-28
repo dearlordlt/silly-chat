@@ -25,6 +25,9 @@ async def lifespan(app: FastAPI):
     # Fail fast at boot if any referenced prompt file is missing.
     validate_prompts()
     init_db()
+    from app import runtime
+
+    runtime.load_overrides()
     yield
 
 

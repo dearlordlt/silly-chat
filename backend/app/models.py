@@ -24,6 +24,13 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_utcnow)
 
 
+class AppSetting(SQLModel, table=True):
+    """App-wide settings editable by admins (e.g. model overrides)."""
+
+    key: str = Field(primary_key=True)
+    value: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+
 class Conversation(SQLModel, table=True):
     # id is the client-generated uuid (stable when a chat moves local<->server).
     id: str = Field(primary_key=True)

@@ -40,6 +40,10 @@ export const api = {
     req<Record<string, unknown>>('PUT', '/api/auth/settings', settings),
   listUsers: () => req<Me[]>('GET', '/api/admin/users'),
   approve: (id: number) => req<Me>('POST', `/api/admin/users/${id}/approve`),
+  getModels: () =>
+    req<{ current: Record<string, string>; available: string[] }>('GET', '/api/admin/models'),
+  setModels: (models: Record<string, string>) =>
+    req<Record<string, string>>('PUT', '/api/admin/models', models),
 
   // Server-side conversation store ("save to server" mode).
   listServerConvos: () => req<ServerConvSummary[]>('GET', '/api/conversations'),

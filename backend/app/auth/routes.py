@@ -118,3 +118,18 @@ def approve_user(user_id: int, _: AdminUser, session: SessionDep) -> UserOut:
     session.commit()
     session.refresh(user)
     return UserOut(**user.model_dump())
+
+
+@admin_router.get("/models")
+async def get_models(_: AdminUser) -> dict[str, Any]:
+    from app import runtime
+    from app.agent.models_catalog import available_models
+
+    return {"current": runtime.current(), "available": await available_models()}
+
+
+@admin_router.put("/models")
+def set_models(body: dict[str, str], _: AdminUser) -> dict[str, str]:
+    from app import runtime
+
+    return runtime.set_overrides(body)
