@@ -1,21 +1,25 @@
-import { useRef, useState } from 'react'
-import type { Block } from '@/types/contract'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type Me } from '@/lib/api'
 import { chatStream } from '@/lib/stream'
 import { cn } from '@/lib/utils'
+import type { Mode, Slot, Turn } from '@/lib/types'
+import {
+  type Conversation,
+  deleteConversation,
+  getSavePref,
+  listConversations,
+  loadConversation,
+  newId,
+  saveConversation,
+  setSavePref,
+  titleFrom,
+} from '@/lib/history'
 import { Button } from '@/components/ui/button'
 import { Admin } from '@/components/Admin'
+import { HistoryDrawer } from '@/components/HistoryDrawer'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 
-type Slot =
-  | { id: string; kind: 'pending'; blockType: string }
-  | { id: string; kind: 'filled'; block: Block }
-
-type Turn =
-  | { role: 'user'; text: string }
-  | { role: 'assistant'; status: string | null; slots: Slot[]; error?: string }
-
-type Mode = 'search' | 'chat'
+type Assistant = Extract<Turn, { role: 'assistant' }>
 
 export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [turns, setTurns] = useState<Turn[]>([])
@@ -23,16 +27,70 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [mode, setMode] = useState<Mode>('search')
   const [busy, setBusy] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
+  const [showDrawer, setShowDrawer] = useState(false)
+  const [saveOn, setSaveOn] = useState(getSavePref)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [currentId, setCurrentId] = useState(newId)
+  const createdAt = useRef<number | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const refreshList = useCallback(async () => {
+    setConversations(await listConversations())
+  }, [])
+
+  // Load saved conversations whenever saving is on.
+  useEffect(() => {
+    if (saveOn) refreshList()
+  }, [saveOn, refreshList])
+
+  // Persist the current conversation once a turn settles (not mid-stream).
+  useEffect(() => {
+    if (!saveOn || busy || turns.length === 0) return
+    const made = createdAt.current ?? Date.now()
+    createdAt.current = made
+    saveConversation({
+      id: currentId,
+      title: titleFrom(turns),
+      turns,
+      createdAt: made,
+      updatedAt: Date.now(),
+    }).then(refreshList)
+  }, [turns, busy, saveOn, currentId, refreshList])
 
   async function logout() {
     await api.logout()
     onLogout()
   }
 
-  type Assistant = Extract<Turn, { role: 'assistant' }>
-  // Pure update of the last (assistant) turn — no mutation, so it's safe under
-  // React StrictMode's double-invoked updaters.
+  function newChat() {
+    setTurns([])
+    setCurrentId(newId())
+    createdAt.current = null
+    setShowDrawer(false)
+  }
+
+  async function openConversation(id: string) {
+    const c = await loadConversation(id)
+    if (c) {
+      setTurns(c.turns)
+      setCurrentId(c.id)
+      createdAt.current = c.createdAt
+    }
+    setShowDrawer(false)
+  }
+
+  async function removeConversation(id: string) {
+    await deleteConversation(id)
+    await refreshList()
+    if (id === currentId) newChat()
+  }
+
+  function toggleSave(on: boolean) {
+    setSavePref(on)
+    setSaveOn(on)
+  }
+
+  // Pure update of the last (assistant) turn — safe under StrictMode double-invoke.
   const patchLast = (fn: (t: Assistant) => Assistant) =>
     setTurns((prev) => {
       const last = prev[prev.length - 1]
@@ -62,10 +120,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             patchLast((t) => ({
               ...t,
               status: null,
-              slots: [
-                ...t.slots,
-                { id: ev.block_id, kind: 'pending', blockType: ev.block_type },
-              ],
+              slots: [...t.slots, { id: ev.block_id, kind: 'pending', blockType: ev.block_type }],
             }))
             break
           case 'block_data': {
@@ -97,7 +152,17 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   return (
     <div className="mx-auto flex h-dvh max-w-2xl flex-col">
       <header className="flex items-center justify-between px-4 py-3">
-        <span className="text-sm font-semibold">silly-chat</span>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            className="h-8 px-2 text-xs"
+            onClick={() => setShowDrawer(true)}
+            aria-label="History"
+          >
+            ☰
+          </Button>
+          <span className="text-sm font-semibold">silly-chat</span>
+        </div>
         <div className="flex items-center gap-1">
           {me.role === 'admin' && (
             <Button variant="ghost" className="h-8 px-3 text-xs" onClick={() => setShowAdmin(true)}>
@@ -110,7 +175,19 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           </Button>
         </div>
       </header>
+
       {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
+      <HistoryDrawer
+        open={showDrawer}
+        onClose={() => setShowDrawer(false)}
+        saveOn={saveOn}
+        onToggleSave={toggleSave}
+        conversations={conversations}
+        currentId={currentId}
+        onNew={newChat}
+        onOpen={openConversation}
+        onDelete={removeConversation}
+      />
 
       <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-4 pb-4">
         {turns.length === 0 && (
