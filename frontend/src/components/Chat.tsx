@@ -73,9 +73,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     }
   }, [currentId])
 
-  // Persist the active chat once a turn settles (not mid-stream), per its mode.
-  // Opening an existing chat must NOT re-save it (that would bump its order), so we
-  // skip exactly one run after a load.
+  // Persist only when the CONTENT changes (a settled turn) — never on navigation.
+  // Deps are [turns, busy] on purpose: currentId/currentMode are read from the same
+  // render that produced these turns, so we can't save one chat's turns under another
+  // chat's id. Loading a chat sets skipNextSave so the load itself isn't re-saved.
   useEffect(() => {
     if (skipNextSave.current) {
       skipNextSave.current = false
@@ -88,7 +89,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       { id: currentId, title: titleFrom(turns), turns, createdAt: made, updatedAt: Date.now() },
       currentMode === 'server' ? 'server' : 'local',
     ).then(refreshList)
-  }, [turns, busy, currentMode, currentId, refreshList])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turns, busy])
 
   function newChat() {
     setCurrentMode(storageMode)
