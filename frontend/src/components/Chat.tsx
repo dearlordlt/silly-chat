@@ -42,7 +42,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [conversations, setConversations] = useState<ConvSummary[]>([])
   const [pendingDelete, setPendingDelete] = useState<{ id: string; location: Location } | null>(null)
   const createdAt = useRef<number | null>(null)
-  const skipNextSave = useRef(false)
+  const dirty = useRef(false) // true only when the user changed THIS chat's content
+  const session = useRef(0) // bumps on every chat switch; invalidates in-flight streams
+  const abort = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const refreshList = useCallback(async () => {
@@ -54,12 +56,17 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   }, [refreshList])
 
   // Load whatever chat the URL points at (or start empty for an unsaved id).
+  // Switching chats stops any in-flight stream and drops its unsaved state, so it
+  // can't bleed into — or overwrite — the chat we're opening.
   useEffect(() => {
+    abort.current?.abort()
+    session.current += 1
+    dirty.current = false
+    setBusy(false)
     let cancelled = false
     loadAny(currentId).then((c) => {
       if (cancelled) return
       if (c) {
-        skipNextSave.current = true // loading must not bump order
         setTurns(c.turns)
         setCurrentMode(c.location)
         createdAt.current = c.createdAt
@@ -73,16 +80,16 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     }
   }, [currentId])
 
-  // Persist only when the CONTENT changes (a settled turn) — never on navigation.
-  // Deps are [turns, busy] on purpose: currentId/currentMode are read from the same
-  // render that produced these turns, so we can't save one chat's turns under another
-  // chat's id. Loading a chat sets skipNextSave so the load itself isn't re-saved.
+  // Persist ONLY content the user produced in the current chat (dirty), and only
+  // once the stream settles (not busy). Loads/navigation/moves never set dirty, so
+  // they can't trigger a save — no cross-chat overwrite, no spurious updatedAt.
   useEffect(() => {
-    if (skipNextSave.current) {
-      skipNextSave.current = false
+    if (busy || !dirty.current) return
+    if (currentMode === 'off' || turns.length === 0) {
+      dirty.current = false
       return
     }
-    if (currentMode === 'off' || busy || turns.length === 0) return
+    dirty.current = false
     const made = createdAt.current ?? Date.now()
     createdAt.current = made
     save(
@@ -135,6 +142,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   async function send() {
     const message = input.trim()
     if (!message || busy) return
+    const mySession = session.current
+    const controller = new AbortController()
+    abort.current = controller
+    dirty.current = true // this chat now has unsaved user content
     setInput('')
     setBusy(true)
     setTurns((prev) => [
@@ -145,7 +156,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     queueMicrotask(() => scrollRef.current?.scrollTo({ top: 1e9 }))
 
     try {
-      for await (const ev of chatStream(message, mode)) {
+      for await (const ev of chatStream(message, mode, controller.signal)) {
+        if (session.current !== mySession) return // navigated away mid-stream
         switch (ev.event) {
           case 'agent_status':
             patchLast((t) => ({ ...t, status: ev.message }))
@@ -177,9 +189,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         scrollRef.current?.scrollTo({ top: 1e9 })
       }
     } catch (e) {
-      patchLast((t) => ({ ...t, status: null, error: String(e) }))
+      if (session.current === mySession) {
+        patchLast((t) => ({ ...t, status: null, error: String(e) }))
+      }
     } finally {
-      setBusy(false)
+      if (session.current === mySession) setBusy(false)
     }
   }
 
