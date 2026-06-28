@@ -18,8 +18,10 @@ import {
   setMode,
   titleFrom,
 } from '@/lib/history'
+import { setFont, type FontId } from '@/lib/fonts'
 import { Button } from '@/components/ui/button'
 import { AdminPage } from '@/components/AdminPage'
+import { SettingsPage } from '@/components/SettingsPage'
 import { Sidebar } from '@/components/Sidebar'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -33,6 +35,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [mode, setSearchMode] = useState<Mode>('search')
   const [busy, setBusy] = useState(false)
   const [adminView, setAdminView] = useState(false)
+  const [settingsView, setSettingsView] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   // Storage mode is a server-synced per-user setting (falls back to local cache).
   const initialMode = ((me.settings?.storageMode as StorageMode) ?? getMode())
@@ -52,6 +55,12 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   useEffect(() => {
     refreshList()
   }, [refreshList])
+
+  // Apply the server-synced font preference (overrides the local default).
+  useEffect(() => {
+    const f = me.settings?.font as FontId | undefined
+    if (f) setFont(f)
+  }, [me.settings?.font])
 
   // Persist the active chat once a turn settles (not mid-stream), per its mode.
   // Opening an existing chat must NOT re-save it (that would bump its order), so we
@@ -175,6 +184,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     }
   }
 
+  if (settingsView) {
+    return <SettingsPage me={me} onBack={() => setSettingsView(false)} onLogout={logout} />
+  }
+
   if (adminView && me.role === 'admin') {
     return <AdminPage onBack={() => setAdminView(false)} />
   }
@@ -215,9 +228,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               </Button>
             )}
             <ThemeToggle />
-            <span className="px-1.5 text-xs text-muted-foreground">{me.username}</span>
-            <Button variant="ghost" size="sm" onClick={logout}>
-              Log out
+            <Button variant="ghost" size="sm" onClick={() => setSettingsView(true)}>
+              <span className="grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                {me.username.slice(0, 1).toUpperCase()}
+              </span>
+              {me.username}
             </Button>
           </div>
         </header>
