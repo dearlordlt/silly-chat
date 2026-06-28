@@ -1,4 +1,5 @@
 import type { TableBlock } from '@/types/contract'
+import { InlineMd } from './InlineMd'
 
 export function TableBlockView({ block }: { block: TableBlock }) {
   return (
@@ -17,8 +18,8 @@ export function TableBlockView({ block }: { block: TableBlock }) {
           {block.rows.map((row, r) => (
             <tr key={r} className="border-t">
               {row.map((cell, c) => (
-                <td key={c} className="px-3 py-2">
-                  {cell}
+                <td key={c} className="px-3 py-2 align-top">
+                  <InlineMd>{cell}</InlineMd>
                 </td>
               ))}
             </tr>
