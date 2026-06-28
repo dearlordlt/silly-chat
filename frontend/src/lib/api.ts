@@ -3,6 +3,7 @@ export type Me = {
   username: string
   status: string
   role: string
+  settings?: { storageMode?: string } & Record<string, unknown>
 }
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -35,6 +36,8 @@ export const api = {
   register: (username: string, password: string) =>
     req<{ first: boolean; status: string }>('POST', '/api/auth/register', { username, password }),
   logout: () => req<{ ok: boolean }>('POST', '/api/auth/logout'),
+  updateSettings: (settings: Record<string, unknown>) =>
+    req<Record<string, unknown>>('PUT', '/api/auth/settings', settings),
   listUsers: () => req<Me[]>('GET', '/api/admin/users'),
   approve: (id: number) => req<Me>('POST', `/api/admin/users/${id}/approve`),
 

@@ -19,6 +19,8 @@ class User(SQLModel, table=True):
     password_hash: str
     status: str = Field(default="pending")  # pending | approved
     role: str = Field(default="user")  # user | admin
+    # Per-user preferences synced across devices (e.g. {"storageMode": "server"}).
+    settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=_utcnow)
 
 

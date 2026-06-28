@@ -6,11 +6,13 @@ and made admin (bootstrap); everyone after is pending until an admin approves th
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlmodel import func, select
 
-from app.auth.deps import AdminUser, CurrentUser, SessionDep
+from app.auth.deps import AdminUser, ApprovedUser, CurrentUser, SessionDep
 from app.auth.security import (
     COOKIE_NAME,
     hash_password,
@@ -34,6 +36,7 @@ class UserOut(BaseModel):
     username: str
     status: str
     role: str
+    settings: dict[str, Any] = {}
 
 
 def _set_session_cookie(response: Response, user_id: int) -> None:
@@ -88,6 +91,15 @@ def logout(response: Response) -> dict:
 @auth_router.get("/me")
 def me(user: CurrentUser) -> UserOut | None:
     return UserOut(**user.model_dump()) if user else None
+
+
+@auth_router.put("/settings")
+def update_settings(body: dict[str, Any], user: ApprovedUser, session: SessionDep) -> dict[str, Any]:
+    merged = {**(user.settings or {}), **body}
+    user.settings = merged
+    session.add(user)
+    session.commit()
+    return merged
 
 
 @admin_router.get("/users")

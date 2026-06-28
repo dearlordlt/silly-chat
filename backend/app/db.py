@@ -22,6 +22,16 @@ def init_db() -> None:
     from app import models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
+    _ensure_columns()
+
+
+def _ensure_columns() -> None:
+    """Tiny additive migration: add new columns to existing tables (SQLite)."""
+    with engine.connect() as conn:
+        cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()}
+        if "settings" not in cols:
+            conn.exec_driver_sql("ALTER TABLE user ADD COLUMN settings TEXT DEFAULT '{}'")
+            conn.commit()
 
 
 def get_session() -> Iterator[Session]:

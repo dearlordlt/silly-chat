@@ -19,7 +19,7 @@ import {
   titleFrom,
 } from '@/lib/history'
 import { Button } from '@/components/ui/button'
-import { Admin } from '@/components/Admin'
+import { AdminPage } from '@/components/AdminPage'
 import { Sidebar } from '@/components/Sidebar'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -32,14 +32,17 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [input, setInput] = useState('')
   const [mode, setSearchMode] = useState<Mode>('search')
   const [busy, setBusy] = useState(false)
-  const [showAdmin, setShowAdmin] = useState(false)
+  const [adminView, setAdminView] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [storageMode, setStorageMode] = useState<StorageMode>(getMode)
-  const [currentMode, setCurrentMode] = useState<StorageMode>(getMode)
+  // Storage mode is a server-synced per-user setting (falls back to local cache).
+  const initialMode = ((me.settings?.storageMode as StorageMode) ?? getMode())
+  const [storageMode, setStorageMode] = useState<StorageMode>(initialMode)
+  const [currentMode, setCurrentMode] = useState<StorageMode>(initialMode)
   const [conversations, setConversations] = useState<ConvSummary[]>([])
   const [currentId, setCurrentId] = useState(newId)
   const [pendingDelete, setPendingDelete] = useState<{ id: string; location: Location } | null>(null)
   const createdAt = useRef<number | null>(null)
+  const skipNextSave = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const refreshList = useCallback(async () => {
@@ -51,7 +54,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   }, [refreshList])
 
   // Persist the active chat once a turn settles (not mid-stream), per its mode.
+  // Opening an existing chat must NOT re-save it (that would bump its order), so we
+  // skip exactly one run after a load.
   useEffect(() => {
+    if (skipNextSave.current) {
+      skipNextSave.current = false
+      return
+    }
     if (currentMode === 'off' || busy || turns.length === 0) return
     const made = createdAt.current ?? Date.now()
     createdAt.current = made
@@ -74,8 +83,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   }
 
   function changeStorageMode(m: StorageMode) {
-    setMode(m)
+    setMode(m) // local cache for no-flash / offline
     setStorageMode(m)
+    api.updateSettings({ storageMode: m }).catch(() => {}) // sync across devices
     // Apply to the current chat only if it's still empty/unsaved.
     if (turns.length === 0) setCurrentMode(m)
   }
@@ -83,6 +93,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   async function openConversation(id: string, location: Location) {
     const c = await loadFull(id, location)
     if (c) {
+      skipNextSave.current = true // loading a chat must not bump its order
       setTurns(c.turns)
       setCurrentId(c.id)
       setCurrentMode(location)
@@ -164,6 +175,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     }
   }
 
+  if (adminView && me.role === 'admin') {
+    return <AdminPage onBack={() => setAdminView(false)} />
+  }
+
   return (
     <div className="flex h-dvh">
       {sidebarOpen && (
@@ -194,9 +209,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           </div>
           <div className="flex items-center gap-1">
             {me.role === 'admin' && (
-              <Button variant="ghost" size="sm" onClick={() => setShowAdmin(true)}>
+              <Button variant="ghost" size="sm" onClick={() => setAdminView(true)}>
                 <Shield />
-                Users
+                Admin
               </Button>
             )}
             <ThemeToggle />
@@ -206,8 +221,6 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             </Button>
           </div>
         </header>
-
-        {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
 
         <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col overflow-hidden">
           <div ref={scrollRef} className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
