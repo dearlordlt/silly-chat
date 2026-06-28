@@ -45,6 +45,18 @@ from the in-app **Users** panel. The chat endpoint is gated to approved users an
 rate-limited per user (`limits.user_requests_per_minute`). Set a real `SESSION_SECRET`
 in `.env` for any non-local deployment.
 
+## Storage
+
+Each chat is stored in one of three modes, chosen in the sidebar ("New chats are saved")
+and overridable per chat:
+
+- **Off** — ephemeral; nothing is kept.
+- **Local** (default) — IndexedDB in this browser; never leaves the device.
+- **Server** — synced to your account (SQLite), so history follows you across devices.
+
+Per chat you can move it local↔server (💾/☁) or delete it. Default is local-only; server
+sync is an explicit opt-in.
+
 ## Layout
 
 ```
