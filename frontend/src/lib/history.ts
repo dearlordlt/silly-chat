@@ -75,6 +75,19 @@ export async function listAll(): Promise<ConvSummary[]> {
   return merged.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
+// Load a conversation by id without knowing where it lives (local first, then server).
+export async function loadAny(id: string): Promise<(FullConv & { location: Location }) | undefined> {
+  const local = await db.conversations.get(id)
+  if (local) return { ...local, location: 'local' }
+  try {
+    const c = await api.getServerConvo(id)
+    const ts = Date.parse(c.updated_at)
+    return { id: c.id, title: c.title, turns: c.turns as Turn[], createdAt: ts, updatedAt: ts, location: 'server' }
+  } catch {
+    return undefined
+  }
+}
+
 export async function loadFull(id: string, location: Location): Promise<FullConv | undefined> {
   if (location === 'local') return db.conversations.get(id)
   const c = await api.getServerConvo(id)

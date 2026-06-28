@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowUp, PanelLeftOpen } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream } from '@/lib/stream'
@@ -10,7 +11,7 @@ import {
   type StorageMode,
   getMode,
   listAll,
-  loadFull,
+  loadAny,
   move,
   newId,
   remove,
@@ -18,13 +19,7 @@ import {
   setMode,
   titleFrom,
 } from '@/lib/history'
-import { setFont, type FontId } from '@/lib/fonts'
-import { setTheme } from '@/lib/theme'
-import { setRadius, type RadiusId } from '@/lib/radius'
-import { setBg, type BgId } from '@/lib/background'
 import { Button } from '@/components/ui/button'
-import { AdminPage } from '@/components/AdminPage'
-import { SettingsPage } from '@/components/SettingsPage'
 import { Sidebar } from '@/components/Sidebar'
 import { UserMenu } from '@/components/UserMenu'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -33,19 +28,18 @@ import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 type Assistant = Extract<Turn, { role: 'assistant' }>
 
 export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
+  const navigate = useNavigate()
+  const { id: currentId = '' } = useParams() // the chat is always /c/:id
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
   const [mode, setSearchMode] = useState<Mode>('search')
   const [busy, setBusy] = useState(false)
-  const [adminView, setAdminView] = useState(false)
-  const [settingsView, setSettingsView] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   // Storage mode is a server-synced per-user setting (falls back to local cache).
   const initialMode = ((me.settings?.storageMode as StorageMode) ?? getMode())
   const [storageMode, setStorageMode] = useState<StorageMode>(initialMode)
   const [currentMode, setCurrentMode] = useState<StorageMode>(initialMode)
   const [conversations, setConversations] = useState<ConvSummary[]>([])
-  const [currentId, setCurrentId] = useState(newId)
   const [pendingDelete, setPendingDelete] = useState<{ id: string; location: Location } | null>(null)
   const createdAt = useRef<number | null>(null)
   const skipNextSave = useRef(false)
@@ -59,17 +53,25 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     refreshList()
   }, [refreshList])
 
-  // Apply server-synced appearance preferences (override local defaults).
+  // Load whatever chat the URL points at (or start empty for an unsaved id).
   useEffect(() => {
-    const f = me.settings?.font as FontId | undefined
-    if (f) setFont(f)
-    const t = me.settings?.theme as string | undefined
-    if (t) setTheme(t)
-    const r = me.settings?.radius as RadiusId | undefined
-    if (r) setRadius(r)
-    const bg = me.settings?.background as BgId | undefined
-    if (bg) setBg(bg)
-  }, [me.settings?.font, me.settings?.theme, me.settings?.radius, me.settings?.background])
+    let cancelled = false
+    loadAny(currentId).then((c) => {
+      if (cancelled) return
+      if (c) {
+        skipNextSave.current = true // loading must not bump order
+        setTurns(c.turns)
+        setCurrentMode(c.location)
+        createdAt.current = c.createdAt
+      } else {
+        setTurns([])
+        createdAt.current = null
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [currentId])
 
   // Persist the active chat once a turn settles (not mid-stream), per its mode.
   // Opening an existing chat must NOT re-save it (that would bump its order), so we
@@ -88,16 +90,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     ).then(refreshList)
   }, [turns, busy, currentMode, currentId, refreshList])
 
-  async function logout() {
-    await api.logout()
-    onLogout()
-  }
-
   function newChat() {
-    setTurns([])
-    setCurrentId(newId())
     setCurrentMode(storageMode)
-    createdAt.current = null
+    navigate(`/c/${newId()}`)
   }
 
   function changeStorageMode(m: StorageMode) {
@@ -108,15 +103,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     if (turns.length === 0) setCurrentMode(m)
   }
 
-  async function openConversation(id: string, location: Location) {
-    const c = await loadFull(id, location)
-    if (c) {
-      skipNextSave.current = true // loading a chat must not bump its order
-      setTurns(c.turns)
-      setCurrentId(c.id)
-      setCurrentMode(location)
-      createdAt.current = c.createdAt
-    }
+  function openConversation(id: string) {
+    navigate(`/c/${id}`)
   }
 
   async function confirmDelete() {
@@ -193,14 +181,6 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     }
   }
 
-  if (settingsView) {
-    return <SettingsPage me={me} onBack={() => setSettingsView(false)} onLogout={logout} />
-  }
-
-  if (adminView && me.role === 'admin') {
-    return <AdminPage onBack={() => setAdminView(false)} />
-  }
-
   return (
     <div className="flex h-dvh">
       {sidebarOpen && (
@@ -232,9 +212,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           <div className="flex items-center gap-1">
             <UserMenu
               me={me}
-              onSettings={() => setSettingsView(true)}
-              onAdmin={() => setAdminView(true)}
-              onLogout={logout}
+              onSettings={() => navigate('/settings')}
+              onAdmin={() => navigate('/admin')}
+              onLogout={onLogout}
             />
           </div>
         </header>
