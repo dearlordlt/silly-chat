@@ -11,6 +11,7 @@ from typing import Literal
 
 from pydantic_ai import Agent, ToolOutput
 
+from app.agent.clock import now_str
 from app.agent.ollama import orchestrator_model
 from app.agent.tools import build_tools
 from app.config import get_settings
@@ -26,6 +27,7 @@ def build_orchestrator(mode: Mode = "search") -> Agent[None, Reply]:
         "orchestrator",
         mode_bias=get_prompt(f"mode_{mode}"),
         max_agents=limits.max_agents,
+        today=now_str(),
     )
     return Agent(
         orchestrator_model(),
