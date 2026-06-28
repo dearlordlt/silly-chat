@@ -37,6 +37,14 @@ Prompts live as files under `backend/app/prompts/` (one per behavior); the wire 
 (blocks + stream events) is defined once in `backend/app/schema/` and the frontend's
 `src/types/contract.ts` is generated from it.
 
+## Accounts
+
+Self-registration with manual approval. The **first** user to register becomes the
+**admin** (auto-approved); everyone after is **pending** until the admin approves them
+from the in-app **Users** panel. The chat endpoint is gated to approved users and
+rate-limited per user (`limits.user_requests_per_minute`). Set a real `SESSION_SECRET`
+in `.env` for any non-local deployment.
+
 ## Layout
 
 ```
