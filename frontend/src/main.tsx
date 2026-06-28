@@ -9,11 +9,13 @@ import './index.css'
 import { applyFont, getFont } from '@/lib/fonts'
 import { applyTheme, getThemeId } from '@/lib/theme'
 import { applyRadius, getRadius } from '@/lib/radius'
+import { applyBg, getBg } from '@/lib/background'
 import App from './App.tsx'
 
 applyFont(getFont())
 applyTheme(getThemeId())
 applyRadius(getRadius())
+applyBg(getBg())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -84,48 +84,107 @@ body {
   z-index: 1;
 }
 
-/* ---- Mixed themes: go-crazy ambient effects ---- */
+/* ---- Background effects (independent of theme; tinted from theme colors) ---- */
 @keyframes silly-aurora {
   0% { transform: translate3d(-4%, -2%, 0) rotate(0deg) scale(1.1); }
   50% { transform: translate3d(4%, 3%, 0) rotate(10deg) scale(1.25); }
   100% { transform: translate3d(-4%, -2%, 0) rotate(0deg) scale(1.1); }
 }
-@keyframes silly-ember {
-  0%, 100% { opacity: 0.5; transform: translateY(0); }
-  50% { opacity: 0.85; transform: translateY(-2%); }
+@keyframes silly-mesh {
+  0% { transform: translate(0, 0); }
+  33% { transform: translate(4%, -3%); }
+  66% { transform: translate(-3%, 4%); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes silly-drift {
+  from { background-position: 0 0; }
+  to { background-position: 250px 500px; }
+}
+@keyframes silly-twinkle {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
 }
 
-[data-theme="bifrost"] body::before,
-[data-theme="yggdrasil"] body::before,
-[data-theme="ragnarok"] body::before {
+[data-bg="glow"] body::before,
+[data-bg="gradient"] body::before,
+[data-bg="aurora"] body::before,
+[data-bg="mesh"] body::before,
+[data-bg="grid"] body::before,
+[data-bg="stars"] body::before,
+[data-bg="stars"] body::after {
   content: "";
   position: fixed;
-  inset: -25%;
+  inset: 0;
   z-index: 0;
   pointer-events: none;
-  filter: blur(40px);
 }
-[data-theme="bifrost"] body::before {
+
+[data-bg="glow"] body::before {
+  background: radial-gradient(
+    80% 60% at 50% 116%,
+    color-mix(in oklch, var(--color-primary) 26%, transparent),
+    transparent 70%
+  );
+}
+[data-bg="gradient"] body::before {
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--color-primary) 16%, transparent),
+    transparent 45%,
+    color-mix(in oklch, var(--color-accent) 22%, transparent)
+  );
+}
+[data-bg="aurora"] body::before {
+  inset: -25%;
+  filter: blur(40px);
   background:
-    radial-gradient(38% 38% at 22% 26%, oklch(0.58 0.22 320 / 0.34), transparent 70%),
-    radial-gradient(38% 38% at 80% 18%, oklch(0.58 0.2 255 / 0.3), transparent 70%),
-    radial-gradient(44% 44% at 62% 82%, oklch(0.62 0.18 190 / 0.28), transparent 70%);
+    radial-gradient(38% 38% at 22% 26%, color-mix(in oklch, var(--color-primary) 42%, transparent), transparent 70%),
+    radial-gradient(38% 38% at 80% 20%, color-mix(in oklch, var(--color-ring) 38%, transparent), transparent 70%),
+    radial-gradient(44% 44% at 62% 82%, color-mix(in oklch, var(--color-accent) 40%, transparent), transparent 70%);
   animation: silly-aurora 20s ease-in-out infinite;
 }
-[data-theme="yggdrasil"] body::before {
+[data-bg="mesh"] body::before {
+  inset: -30%;
+  filter: blur(50px);
   background:
-    radial-gradient(60% 50% at 50% 112%, oklch(0.52 0.14 150 / 0.42), transparent 72%),
-    radial-gradient(40% 30% at 82% 8%, oklch(0.5 0.11 150 / 0.22), transparent 70%);
-  animation: silly-aurora 26s ease-in-out infinite;
+    radial-gradient(30% 30% at 15% 20%, color-mix(in oklch, var(--color-primary) 45%, transparent), transparent 65%),
+    radial-gradient(30% 30% at 85% 25%, color-mix(in oklch, var(--color-accent) 42%, transparent), transparent 65%),
+    radial-gradient(34% 34% at 25% 85%, color-mix(in oklch, var(--color-ring) 38%, transparent), transparent 65%),
+    radial-gradient(30% 30% at 80% 80%, color-mix(in oklch, var(--color-primary) 36%, transparent), transparent 65%);
+  animation: silly-mesh 24s ease-in-out infinite;
 }
-[data-theme="ragnarok"] body::before {
-  background:
-    radial-gradient(70% 46% at 50% 116%, oklch(0.62 0.21 42 / 0.5), transparent 72%),
-    radial-gradient(40% 26% at 28% 0%, oklch(0.5 0.16 25 / 0.24), transparent 70%);
-  animation: silly-ember 7s ease-in-out infinite;
+[data-bg="grid"] body::before {
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--color-foreground) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--color-foreground) 7%, transparent) 1px, transparent 1px);
+  background-size: 42px 42px;
 }
-[data-theme="bifrost"] .bg-primary,
-[data-theme="ragnarok"] .bg-primary {
+[data-bg="stars"] {
+  --star: color-mix(in oklch, var(--color-foreground) 70%, transparent);
+}
+[data-bg="stars"] body::before {
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, var(--star) 50%, transparent),
+    radial-gradient(1px 1px at 32% 68%, var(--star) 50%, transparent),
+    radial-gradient(1px 1px at 58% 38%, var(--star) 50%, transparent),
+    radial-gradient(1px 1px at 82% 78%, var(--star) 50%, transparent),
+    radial-gradient(1px 1px at 90% 12%, var(--star) 50%, transparent),
+    radial-gradient(1px 1px at 46% 54%, var(--star) 50%, transparent);
+  background-repeat: repeat;
+  background-size: 250px 250px;
+  animation: silly-drift 150s linear infinite;
+}
+[data-bg="stars"] body::after {
+  background-image:
+    radial-gradient(1.6px 1.6px at 25% 35%, var(--star) 50%, transparent),
+    radial-gradient(1.6px 1.6px at 70% 60%, var(--star) 50%, transparent),
+    radial-gradient(1.4px 1.4px at 50% 85%, var(--star) 50%, transparent);
+  background-repeat: repeat;
+  background-size: 360px 360px;
+  animation: silly-drift 95s linear infinite, silly-twinkle 5s ease-in-out infinite;
+}
+[data-bg="aurora"] .bg-primary,
+[data-bg="mesh"] .bg-primary {
   box-shadow: 0 0 18px -6px var(--color-primary);
 }
 

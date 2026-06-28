@@ -1,20 +1,55 @@
 import { useState } from 'react'
-import { ArrowLeft, Check, CircleUser, Frame, Palette, Type } from 'lucide-react'
+import { ArrowLeft, Check, CircleUser, Frame, Palette, Sparkles, Type } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { FONTS, type FontId, getFont, setFont } from '@/lib/fonts'
 import { getThemeId, setTheme, THEMES, type Theme, type ThemeCategory } from '@/lib/theme'
 import { getRadius, RADII, type RadiusId, setRadius } from '@/lib/radius'
+import { BACKGROUNDS, type BgId, getBg, setBg } from '@/lib/background'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
-type Section = 'theme' | 'font' | 'borders' | 'account'
+type Section = 'theme' | 'background' | 'font' | 'borders' | 'account'
 
 const NAV: { key: Section; label: string; icon: typeof Palette }[] = [
   { key: 'theme', label: 'Theme', icon: Palette },
+  { key: 'background', label: 'Background', icon: Sparkles },
   { key: 'font', label: 'Font', icon: Type },
   { key: 'borders', label: 'Borders', icon: Frame },
   { key: 'account', label: 'Account', icon: CircleUser },
 ]
+
+// Static approximations of each background for the picker tiles.
+const BG_PREVIEW: Record<BgId, React.CSSProperties> = {
+  none: { background: 'var(--color-background)' },
+  glow: {
+    background:
+      'radial-gradient(80% 70% at 50% 120%, color-mix(in oklch, var(--color-primary) 40%, transparent), var(--color-background))',
+  },
+  gradient: {
+    background:
+      'linear-gradient(135deg, color-mix(in oklch, var(--color-primary) 35%, var(--color-background)), color-mix(in oklch, var(--color-accent) 40%, var(--color-background)))',
+  },
+  aurora: {
+    background:
+      'radial-gradient(55% 60% at 25% 28%, color-mix(in oklch, var(--color-primary) 55%, transparent), transparent 70%), radial-gradient(55% 60% at 82% 72%, color-mix(in oklch, var(--color-accent) 50%, transparent), transparent 70%), var(--color-background)',
+  },
+  mesh: {
+    background:
+      'radial-gradient(45% 45% at 18% 22%, color-mix(in oklch, var(--color-primary) 55%, transparent), transparent 65%), radial-gradient(45% 45% at 82% 30%, color-mix(in oklch, var(--color-accent) 50%, transparent), transparent 65%), radial-gradient(45% 45% at 50% 90%, color-mix(in oklch, var(--color-ring) 45%, transparent), transparent 65%), var(--color-background)',
+  },
+  stars: {
+    backgroundColor: 'var(--color-background)',
+    backgroundImage:
+      'radial-gradient(1px 1px at 20% 30%, var(--color-foreground), transparent), radial-gradient(1px 1px at 60% 60%, var(--color-foreground), transparent), radial-gradient(1px 1px at 80% 25%, var(--color-foreground), transparent), radial-gradient(1px 1px at 40% 80%, var(--color-foreground), transparent)',
+    backgroundSize: '44px 44px',
+  },
+  grid: {
+    backgroundColor: 'var(--color-background)',
+    backgroundImage:
+      'linear-gradient(to right, color-mix(in oklch, var(--color-foreground) 12%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklch, var(--color-foreground) 12%, transparent) 1px, transparent 1px)',
+    backgroundSize: '12px 12px',
+  },
+}
 
 const GROUPS: { key: ThemeCategory; label: string }[] = [
   { key: 'light', label: 'Light' },
@@ -27,6 +62,13 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
   const [font, setFontState] = useState<FontId>(getFont)
   const [theme, setThemeState] = useState<string>(getThemeId)
   const [radius, setRadiusState] = useState<RadiusId>(getRadius)
+  const [bg, setBgState] = useState<BgId>(getBg)
+
+  function chooseBg(id: BgId) {
+    setBg(id)
+    setBgState(id)
+    api.updateSettings({ background: id }).catch(() => {})
+  }
 
   function chooseFont(id: FontId) {
     setFont(id)
@@ -86,6 +128,32 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {section === 'background' && (
+            <div>
+              <p className="mb-3 text-sm text-muted-foreground">
+                A separate effect, tinted from your theme. Some are animated.
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {BACKGROUNDS.map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => chooseBg(b.id)}
+                    className={cn(
+                      'rounded-xl border p-1.5 text-left transition-colors',
+                      bg === b.id ? 'border-primary ring-1 ring-primary' : 'hover:border-border',
+                    )}
+                  >
+                    <span className="block h-16 w-full rounded-lg border" style={BG_PREVIEW[b.id]} />
+                    <span className="mt-1.5 flex items-center justify-between px-0.5">
+                      <span className="text-xs font-medium">{b.label}</span>
+                      {b.animated && <Sparkles className="size-3 text-muted-foreground" />}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

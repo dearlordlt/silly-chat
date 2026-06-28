@@ -19,6 +19,7 @@
           r.style.colorScheme = s.scheme || (s.dark ? 'dark' : 'light');
           var rad = localStorage.getItem('silly:radius');
           if (rad) r.style.setProperty('--radius', rad);
+          r.dataset.bg = localStorage.getItem('silly:bg') || 'none';
         } catch (e) {}
       })();
     </script>
