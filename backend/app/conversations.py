@@ -35,6 +35,12 @@ class ConvOut(ConvSummary):
     turns: list[Any]
 
 
+def _utc(dt: datetime) -> datetime:
+    # SQLite stores naive datetimes; they're UTC (written with utcnow). Mark them
+    # so the JSON carries an offset and clients don't read them as local time.
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 def _own(session: SessionDep, user: ApprovedUser, cid: str) -> Conversation:
     c = session.get(Conversation, cid)
     if not c or c.user_id != user.id:
@@ -49,13 +55,13 @@ def list_conversations(user: ApprovedUser, session: SessionDep) -> list[ConvSumm
         .where(Conversation.user_id == user.id)
         .order_by(Conversation.updated_at.desc())
     ).all()
-    return [ConvSummary(id=c.id, title=c.title, updated_at=c.updated_at) for c in rows]
+    return [ConvSummary(id=c.id, title=c.title, updated_at=_utc(c.updated_at)) for c in rows]
 
 
 @router.get("/{cid}")
 def get_conversation(cid: str, user: ApprovedUser, session: SessionDep) -> ConvOut:
     c = _own(session, user, cid)
-    return ConvOut(id=c.id, title=c.title, turns=c.turns, updated_at=c.updated_at)
+    return ConvOut(id=c.id, title=c.title, turns=c.turns, updated_at=_utc(c.updated_at))
 
 
 @router.put("/{cid}")
@@ -78,7 +84,7 @@ def upsert_conversation(
     session.add(c)
     session.commit()
     session.refresh(c)
-    return ConvSummary(id=c.id, title=c.title, updated_at=c.updated_at)
+    return ConvSummary(id=c.id, title=c.title, updated_at=_utc(c.updated_at))
 
 
 @router.delete("/{cid}")
