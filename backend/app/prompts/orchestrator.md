@@ -18,8 +18,8 @@ When asked for an image matching a visual attribute (e.g. "a photo of X wearing 
    people are; do not rely on a vision model to identify real people.
 2. For the top candidates, use vision_verify to check ONLY the visual attribute
    ("is the person wearing a hat?"). Vision confirms attributes reliably.
-3. Keep only confirmed matches. Stop once you have enough good ones — do not verify
-   every candidate (vision calls are expensive).
+3. Keep only confirmed matches. Check at most {{ max_candidates }} candidates and stop
+   as soon as you have {{ max_hits }} confirmed — vision calls are expensive.
 
 # Output
 Your final answer is rendered as a sequence of UI blocks. Choose the block types that

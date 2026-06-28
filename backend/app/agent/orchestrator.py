@@ -21,7 +21,13 @@ Mode = Literal["search", "chat"]
 
 
 def build_orchestrator(mode: Mode = "search") -> Agent[None, Reply]:
-    instructions = get_prompt("orchestrator", mode_bias=get_prompt(f"mode_{mode}"))
+    limits = get_settings().limits
+    instructions = get_prompt(
+        "orchestrator",
+        mode_bias=get_prompt(f"mode_{mode}"),
+        max_candidates=limits.max_vision_candidates,
+        max_hits=limits.max_confirmed_hits,
+    )
     return Agent(
         orchestrator_model(),
         # ToolOutput: the model returns the Reply via a tool call (reliable for
@@ -29,5 +35,5 @@ def build_orchestrator(mode: Mode = "search") -> Agent[None, Reply]:
         output_type=ToolOutput(Reply),
         instructions=instructions,
         tools=build_tools(),
-        retries=get_settings().limits.output_retries,
+        retries=limits.output_retries,
     )

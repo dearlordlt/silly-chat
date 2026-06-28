@@ -17,6 +17,7 @@ vision = "gemini-3-flash-preview:latest"
 
 [search]
 # SearXNG instance reachable by the backend (json format must be enabled).
+# Override per-environment via SEARCH__SEARXNG_URL in .env (e.g. a private instance).
 searxng_url = "http://localhost:8080"
 
 [limits]
