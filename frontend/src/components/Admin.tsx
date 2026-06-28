@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Check, Shield, X } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 
@@ -6,9 +7,7 @@ export function Admin({ onClose }: { onClose: () => void }) {
   const [users, setUsers] = useState<Me[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const load = () =>
-    api.listUsers().then(setUsers).catch((e) => setError(String(e)))
-
+  const load = () => api.listUsers().then(setUsers).catch((e) => setError(String(e)))
   useEffect(() => {
     load()
   }, [])
@@ -19,33 +18,43 @@ export function Admin({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-md rounded-xl border bg-card p-5">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border bg-card p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold">Users</h2>
-          <Button variant="ghost" onClick={onClose}>
-            Close
+          <h2 className="text-base font-semibold">Users</h2>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
+            <X />
           </Button>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         {!users ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-1.5">
             {users.map((u) => (
-              <li key={u.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                <span className="text-sm">
+              <li key={u.id} className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+                <span className="flex items-center gap-2 text-sm font-medium">
                   {u.username}
                   {u.role === 'admin' && (
-                    <span className="ml-2 rounded bg-accent px-1.5 py-0.5 text-xs text-accent-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
+                      <Shield className="size-3" />
                       admin
                     </span>
                   )}
                 </span>
                 {u.status === 'approved' ? (
-                  <span className="text-xs text-muted-foreground">approved</span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Check className="size-3.5" />
+                    approved
+                  </span>
                 ) : (
-                  <Button variant="outline" className="h-8 px-3" onClick={() => approve(u.id)}>
+                  <Button size="sm" onClick={() => approve(u.id)}>
                     Approve
                   </Button>
                 )}

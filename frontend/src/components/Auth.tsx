@@ -20,11 +20,8 @@ export function Auth({ onAuthed }: { onAuthed: (me: Me) => void }) {
         onAuthed(await api.login(username, password))
       } else {
         const r = await api.register(username, password)
-        if (r.first) {
-          onAuthed(await api.me() as Me) // bootstrap admin is logged in
-        } else {
-          setPending(true)
-        }
+        if (r.first) onAuthed((await api.me()) as Me)
+        else setPending(true)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -33,56 +30,63 @@ export function Auth({ onAuthed }: { onAuthed: (me: Me) => void }) {
     }
   }
 
-  if (pending) {
-    return (
-      <Centered>
-        <h1 className="text-lg font-semibold">Almost there</h1>
-        <p className="text-sm text-muted-foreground">
-          Your account was created and is waiting for approval. You'll be able to log in
-          once an admin approves you.
-        </p>
-        <Button variant="outline" onClick={() => { setPending(false); setMode('login') }}>
-          Back to login
-        </Button>
-      </Centered>
-    )
-  }
-
   return (
     <Centered>
-      <h1 className="text-lg font-semibold">silly-chat</h1>
-      <form onSubmit={submit} className="flex w-full flex-col gap-3">
-        <Input
-          placeholder="Username"
-          value={username}
-          autoFocus
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <Input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button type="submit" disabled={busy || !username || !password}>
-          {mode === 'login' ? 'Log in' : 'Create account'}
-        </Button>
-      </form>
-      <button
-        className="text-sm text-muted-foreground hover:text-foreground"
-        onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null) }}
-      >
-        {mode === 'login' ? 'Need an account? Register' : 'Have an account? Log in'}
-      </button>
+      <div className="grid size-11 place-items-center rounded-xl bg-primary text-lg font-semibold text-primary-foreground shadow-sm">
+        s
+      </div>
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold tracking-tight">silly-chat</h1>
+        <p className="text-sm text-muted-foreground">
+          {pending
+            ? 'Account created'
+            : mode === 'login'
+              ? 'Welcome back'
+              : 'Create your account'}
+        </p>
+      </div>
+
+      {pending ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Your account is waiting for an admin to approve it. You'll be able to log in once
+            approved.
+          </p>
+          <Button variant="outline" className="w-full" onClick={() => { setPending(false); setMode('login') }}>
+            Back to login
+          </Button>
+        </>
+      ) : (
+        <>
+          <form onSubmit={submit} className="flex w-full flex-col gap-3">
+            <Input placeholder="Username" value={username} autoFocus onChange={(e) => setUsername(e.target.value)} />
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            <Button type="submit" className="w-full" disabled={busy || !username || !password}>
+              {mode === 'login' ? 'Log in' : 'Create account'}
+            </Button>
+          </form>
+          <button
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null) }}
+          >
+            {mode === 'login' ? 'Need an account? Register' : 'Have an account? Log in'}
+          </button>
+        </>
+      )}
     </Centered>
   )
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-dvh items-center justify-center p-4">
-      <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-xl border bg-card p-6 text-center">
+    <div className="flex h-dvh items-center justify-center bg-background p-4">
+      <div className="flex w-full max-w-sm flex-col items-center gap-5 rounded-2xl border bg-card p-8 text-center shadow-sm">
         {children}
       </div>
     </div>

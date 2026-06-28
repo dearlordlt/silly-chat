@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowUp, PanelLeftOpen, Shield } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream } from '@/lib/stream'
 import { cn } from '@/lib/utils'
@@ -20,6 +21,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Admin } from '@/components/Admin'
 import { Sidebar } from '@/components/Sidebar'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 
 type Assistant = Extract<Turn, { role: 'assistant' }>
@@ -35,6 +38,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [currentMode, setCurrentMode] = useState<StorageMode>(getMode)
   const [conversations, setConversations] = useState<ConvSummary[]>([])
   const [currentId, setCurrentId] = useState(newId)
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; location: Location } | null>(null)
   const createdAt = useRef<number | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -86,7 +90,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     }
   }
 
-  async function removeConversation(id: string, location: Location) {
+  async function confirmDelete() {
+    if (!pendingDelete) return
+    const { id, location } = pendingDelete
+    setPendingDelete(null)
     await remove(id, location)
     await refreshList()
     if (id === currentId) newChat()
@@ -167,35 +174,34 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           currentId={currentId}
           onNew={newChat}
           onOpen={openConversation}
-          onDelete={removeConversation}
+          onDelete={(id, location) => setPendingDelete({ id, location })}
           onMove={moveConversation}
           onCollapse={() => setSidebarOpen(false)}
         />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-1">
+        <header className="flex items-center justify-between border-b px-3 py-2">
+          <div className="flex items-center gap-2">
             {!sidebarOpen && (
-              <Button
-                variant="ghost"
-                className="h-8 px-2 text-xs"
-                onClick={() => setSidebarOpen(true)}
-                aria-label="Open sidebar"
-              >
-                ☰
-              </Button>
+              <>
+                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
+                  <PanelLeftOpen />
+                </Button>
+                <span className="text-sm font-semibold tracking-tight">silly-chat</span>
+              </>
             )}
-            {!sidebarOpen && <span className="text-sm font-semibold">silly-chat</span>}
           </div>
           <div className="flex items-center gap-1">
             {me.role === 'admin' && (
-              <Button variant="ghost" className="h-8 px-3 text-xs" onClick={() => setShowAdmin(true)}>
+              <Button variant="ghost" size="sm" onClick={() => setShowAdmin(true)}>
+                <Shield />
                 Users
               </Button>
             )}
-            <span className="px-2 text-xs text-muted-foreground">{me.username}</span>
-            <Button variant="ghost" className="h-8 px-3 text-xs" onClick={logout}>
+            <ThemeToggle />
+            <span className="px-1.5 text-xs text-muted-foreground">{me.username}</span>
+            <Button variant="ghost" size="sm" onClick={logout}>
               Log out
             </Button>
           </div>
@@ -203,25 +209,30 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
         {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
 
-        <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-1 flex-col overflow-hidden">
-          <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-4 pb-4">
+        <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col overflow-hidden">
+          <div ref={scrollRef} className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
             {turns.length === 0 && (
-              <div className="flex h-full items-center justify-center text-center text-muted-foreground">
-                <p>Ask me anything.</p>
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                <h1 className="text-2xl font-semibold tracking-tight">Ask me anything</h1>
+                <p className="text-sm text-muted-foreground">
+                  I'll search the web and show you the answer.
+                </p>
               </div>
             )}
             {turns.map((turn, i) =>
               turn.role === 'user' ? (
                 <div key={i} className="flex justify-end">
-                  <div className="max-w-[85%] rounded-2xl bg-primary px-4 py-2 text-primary-foreground">
+                  <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-sm">
                     {turn.text}
                   </div>
                 </div>
               ) : (
-                <div key={i} className="space-y-3">
+                <div key={i} className="space-y-3 text-[0.95rem]">
                   {turn.status && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className="size-2 animate-pulse rounded-full bg-primary" />
+                      <span className="flex gap-1">
+                        <Dot /> <Dot delay="150ms" /> <Dot delay="300ms" />
+                      </span>
                       {turn.status}
                     </div>
                   )}
@@ -235,7 +246,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     </div>
                   ))}
                   {turn.error && (
-                    <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/30">
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
                       {turn.error}
                     </div>
                   )}
@@ -244,24 +255,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             )}
           </div>
 
-          <div className="border-t p-3">
-            <div className="mb-2 flex gap-1">
-              {(['search', 'chat'] as Mode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setSearchMode(m)}
-                  className={cn(
-                    'rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors',
-                    mode === m
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-accent',
-                  )}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
+          <div className="px-4 pb-4">
+            <div className="rounded-2xl border bg-card shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-ring">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -272,16 +267,60 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   }
                 }}
                 rows={1}
-                placeholder="Message…"
-                className="flex-1 resize-none rounded-lg border border-input bg-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="Message silly-chat…"
+                className="max-h-40 w-full resize-none bg-transparent px-4 pt-3 text-sm outline-none placeholder:text-muted-foreground"
               />
-              <Button onClick={send} disabled={busy || !input.trim()}>
-                Send
-              </Button>
+              <div className="flex items-center justify-between gap-2 px-2 pb-2">
+                <div className="flex gap-1">
+                  {(['search', 'chat'] as Mode[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setSearchMode(m)}
+                      className={cn(
+                        'rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors',
+                        mode === m
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-accent',
+                      )}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  size="icon"
+                  className="size-8 rounded-full"
+                  onClick={send}
+                  disabled={busy || !input.trim()}
+                  aria-label="Send"
+                >
+                  <ArrowUp />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete chat?"
+          message="This conversation will be permanently removed."
+          confirmLabel="Delete"
+          destructive
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function Dot({ delay = '0ms' }: { delay?: string }) {
+  return (
+    <span
+      className="size-1.5 animate-bounce rounded-full bg-primary"
+      style={{ animationDelay: delay }}
+    />
   )
 }

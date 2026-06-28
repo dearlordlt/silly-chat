@@ -11,8 +11,10 @@
     "gen:types": "json2ts -i src/types/contract.schema.json -o src/types/contract.ts"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
     "clsx": "^2.1.1",
     "dexie": "^4.4.4",
+    "lucide-react": "^1.21.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-markdown": "^10.1.0",
