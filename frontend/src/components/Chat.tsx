@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowUp, PanelLeftOpen } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
-import { chatStream } from '@/lib/stream'
+import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
 import type { Mode, Slot, Turn } from '@/lib/types'
 import {
@@ -143,6 +143,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   async function send() {
     const message = input.trim()
     if (!message || busy) return
+    const history = toHistory(turns) // prior conversation, for model context
     const mySession = session.current
     const controller = new AbortController()
     abort.current = controller
@@ -157,7 +158,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     queueMicrotask(() => scrollRef.current?.scrollTo({ top: 1e9 }))
 
     try {
-      for await (const ev of chatStream(message, mode, controller.signal)) {
+      for await (const ev of chatStream(message, mode, history, controller.signal)) {
         if (session.current !== mySession) return // navigated away mid-stream
         switch (ev.event) {
           case 'agent_status':
@@ -358,6 +359,40 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       )}
     </div>
   )
+}
+
+// Flatten prior turns into plain-text history for the model's context.
+function toHistory(turns: Turn[]): HistoryMessage[] {
+  const out: HistoryMessage[] = []
+  for (const t of turns) {
+    if (t.role === 'user') {
+      out.push({ role: 'user', content: t.text })
+      continue
+    }
+    const parts = t.slots
+      .map((s) => {
+        if (s.kind !== 'filled') return ''
+        const b = s.block
+        switch (b.type) {
+          case 'text':
+            return b.markdown
+          case 'table':
+            return [b.columns.join(' | '), ...b.rows.map((r) => r.join(' | '))].join('\n')
+          case 'code':
+            return '```' + b.language + '\n' + b.content + '\n```'
+          case 'gallery':
+            return `[images: ${b.images.map((i) => i.caption || i.url).join('; ')}]`
+          case 'chart':
+            return `[chart: ${b.title ?? ''}]`
+          case 'sources':
+            return 'Sources: ' + b.items.map((i) => i.title).join('; ')
+        }
+      })
+      .filter(Boolean)
+    const content = parts.join('\n\n').trim()
+    if (content) out.push({ role: 'assistant', content })
+  }
+  return out
 }
 
 function Dot({ delay = '0ms' }: { delay?: string }) {

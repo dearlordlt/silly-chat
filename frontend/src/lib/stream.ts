@@ -6,15 +6,18 @@ import type { Event as StreamEvent } from '@/types/contract'
  * The backend streams Server-Sent Events over a POST response, so we parse the
  * SSE framing off the fetch body (EventSource only supports GET).
  */
+export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
+
 export async function* chatStream(
   message: string,
   mode: 'search' | 'chat',
+  history: HistoryMessage[],
   signal?: AbortSignal,
 ): AsyncGenerator<StreamEvent> {
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, mode }),
+    body: JSON.stringify({ message, mode, history }),
     credentials: 'include',
     signal,
   })
