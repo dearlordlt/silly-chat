@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react'
 import type { Block } from '@/types/contract'
+import { api, type Me } from '@/lib/api'
 import { chatStream } from '@/lib/stream'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Admin } from '@/components/Admin'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 
 type Slot =
@@ -15,12 +17,18 @@ type Turn =
 
 type Mode = 'search' | 'chat'
 
-export function Chat() {
+export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
   const [mode, setMode] = useState<Mode>('search')
   const [busy, setBusy] = useState(false)
+  const [showAdmin, setShowAdmin] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  async function logout() {
+    await api.logout()
+    onLogout()
+  }
 
   type Assistant = Extract<Turn, { role: 'assistant' }>
   // Pure update of the last (assistant) turn — no mutation, so it's safe under
@@ -90,7 +98,19 @@ export function Chat() {
     <div className="mx-auto flex h-dvh max-w-2xl flex-col">
       <header className="flex items-center justify-between px-4 py-3">
         <span className="text-sm font-semibold">silly-chat</span>
+        <div className="flex items-center gap-1">
+          {me.role === 'admin' && (
+            <Button variant="ghost" className="h-8 px-3 text-xs" onClick={() => setShowAdmin(true)}>
+              Users
+            </Button>
+          )}
+          <span className="px-2 text-xs text-muted-foreground">{me.username}</span>
+          <Button variant="ghost" className="h-8 px-3 text-xs" onClick={logout}>
+            Log out
+          </Button>
+        </div>
       </header>
+      {showAdmin && <Admin onClose={() => setShowAdmin(false)} />}
 
       <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-4 pb-4">
         {turns.length === 0 && (

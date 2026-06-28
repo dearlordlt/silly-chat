@@ -15,6 +15,7 @@ export async function* chatStream(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, mode }),
+    credentials: 'include',
     signal,
   })
   if (!resp.body) throw new Error('no response body')

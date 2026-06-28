@@ -44,6 +44,15 @@ class LimitsCfg(BaseModel):
     output_retries: int = 3
 
 
+class DbCfg(BaseModel):
+    # SQLite file, resolved relative to repo root.
+    path: str = "data/silly.db"
+
+
+class AuthCfg(BaseModel):
+    session_days: int = 30
+
+
 class Settings(BaseSettings):
     """The one config object. Inject via ``get_settings()``."""
 
@@ -58,14 +67,22 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Secret — from env / .env only.
+    # Secrets — from env / .env only.
     ollama_api_key: str = "ollama"
+    session_secret: str = "dev-insecure-change-me"
 
     # Non-secret — from config.toml.
     ollama: OllamaCfg = OllamaCfg()
     models: ModelsCfg
     search: SearchCfg = SearchCfg()
     limits: LimitsCfg = LimitsCfg()
+    db: DbCfg = DbCfg()
+    auth: AuthCfg = AuthCfg()
+
+    @property
+    def db_file(self) -> Path:
+        p = Path(self.db.path)
+        return p if p.is_absolute() else ROOT / p
 
     @classmethod
     def settings_customise_sources(
