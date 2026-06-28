@@ -1,0 +1,90 @@
+"""Single source of truth for all runtime configuration.
+
+Non-secret values come from ``config.toml`` (repo root); the only secret,
+``OLLAMA_API_KEY``, comes from ``.env`` / the environment. Nothing in the
+codebase should hardcode a model name, URL, or cap — read it from ``settings``.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import BaseModel
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    TomlConfigSettingsSource,
+)
+
+# Repo root = two levels up from backend/app/config.py
+ROOT = Path(__file__).resolve().parents[2]
+
+
+class OllamaCfg(BaseModel):
+    base_url: str = "http://localhost:11434/v1"
+
+
+class ModelsCfg(BaseModel):
+    orchestrator: str
+    worker: str
+    vision: str
+
+
+class SearchCfg(BaseModel):
+    searxng_url: str = "http://localhost:8080"
+
+
+class LimitsCfg(BaseModel):
+    max_vision_candidates: int = 5
+    max_confirmed_hits: int = 3
+    user_requests_per_minute: int = 20
+    # Retries for tool calls + structured-output validation (the "repair pass").
+    output_retries: int = 3
+
+
+class Settings(BaseSettings):
+    """The one config object. Inject via ``get_settings()``."""
+
+    model_config = SettingsConfigDict(
+        env_file=ROOT / ".env",
+        env_file_encoding="utf-8",
+        toml_file=ROOT / "config.toml",
+        # Allow nested overrides from the environment, e.g. OLLAMA__BASE_URL=...
+        # (used by docker-compose to point the container at host/cloud Ollama
+        # without editing config.toml).
+        env_nested_delimiter="__",
+        extra="ignore",
+    )
+
+    # Secret — from env / .env only.
+    ollama_api_key: str = "ollama"
+
+    # Non-secret — from config.toml.
+    ollama: OllamaCfg = OllamaCfg()
+    models: ModelsCfg
+    search: SearchCfg = SearchCfg()
+    limits: LimitsCfg = LimitsCfg()
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Precedence: env > .env > config.toml > field defaults.
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            TomlConfigSettingsSource(settings_cls),
+        )
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

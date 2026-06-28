@@ -1,0 +1,36 @@
+# ---- Secrets (NEVER commit) ----
+.env
+.env.*
+!.env.example
+
+# ---- Claude Code (local, not shared) ----
+.claude/
+
+# ---- Python / uv (backend) ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ---- Node (frontend) ----
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# ---- Data / runtime ----
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# ---- Editor / OS ----
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*~

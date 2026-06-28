@@ -1,0 +1,29 @@
+# silly-chat runtime config (NON-SECRET). Secrets live in .env.
+# This file is the single source of truth for models, endpoints, and caps.
+# Change behavior by editing values here — no code edits.
+
+[ollama]
+# OpenAI-compatible endpoint. Local daemon: http://localhost:11434/v1
+# Ollama Cloud: https://ollama.com/v1  (set OLLAMA_API_KEY in .env)
+base_url = "http://localhost:11434/v1"
+
+[models]
+# Must be tool-capable. Orchestrator is where to spend on quality (routing/decomposition).
+orchestrator = "deepseek-v4-pro:cloud"
+# Cheap, narrow workers — local & free.
+worker = "qwen3.5:9b"
+# Must be vision-capable (deepseek-v4-pro has no vision).
+vision = "gemini-3-flash-preview:latest"
+
+[search]
+# SearXNG instance reachable by the backend (json format must be enabled).
+searxng_url = "http://localhost:8080"
+
+[limits]
+# Caps for the image-verify flow (vision calls are the budget sink).
+max_vision_candidates = 5
+max_confirmed_hits = 3
+# Per-user guardrails (Phase 4).
+user_requests_per_minute = 20
+# Retries for tool calls + structured-output validation (the repair pass).
+output_retries = 3

@@ -1,0 +1,432 @@
+{
+  "$defs": {
+    "AgentStatusEvent": {
+      "description": "Working heartbeat to fill dead air during multi-round-trip runs.",
+      "properties": {
+        "event": {
+          "const": "agent_status",
+          "default": "agent_status",
+          "title": "Event",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "AgentStatusEvent",
+      "type": "object"
+    },
+    "BlockDataEvent": {
+      "description": "Fills a previously-started block with its validated payload.",
+      "properties": {
+        "event": {
+          "const": "block_data",
+          "default": "block_data",
+          "title": "Event",
+          "type": "string"
+        },
+        "block_id": {
+          "title": "Block Id",
+          "type": "string"
+        },
+        "block": {
+          "discriminator": {
+            "mapping": {
+              "chart": "#/$defs/ChartBlock",
+              "code": "#/$defs/CodeBlock",
+              "gallery": "#/$defs/GalleryBlock",
+              "table": "#/$defs/TableBlock",
+              "text": "#/$defs/TextBlock"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/TextBlock"
+            },
+            {
+              "$ref": "#/$defs/TableBlock"
+            },
+            {
+              "$ref": "#/$defs/GalleryBlock"
+            },
+            {
+              "$ref": "#/$defs/ChartBlock"
+            },
+            {
+              "$ref": "#/$defs/CodeBlock"
+            }
+          ],
+          "title": "Block"
+        }
+      },
+      "required": [
+        "block_id",
+        "block"
+      ],
+      "title": "BlockDataEvent",
+      "type": "object"
+    },
+    "BlockStartEvent": {
+      "description": "Opens a block. Carries the type (and id) BEFORE any data \u2014 enables skeleton.",
+      "properties": {
+        "event": {
+          "const": "block_start",
+          "default": "block_start",
+          "title": "Event",
+          "type": "string"
+        },
+        "block_id": {
+          "title": "Block Id",
+          "type": "string"
+        },
+        "block_type": {
+          "title": "Block Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "block_id",
+        "block_type"
+      ],
+      "title": "BlockStartEvent",
+      "type": "object"
+    },
+    "ChartBlock": {
+      "properties": {
+        "type": {
+          "const": "chart",
+          "default": "chart",
+          "title": "Type",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "bar",
+            "line",
+            "pie"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "values": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Values",
+          "type": "array"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "required": [
+        "kind",
+        "labels",
+        "values"
+      ],
+      "title": "ChartBlock",
+      "type": "object"
+    },
+    "CodeBlock": {
+      "properties": {
+        "type": {
+          "const": "code",
+          "default": "code",
+          "title": "Type",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "content": {
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "content"
+      ],
+      "title": "CodeBlock",
+      "type": "object"
+    },
+    "DoneEvent": {
+      "properties": {
+        "event": {
+          "const": "done",
+          "default": "done",
+          "title": "Event",
+          "type": "string"
+        }
+      },
+      "title": "DoneEvent",
+      "type": "object"
+    },
+    "ErrorEvent": {
+      "properties": {
+        "event": {
+          "const": "error",
+          "default": "error",
+          "title": "Event",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "ErrorEvent",
+      "type": "object"
+    },
+    "GalleryBlock": {
+      "properties": {
+        "type": {
+          "const": "gallery",
+          "default": "gallery",
+          "title": "Type",
+          "type": "string"
+        },
+        "images": {
+          "items": {
+            "$ref": "#/$defs/GalleryImage"
+          },
+          "title": "Images",
+          "type": "array"
+        }
+      },
+      "required": [
+        "images"
+      ],
+      "title": "GalleryBlock",
+      "type": "object"
+    },
+    "GalleryImage": {
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caption"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Page the image was found on, for attribution.",
+          "title": "Source Url"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "GalleryImage",
+      "type": "object"
+    },
+    "Reply": {
+      "description": "The orchestrator's final structured answer.",
+      "properties": {
+        "blocks": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "chart": "#/$defs/ChartBlock",
+                "code": "#/$defs/CodeBlock",
+                "gallery": "#/$defs/GalleryBlock",
+                "table": "#/$defs/TableBlock",
+                "text": "#/$defs/TextBlock"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/TextBlock"
+              },
+              {
+                "$ref": "#/$defs/TableBlock"
+              },
+              {
+                "$ref": "#/$defs/GalleryBlock"
+              },
+              {
+                "$ref": "#/$defs/ChartBlock"
+              },
+              {
+                "$ref": "#/$defs/CodeBlock"
+              }
+            ]
+          },
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "blocks"
+      ],
+      "title": "Reply",
+      "type": "object"
+    },
+    "TableBlock": {
+      "properties": {
+        "type": {
+          "const": "table",
+          "default": "table",
+          "title": "Type",
+          "type": "string"
+        },
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "columns",
+        "rows"
+      ],
+      "title": "TableBlock",
+      "type": "object"
+    },
+    "TextBlock": {
+      "properties": {
+        "type": {
+          "const": "text",
+          "default": "text",
+          "title": "Type",
+          "type": "string"
+        },
+        "markdown": {
+          "title": "Markdown",
+          "type": "string"
+        }
+      },
+      "required": [
+        "markdown"
+      ],
+      "title": "TextBlock",
+      "type": "object"
+    },
+    "TextDeltaEvent": {
+      "properties": {
+        "event": {
+          "const": "text_delta",
+          "default": "text_delta",
+          "title": "Event",
+          "type": "string"
+        },
+        "block_id": {
+          "title": "Block Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "block_id",
+        "text"
+      ],
+      "title": "TextDeltaEvent",
+      "type": "object"
+    }
+  },
+  "description": "Wrapper so one schema carries both halves of the contract + all $defs.",
+  "properties": {
+    "reply": {
+      "$ref": "#/$defs/Reply"
+    },
+    "event": {
+      "discriminator": {
+        "mapping": {
+          "agent_status": "#/$defs/AgentStatusEvent",
+          "block_data": "#/$defs/BlockDataEvent",
+          "block_start": "#/$defs/BlockStartEvent",
+          "done": "#/$defs/DoneEvent",
+          "error": "#/$defs/ErrorEvent",
+          "text_delta": "#/$defs/TextDeltaEvent"
+        },
+        "propertyName": "event"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextDeltaEvent"
+        },
+        {
+          "$ref": "#/$defs/BlockStartEvent"
+        },
+        {
+          "$ref": "#/$defs/BlockDataEvent"
+        },
+        {
+          "$ref": "#/$defs/AgentStatusEvent"
+        },
+        {
+          "$ref": "#/$defs/DoneEvent"
+        },
+        {
+          "$ref": "#/$defs/ErrorEvent"
+        }
+      ],
+      "title": "Event"
+    }
+  },
+  "required": [
+    "reply",
+    "event"
+  ],
+  "title": "Contract",
+  "type": "object"
+}

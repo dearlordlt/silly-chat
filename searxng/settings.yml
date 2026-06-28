@@ -1,0 +1,15 @@
+# Minimal SearXNG config. Merges over the image defaults.
+use_default_settings: true
+
+server:
+  # Local instance behind app auth. Change for any internet-exposed deployment.
+  secret_key: "change-me-silly-chat-dev-secret"
+  # Disable the bot limiter so the backend can query the JSON API freely.
+  limiter: false
+  image_proxy: true
+
+search:
+  # json is OFF by default — this is the whole reason this file exists.
+  formats:
+    - html
+    - json

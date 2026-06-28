@@ -1,0 +1,30 @@
+# Keep build context small and secret-free.
+.git
+.gitignore
+.claude
+.env
+.env.*
+!.env.example
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+
+# Node
+**/node_modules/
+**/dist/
+**/.vite/
+
+# Runtime / editor
+**/*.sqlite*
+**/data/
+**/.DS_Store
+**/.vscode/
+**/.idea/
+
+# Docs / plans not needed at build time
+*.md

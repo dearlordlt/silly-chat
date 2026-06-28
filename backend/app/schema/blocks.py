@@ -1,0 +1,66 @@
+"""Block vocabulary — the fixed component library the model fills.
+
+A discriminated union on ``type``. The orchestrator's final output is a ``Reply``
+(a validated list of blocks). Locking this vocabulary early is deliberate: it is
+the product's UI language and is expensive to change later.
+
+Adding a block = add a model here + a renderer in frontend/src/components/blocks/.
+Workers return raw data; only the orchestrator wraps data into these blocks.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated, Literal, Union
+
+from pydantic import BaseModel, Field
+
+
+class TextBlock(BaseModel):
+    type: Literal["text"] = "text"
+    markdown: str
+
+
+class TableBlock(BaseModel):
+    type: Literal["table"] = "table"
+    columns: list[str]
+    rows: list[list[str]]
+
+
+class GalleryImage(BaseModel):
+    url: str
+    caption: str | None = None
+    source_url: str | None = Field(
+        default=None, description="Page the image was found on, for attribution."
+    )
+
+
+class GalleryBlock(BaseModel):
+    type: Literal["gallery"] = "gallery"
+    images: list[GalleryImage]
+
+
+class ChartBlock(BaseModel):
+    type: Literal["chart"] = "chart"
+    kind: Literal["bar", "line", "pie"]
+    # Simple label/value series; keep dumb so any cheap model can fill it.
+    labels: list[str]
+    values: list[float]
+    title: str | None = None
+
+
+class CodeBlock(BaseModel):
+    type: Literal["code"] = "code"
+    language: str
+    content: str
+
+
+Block = Annotated[
+    Union[TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock],
+    Field(discriminator="type"),
+]
+
+
+class Reply(BaseModel):
+    """The orchestrator's final structured answer."""
+
+    blocks: list[Block]

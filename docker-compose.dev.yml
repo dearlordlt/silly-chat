@@ -1,0 +1,23 @@
+# Dev overlay: hot-reload backend + Vite dev server. Layered by `dev.sh`.
+
+services:
+  backend:
+    volumes:
+      - ./backend/app:/srv/backend/app:rw
+      - ./config.toml:/srv/config.toml:ro
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    environment:
+      VITE_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app:rw
+      - /app/node_modules # keep container's node_modules (musl), not the host's
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
