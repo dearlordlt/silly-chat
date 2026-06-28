@@ -26,8 +26,13 @@ export type Title = string | null;
 export type Type4 = "code";
 export type Language = string;
 export type Content = string;
-export type Blocks = (TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock)[];
-export type Event = TextDeltaEvent | BlockStartEvent | BlockDataEvent | AgentStatusEvent | DoneEvent | ErrorEvent;
+export type Type5 = "sources";
+export type Title1 = string;
+export type Url1 = string;
+export type Items = Source[];
+export type Blocks = (TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | SourcesBlock)[];
+export type Event =
+  TextDeltaEvent | BlockStartEvent | BlockDataEvent | AgentStatusEvent | AgentUpdateEvent | DoneEvent | ErrorEvent;
 export type Event1 = "text_delta";
 export type BlockId = string;
 export type Text = string;
@@ -36,11 +41,16 @@ export type BlockId1 = string;
 export type BlockType = string;
 export type Event3 = "block_data";
 export type BlockId2 = string;
-export type Block = TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock;
+export type Block = TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | SourcesBlock;
 export type Event4 = "agent_status";
 export type Message = string;
-export type Event5 = "done";
-export type Event6 = "error";
+export type Event5 = "agent_update";
+export type Id = string;
+export type Label = string;
+export type Status = string;
+export type State = "running" | "done" | "error";
+export type Event6 = "done";
+export type Event7 = "error";
 export type Message1 = string;
 
 /**
@@ -94,6 +104,19 @@ export interface CodeBlock {
   content: Content;
   [k: string]: unknown;
 }
+/**
+ * Citations — the proof behind a grounded answer.
+ */
+export interface SourcesBlock {
+  type?: Type5;
+  items: Items;
+  [k: string]: unknown;
+}
+export interface Source {
+  title: Title1;
+  url: Url1;
+  [k: string]: unknown;
+}
 export interface TextDeltaEvent {
   event?: Event1;
   block_id: BlockId;
@@ -126,12 +149,26 @@ export interface AgentStatusEvent {
   message: Message;
   [k: string]: unknown;
 }
-export interface DoneEvent {
+/**
+ * Lifecycle of an individual sub-agent — drives the live activity panel.
+ *
+ * The frontend merges by ``id``: ``label`` is set when the agent starts; later
+ * updates carry ``status``/``state`` only.
+ */
+export interface AgentUpdateEvent {
   event?: Event5;
+  id: Id;
+  label?: Label;
+  status?: Status;
+  state?: State;
+  [k: string]: unknown;
+}
+export interface DoneEvent {
+  event?: Event6;
   [k: string]: unknown;
 }
 export interface ErrorEvent {
-  event?: Event6;
+  event?: Event7;
   message: Message1;
   [k: string]: unknown;
 }

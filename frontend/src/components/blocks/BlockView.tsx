@@ -5,6 +5,7 @@ import { TableBlockView } from './TableBlock'
 import { GalleryBlockView } from './GalleryBlock'
 import { ChartBlockView } from './ChartBlock'
 import { CodeBlockView } from './CodeBlock'
+import { SourcesBlockView } from './SourcesBlock'
 
 /** Render a completed block by dispatching on its discriminant. */
 export function BlockView({ block }: { block: Block }) {
@@ -19,6 +20,8 @@ export function BlockView({ block }: { block: Block }) {
       return <ChartBlockView block={block} />
     case 'code':
       return <CodeBlockView block={block} />
+    case 'sources':
+      return <SourcesBlockView block={block} />
   }
 }
 

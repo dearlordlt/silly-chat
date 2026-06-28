@@ -27,8 +27,9 @@ REQUIRED_PROMPTS: tuple[str, ...] = (
     "mode_search",
     "mode_chat",
     "tools/web_search",
-    "tools/image_search",
-    "tools/vision_verify",
+    "tools/research",
+    "tools/find_images",
+    "subagents/researcher",
 )
 
 _env = Environment(

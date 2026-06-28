@@ -54,8 +54,20 @@ class CodeBlock(BaseModel):
     content: str
 
 
+class Source(BaseModel):
+    title: str
+    url: str
+
+
+class SourcesBlock(BaseModel):
+    """Citations — the proof behind a grounded answer."""
+
+    type: Literal["sources"] = "sources"
+    items: list[Source]
+
+
 Block = Annotated[
-    Union[TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock],
+    Union[TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, SourcesBlock],
     Field(discriminator="type"),
 ]
 

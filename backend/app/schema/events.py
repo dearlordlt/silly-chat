@@ -45,6 +45,20 @@ class AgentStatusEvent(BaseModel):
     message: str
 
 
+class AgentUpdateEvent(BaseModel):
+    """Lifecycle of an individual sub-agent — drives the live activity panel.
+
+    The frontend merges by ``id``: ``label`` is set when the agent starts; later
+    updates carry ``status``/``state`` only.
+    """
+
+    event: Literal["agent_update"] = "agent_update"
+    id: str
+    label: str = ""
+    status: str = ""
+    state: Literal["running", "done", "error"] = "running"
+
+
 class DoneEvent(BaseModel):
     event: Literal["done"] = "done"
 
@@ -60,6 +74,7 @@ StreamEvent = Annotated[
         BlockStartEvent,
         BlockDataEvent,
         AgentStatusEvent,
+        AgentUpdateEvent,
         DoneEvent,
         ErrorEvent,
     ],

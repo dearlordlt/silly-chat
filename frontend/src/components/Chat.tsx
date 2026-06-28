@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Sidebar } from '@/components/Sidebar'
 import { UserMenu } from '@/components/UserMenu'
+import { AgentActivity } from '@/components/AgentActivity'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 
@@ -151,7 +152,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     setTurns((prev) => [
       ...prev,
       { role: 'user', text: message },
-      { role: 'assistant', status: 'Thinking…', slots: [] },
+      { role: 'assistant', status: 'Thinking…', agents: [], slots: [] },
     ])
     queueMicrotask(() => scrollRef.current?.scrollTo({ top: 1e9 }))
 
@@ -161,6 +162,22 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         switch (ev.event) {
           case 'agent_status':
             patchLast((t) => ({ ...t, status: ev.message }))
+            break
+          case 'agent_update':
+            patchLast((t) => {
+              const agents = [...(t.agents ?? [])]
+              const i = agents.findIndex((a) => a.id === ev.id)
+              const prev = i >= 0 ? agents[i] : { id: ev.id, label: '', status: '', state: 'running' as const }
+              const next = {
+                ...prev,
+                label: ev.label || prev.label,
+                status: ev.status || prev.status,
+                state: ev.state ?? 'running',
+              }
+              if (i >= 0) agents[i] = next
+              else agents.push(next)
+              return { ...t, status: null, agents }
+            })
             break
           case 'block_start':
             patchLast((t) => ({
@@ -262,6 +279,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                       {turn.status}
                     </div>
                   )}
+                  {turn.agents?.length > 0 && <AgentActivity agents={turn.agents} />}
                   {turn.slots.map((slot) => (
                     <div key={slot.id}>
                       {slot.kind === 'pending' ? (

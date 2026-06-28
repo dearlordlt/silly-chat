@@ -20,6 +20,46 @@
       "title": "AgentStatusEvent",
       "type": "object"
     },
+    "AgentUpdateEvent": {
+      "description": "Lifecycle of an individual sub-agent \u2014 drives the live activity panel.\n\nThe frontend merges by ``id``: ``label`` is set when the agent starts; later\nupdates carry ``status``/``state`` only.",
+      "properties": {
+        "event": {
+          "const": "agent_update",
+          "default": "agent_update",
+          "title": "Event",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "title": "Status",
+          "type": "string"
+        },
+        "state": {
+          "default": "running",
+          "enum": [
+            "running",
+            "done",
+            "error"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "AgentUpdateEvent",
+      "type": "object"
+    },
     "BlockDataEvent": {
       "description": "Fills a previously-started block with its validated payload.",
       "properties": {
@@ -39,6 +79,7 @@
               "chart": "#/$defs/ChartBlock",
               "code": "#/$defs/CodeBlock",
               "gallery": "#/$defs/GalleryBlock",
+              "sources": "#/$defs/SourcesBlock",
               "table": "#/$defs/TableBlock",
               "text": "#/$defs/TextBlock"
             },
@@ -59,6 +100,9 @@
             },
             {
               "$ref": "#/$defs/CodeBlock"
+            },
+            {
+              "$ref": "#/$defs/SourcesBlock"
             }
           ],
           "title": "Block"
@@ -273,6 +317,7 @@
                 "chart": "#/$defs/ChartBlock",
                 "code": "#/$defs/CodeBlock",
                 "gallery": "#/$defs/GalleryBlock",
+                "sources": "#/$defs/SourcesBlock",
                 "table": "#/$defs/TableBlock",
                 "text": "#/$defs/TextBlock"
               },
@@ -293,6 +338,9 @@
               },
               {
                 "$ref": "#/$defs/CodeBlock"
+              },
+              {
+                "$ref": "#/$defs/SourcesBlock"
               }
             ]
           },
@@ -304,6 +352,47 @@
         "blocks"
       ],
       "title": "Reply",
+      "type": "object"
+    },
+    "Source": {
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "SourcesBlock": {
+      "description": "Citations \u2014 the proof behind a grounded answer.",
+      "properties": {
+        "type": {
+          "const": "sources",
+          "default": "sources",
+          "title": "Type",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Source"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "SourcesBlock",
       "type": "object"
     },
     "TableBlock": {
@@ -392,6 +481,7 @@
       "discriminator": {
         "mapping": {
           "agent_status": "#/$defs/AgentStatusEvent",
+          "agent_update": "#/$defs/AgentUpdateEvent",
           "block_data": "#/$defs/BlockDataEvent",
           "block_start": "#/$defs/BlockStartEvent",
           "done": "#/$defs/DoneEvent",
@@ -412,6 +502,9 @@
         },
         {
           "$ref": "#/$defs/AgentStatusEvent"
+        },
+        {
+          "$ref": "#/$defs/AgentUpdateEvent"
         },
         {
           "$ref": "#/$defs/DoneEvent"

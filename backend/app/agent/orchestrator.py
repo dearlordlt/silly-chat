@@ -25,8 +25,7 @@ def build_orchestrator(mode: Mode = "search") -> Agent[None, Reply]:
     instructions = get_prompt(
         "orchestrator",
         mode_bias=get_prompt(f"mode_{mode}"),
-        max_candidates=limits.max_vision_candidates,
-        max_hits=limits.max_confirmed_hits,
+        max_agents=limits.max_agents,
     )
     return Agent(
         orchestrator_model(),
