@@ -533,9 +533,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     ref={fileInput}
                     type="file"
                     accept={
+                      // Explicit extensions only — mixing image/* with extensions makes the
+                      // native picker default to an "Image Files" filter that hides documents.
                       docsAllowed
-                        ? 'image/*,.pdf,.docx,.xlsx,.pptx,.txt,.md,.markdown,.csv,.log,.json,.xml,.html,.rtf'
-                        : 'image/*'
+                        ? '.png,.jpg,.jpeg,.gif,.webp,.bmp,.pdf,.docx,.xlsx,.pptx,.txt,.md,.markdown,.csv,.log,.json,.xml,.html,.htm,.rtf'
+                        : '.png,.jpg,.jpeg,.gif,.webp,.bmp'
                     }
                     multiple
                     hidden
