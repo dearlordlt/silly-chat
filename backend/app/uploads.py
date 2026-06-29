@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import mimetypes
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -41,11 +42,16 @@ def _dir() -> Path:
     return d
 
 
+# Document extensions we can extract text from.
+_DOC_EXTS = (
+    ".pdf", ".docx", ".xlsx", ".pptx",
+    ".txt", ".md", ".markdown", ".csv", ".log", ".json", ".xml", ".html", ".htm", ".rtf",
+)
+
+
 def _is_doc(content_type: str, name: str) -> bool:
     ct = (content_type or "").lower()
-    return ct == "application/pdf" or ct.startswith("text/") or name.lower().endswith(
-        (".pdf", ".txt", ".md", ".markdown", ".csv", ".log")
-    )
+    return ct == "application/pdf" or ct.startswith("text/") or name.lower().endswith(_DOC_EXTS)
 
 
 # ---- images -------------------------------------------------------------------------
@@ -70,11 +76,70 @@ def _process_image(raw: bytes, max_dim: int) -> bytes:
 
 # ---- documents ----------------------------------------------------------------------
 
+def _extract_pdf(raw: bytes) -> str:
+    return "\n\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(raw)).pages)
+
+
+def _extract_docx(raw: bytes) -> str:
+    from docx import Document
+
+    doc = Document(io.BytesIO(raw))
+    parts = [p.text for p in doc.paragraphs if p.text.strip()]
+    for table in doc.tables:
+        for row in table.rows:
+            cells = [c.text.strip() for c in row.cells]
+            if any(cells):
+                parts.append(" | ".join(cells))
+    return "\n".join(parts)
+
+
+def _extract_xlsx(raw: bytes) -> str:
+    from openpyxl import load_workbook
+
+    wb = load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+    parts: list[str] = []
+    for ws in wb.worksheets:
+        parts.append(f"# Sheet: {ws.title}")
+        for row in ws.iter_rows(values_only=True):
+            cells = [str(c) for c in row if c is not None]
+            if cells:
+                parts.append(" | ".join(cells))
+    wb.close()
+    return "\n".join(parts)
+
+
+def _extract_pptx(raw: bytes) -> str:
+    from pptx import Presentation
+
+    prs = Presentation(io.BytesIO(raw))
+    parts: list[str] = []
+    for i, slide in enumerate(prs.slides, 1):
+        parts.append(f"# Slide {i}")
+        for shape in slide.shapes:
+            if shape.has_text_frame and shape.text_frame.text.strip():
+                parts.append(shape.text_frame.text)
+    return "\n".join(parts)
+
+
 def _extract_text(raw: bytes, content_type: str, name: str) -> str:
-    if (content_type or "").lower() == "application/pdf" or name.lower().endswith(".pdf"):
-        reader = PdfReader(io.BytesIO(raw))
-        return "\n\n".join((page.extract_text() or "") for page in reader.pages)
-    return raw.decode("utf-8", errors="replace")
+    """Extract plain text from a supported document, capped to doc_max_chars."""
+    lower = name.lower()
+    try:
+        if lower.endswith(".pdf") or (content_type or "").lower() == "application/pdf":
+            text = _extract_pdf(raw)
+        elif lower.endswith(".docx"):
+            text = _extract_docx(raw)
+        elif lower.endswith(".xlsx"):
+            text = _extract_xlsx(raw)
+        elif lower.endswith(".pptx"):
+            text = _extract_pptx(raw)
+        else:
+            text = raw.decode("utf-8", errors="replace")
+    except Exception as exc:
+        log.warning("extract failed for %s: %s", name, exc)
+        text = ""
+    cap = get_settings().limits.doc_max_chars
+    return text[:cap]
 
 
 def _chunk(text: str, size: int, overlap: int) -> list[str]:
@@ -179,7 +244,7 @@ async def create_upload(
     else:
         data = raw
         kind = "doc"
-        mime = "application/pdf" if name.lower().endswith(".pdf") else "text/plain"
+        mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
         ext = name.rsplit(".", 1)[-1].lower() if "." in name else "txt"
 
     if _user_used(session, user.id) + len(data) > cfg.upload_user_quota_mb * 1024 * 1024:

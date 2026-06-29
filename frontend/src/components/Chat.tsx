@@ -164,7 +164,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const isDoc = (f: File) =>
     f.type === 'application/pdf' ||
     f.type.startsWith('text/') ||
-    /\.(pdf|txt|md|markdown|csv|log)$/i.test(f.name)
+    /\.(pdf|docx|xlsx|pptx|txt|md|markdown|csv|log|json|xml|html?|rtf)$/i.test(f.name)
 
   async function addFiles(files: FileList | File[] | null) {
     const accepted = [...(files ?? [])].filter(
@@ -532,7 +532,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   <input
                     ref={fileInput}
                     type="file"
-                    accept={docsAllowed ? 'image/*,.pdf,.txt,.md,.markdown,.csv,.log' : 'image/*'}
+                    accept={
+                      docsAllowed
+                        ? 'image/*,.pdf,.docx,.xlsx,.pptx,.txt,.md,.markdown,.csv,.log,.json,.xml,.html,.rtf'
+                        : 'image/*'
+                    }
                     multiple
                     hidden
                     onChange={(e) => {

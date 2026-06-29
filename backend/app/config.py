@@ -66,6 +66,7 @@ class LimitsCfg(BaseModel):
     doc_file_ttl_days: int = 1  # purge the original file this soon (chunks/context remain)
     doc_chunk_chars: int = 1200  # ~chunk size for embedding
     doc_chunk_overlap: int = 200
+    doc_max_chars: int = 400_000  # cap extracted text so a huge file can't explode RAG
     rag_top_k: int = 6  # passages returned per search_document call
 
 

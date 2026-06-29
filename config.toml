@@ -47,6 +47,13 @@ upload_image_max_dim = 1568
 upload_user_quota_mb = 200
 upload_global_quota_mb = 20000
 upload_ttl_days = 7
+# Documents (RAG): originals purged fast; extracted text chunks + embeddings live on.
+doc_max_mb = 25
+doc_file_ttl_days = 1
+doc_chunk_chars = 1200
+doc_chunk_overlap = 200
+doc_max_chars = 400000
+rag_top_k = 6
 
 [db]
 path = "data/silly.db"
