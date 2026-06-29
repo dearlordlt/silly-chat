@@ -18,7 +18,7 @@ from app.config import get_settings
 from app.prompts.registry import get_prompt
 from app.schema import Reply
 
-Mode = Literal["search", "chat"]
+Mode = Literal["search", "chat", "code"]
 
 
 def build_orchestrator(mode: Mode = "search", timezone: str | None = None) -> Agent[None, Reply]:

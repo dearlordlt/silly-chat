@@ -410,7 +410,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               />
               <div className="flex items-center justify-between gap-2 px-2 pb-2">
                 <div className="flex gap-1">
-                  {(['search', 'chat'] as Mode[]).map((m) => (
+                  {(['search', 'chat', 'code'] as Mode[]).map((m) => (
                     <button
                       key={m}
                       onClick={() => setSearchMode(m)}

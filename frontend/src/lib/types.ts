@@ -1,6 +1,6 @@
 import type { Block } from '@/types/contract'
 
-export type Mode = 'search' | 'chat'
+export type Mode = 'search' | 'chat' | 'code'
 
 export type Slot =
   | { id: string; kind: 'pending'; blockType: string }

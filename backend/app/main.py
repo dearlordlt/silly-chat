@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from app import ratelimit
+from app.agent.orchestrator import Mode
 from app.agent.stream import stream_chat
 from app.auth.deps import ApprovedUser
 from app.auth.routes import admin_router, auth_router
@@ -59,7 +60,7 @@ class HistoryMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    mode: Literal["search", "chat"] = "search"
+    mode: Mode = "search"
     history: list[HistoryMessage] = []
     timezone: str | None = None  # IANA tz, only if the user opted to share it
 
