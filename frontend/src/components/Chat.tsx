@@ -21,6 +21,7 @@ import {
   titleFrom,
 } from '@/lib/history'
 import { Button } from '@/components/ui/button'
+import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { Sidebar } from '@/components/Sidebar'
 import { UserMenu } from '@/components/UserMenu'
 import { AgentActivity } from '@/components/AgentActivity'
@@ -316,7 +317,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               turn.role === 'user' ? (
                 editingIndex === i ? (
                   <div key={i} className="flex flex-col items-end gap-2">
-                    <textarea
+                    <AutoTextarea
                       value={editText}
                       onChange={(e) => setEditText(e.target.value)}
                       onKeyDown={(e) => {
@@ -327,8 +328,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                         if (e.key === 'Escape') setEditingIndex(null)
                       }}
                       autoFocus
-                      rows={2}
-                      className="w-full max-w-[80%] resize-none rounded-2xl border border-input bg-card px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="max-h-[50vh] w-full max-w-[80%] rounded-2xl border border-input bg-card px-4 py-2.5 text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => setEditingIndex(null)}>
@@ -396,7 +396,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
           <div className="px-4 pb-4">
             <div className="rounded-2xl border bg-card shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-ring">
-              <textarea
+              <AutoTextarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -405,9 +405,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     send()
                   }
                 }}
-                rows={1}
                 placeholder="Message silly-chat…"
-                className="max-h-40 w-full resize-none bg-transparent px-4 pt-3 text-sm outline-none placeholder:text-muted-foreground"
+                className="max-h-[50vh] w-full bg-transparent px-4 pt-3 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
               />
               <div className="flex items-center justify-between gap-2 px-2 pb-2">
                 <div className="flex gap-1">
