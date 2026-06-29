@@ -52,8 +52,10 @@ export const api = {
     req<ServerConvSummary>('PUT', `/api/conversations/${id}`, body),
   deleteServerConvo: (id: string) => req<{ ok: boolean }>('DELETE', `/api/conversations/${id}`),
 
-  // Attachment uploads (images). Returns the id used to attach to a message.
-  uploadImage: async (file: File): Promise<{ id: string; kind: string; name: string; mime: string }> => {
+  // Attachment uploads (images + documents). Returns the id used to attach to a message.
+  uploadFile: async (
+    file: File,
+  ): Promise<{ id: string; kind: 'image' | 'doc'; name: string; mime: string }> => {
     const form = new FormData()
     form.append('file', file)
     const res = await fetch('/api/uploads', { method: 'POST', body: form, credentials: 'include' })

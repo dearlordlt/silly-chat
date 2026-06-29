@@ -23,7 +23,7 @@ from pydantic_ai.messages import (
 
 from pydantic_ai import Agent
 
-from app.agent.activity import attachments_var, code_var, emit_var, findings_var, sources_var
+from app.agent.activity import attachments_var, code_var, docs_var, emit_var, findings_var, sources_var
 from app.agent.clock import tz_var
 from app.agent.ollama import orchestrator_model
 from app.agent.orchestrator import Mode, build_orchestrator
@@ -80,27 +80,39 @@ async def stream_chat(
     history: list[tuple[str, str]] | None = None,
     timezone: str | None = None,
     attachments: list[tuple[str, bytes]] | None = None,
+    doc_chunks: list[tuple[str, bytes]] | None = None,
 ) -> AsyncIterator[StreamEvent]:
     attachments = attachments or []
-    # Nudge the orchestrator to actually look, since its own model can't see images.
+    doc_chunks = doc_chunks or []
+    has_img, has_doc = bool(attachments), bool(doc_chunks)
+    # The orchestrator's own model can't see images and shouldn't answer about a document
+    # from memory — nudge it to the right tools.
     prompt = message
     effective_mode: Mode = mode
-    if attachments and message.strip():
-        prompt = (
-            f"[The user attached {len(attachments)} image(s); their message below most likely "
-            f"refers to them. Use the look tool to see the image(s) first.]\n\n{message}"
-        )
-    elif attachments:
-        # Image(s) with no text — respond to the image itself, not to whatever the previous
-        # turn was about. Force neutral (chat) mode so a code/search pill bias + prior task
-        # history can't make it "continue" instead of describing the image.
-        effective_mode = "chat"
-        prompt = (
-            f"[The user sent {len(attachments)} image(s) and no text. The image IS the whole "
-            f"request. Use the look tool to see it, then just describe it / answer the obvious "
-            f"question it raises. Ignore the previous conversation — do NOT continue or repeat "
-            f"any earlier task unless the image itself clearly asks for it.]"
-        )
+    if has_img or has_doc:
+        hints = []
+        if has_img:
+            hints.append(f"use the look tool to see the {len(attachments)} image(s)")
+        if has_doc:
+            hints.append("use the search_document tool to find relevant passages in the attached document(s)")
+        hint = "; ".join(hints)
+        if message.strip():
+            prompt = f"[The user attached file(s); their message below most likely refers to them — {hint} first.]\n\n{message}"
+        else:
+            # No text: the attachment IS the request. Neutral mode so a code/search pill bias
+            # + prior-task history can't make it "continue" instead of addressing the file.
+            effective_mode = "chat"
+            ask = (
+                "describe what it shows"
+                if has_img and not has_doc
+                else "summarize it" if has_doc and not has_img
+                else "describe the image(s) and summarize the document(s)"
+            )
+            prompt = (
+                f"[The user attached file(s) and no text — they ARE the whole request. {hint}, "
+                f"then {ask}. Ignore the previous conversation; do NOT continue or repeat an "
+                f"earlier task unless the attachment itself asks for it.]"
+            )
     agent = build_orchestrator(effective_mode, timezone)
     message_history = _build_history(history or [])
     queue: asyncio.Queue = asyncio.Queue()
@@ -128,6 +140,7 @@ async def stream_chat(
         tok_c = code_var.set(code)
         tok_tz = tz_var.set(timezone)
         tok_a = attachments_var.set(attachments)
+        tok_d = docs_var.set(doc_chunks)
         log.info("turn start: mode=%s history=%d msg=%r", mode, len(history or []), message[:120])
         try:
             with capture_run_messages() as messages:
@@ -155,6 +168,7 @@ async def stream_chat(
             code_var.reset(tok_c)
             tz_var.reset(tok_tz)
             attachments_var.reset(tok_a)
+            docs_var.reset(tok_d)
             queue.put_nowait(_DONE)
 
     task = asyncio.create_task(run())

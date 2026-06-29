@@ -31,6 +31,7 @@ class ModelsCfg(BaseModel):
     worker: str
     vision: str
     coder: str
+    embed: str  # embedding model for document RAG
 
 
 class SearchCfg(BaseModel):
@@ -58,7 +59,14 @@ class LimitsCfg(BaseModel):
     upload_image_max_dim: int = 1568  # downscale longest side to this before storing
     upload_user_quota_mb: int = 200  # per-user ceiling
     upload_global_quota_mb: int = 20000  # whole-app ceiling (LRU-evict when exceeded)
-    upload_ttl_days: int = 7  # delete uploads older than this
+    upload_ttl_days: int = 7  # delete uploads (rows + chunks) older than this
+    # Documents (RAG): originals are heavy, so they're purged fast; the extracted text
+    # chunks + embeddings (tiny) live on for upload_ttl_days so the chat keeps its context.
+    doc_max_mb: int = 25  # reject a single document larger than this
+    doc_file_ttl_days: int = 1  # purge the original file this soon (chunks/context remain)
+    doc_chunk_chars: int = 1200  # ~chunk size for embedding
+    doc_chunk_overlap: int = 200
+    rag_top_k: int = 6  # passages returned per search_document call
 
 
 class DbCfg(BaseModel):

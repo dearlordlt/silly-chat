@@ -25,11 +25,13 @@ from app.agent.activity import (
     agent_update,
     agent_var,
     attachments_var,
+    docs_var,
     record_code,
     record_findings,
     record_sources,
     status_for_current_agent,
 )
+from app.embeddings import embed_texts, rank
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
 from app.agent.ollama import coder_model, vision_model, worker_model
 from app.config import get_settings
@@ -245,10 +247,31 @@ async def look(question: str) -> str:
         return f"(could not view the image: {exc})"
 
 
+async def search_document(query: str) -> str:
+    """Find the passages most relevant to a query in the document(s) the user attached."""
+    chunks = docs_var.get() or []
+    if not chunks:
+        return "No document is attached to this message."
+    aid = uuid.uuid4().hex[:8]
+    agent_update(aid, label=f"Searching the document ({len(chunks)} passages)", status="Searching…", state="running")
+    try:
+        qvec = (await embed_texts([query]))[0]
+        top_k = get_settings().limits.rag_top_k
+        ranked = rank(qvec, [(i, emb) for i, (_, emb) in enumerate(chunks)], top_k)
+        passages = [chunks[i][0] for i in ranked]
+        agent_update(aid, status="Done", state="done")
+        return "\n\n---\n\n".join(passages) if passages else "Nothing relevant found in the document."
+    except Exception as exc:
+        agent_update(aid, status="Failed", state="error")
+        log.warning("search_document failed: %s", exc)
+        return f"(could not search the document: {exc})"
+
+
 def build_tools() -> list[Tool]:
     return [
         Tool(research, name="research", description=get_prompt("tools/research")),
         Tool(find_images, name="find_images", description=get_prompt("tools/find_images")),
         Tool(write_code, name="write_code", description=get_prompt("tools/write_code")),
         Tool(look, name="look", description=get_prompt("tools/look")),
+        Tool(search_document, name="search_document", description=get_prompt("tools/search_document")),
     ]

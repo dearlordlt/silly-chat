@@ -16,6 +16,8 @@ worker = "qwen3.5:9b"
 vision = "gemini-3-flash-preview:latest"
 # Writes code when the user asks for it; pick a strong coding model.
 coder = "deepseek-v4-pro:cloud"
+# Embedding model for document RAG (must be an embedding model, not a chat model).
+embed = "nomic-embed-text:v1.5"
 
 [search]
 # SearXNG instance reachable by the backend (json format must be enabled).

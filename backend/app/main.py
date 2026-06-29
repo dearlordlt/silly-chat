@@ -18,7 +18,7 @@ from app.auth.routes import admin_router, auth_router
 from app.config import get_settings
 from app.conversations import router as conversations_router
 from app.preview import router as preview_router
-from app.uploads import load_attachment, router as uploads_router
+from app.uploads import resolve_attachments, router as uploads_router
 from app.db import init_db
 from app.prompts.registry import validate_prompts
 
@@ -82,11 +82,16 @@ async def chat(req: ChatRequest, user: ApprovedUser, session: SessionDep) -> Eve
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "slow down a moment")
 
     history = [(m.role, m.content) for m in req.history]
-    # Resolve attachment ids to (mime, bytes), owner-checked; silently drop any expired.
-    attachments = [a for a in (load_attachment(session, aid, user.id) for aid in req.attachments) if a]
+    # Resolve attachment ids (owner-checked). Documents are chat-only — ignore them in
+    # search/code modes so they don't divert those flows.
+    images, doc_chunks = resolve_attachments(
+        session, req.attachments, user.id, include_docs=req.mode == "chat"
+    )
 
     async def event_generator():
-        async for event in stream_chat(req.message, req.mode, history, req.timezone, attachments):
+        async for event in stream_chat(
+            req.message, req.mode, history, req.timezone, images, doc_chunks
+        ):
             yield {"event": event.event, "data": event.model_dump_json()}
 
     return EventSourceResponse(event_generator())

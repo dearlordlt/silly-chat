@@ -26,6 +26,8 @@ findings_var: ContextVar[list[tuple[str, str]] | None] = ContextVar("findings", 
 code_var: ContextVar[list[tuple[str, str, str | None]] | None] = ContextVar("code", default=None)
 # Image attachments on the current turn as (media_type, bytes) — read by the vision `look` tool.
 attachments_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("attachments", default=None)
+# Document chunks attached this turn as (text, embedding_bytes) — read by `search_document`.
+docs_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("docs", default=None)
 
 
 def agent_update(id: str, *, label: str = "", status: str = "", state: str = "running") -> None:

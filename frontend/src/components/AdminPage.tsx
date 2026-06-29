@@ -116,6 +116,7 @@ const ROLES: { key: string; label: string; hint: string }[] = [
   { key: 'worker', label: 'Research agents', hint: 'Cheap, fast model the parallel research workers run on.' },
   { key: 'vision', label: 'Vision', hint: 'Looks at images to verify visual details.' },
   { key: 'coder', label: 'Coding', hint: 'Writes code when the user asks. Pick a strong coding model.' },
+  { key: 'embed', label: 'Embeddings', hint: 'Turns attached documents into searchable vectors. Use an embedding model.' },
 ]
 
 function ModelsSection() {

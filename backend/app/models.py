@@ -47,6 +47,17 @@ class Upload(SQLModel, table=True):
     last_used_at: datetime = Field(default_factory=_utcnow)
 
 
+class DocChunk(SQLModel, table=True):
+    """A chunk of an uploaded document + its embedding (for RAG). These are tiny and
+    outlive the original file, so the chat keeps its context after the file is purged."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    upload_id: str = Field(index=True, foreign_key="upload.id")
+    idx: int = 0  # order within the document
+    text: str = ""
+    embedding: bytes = b""  # float32 vector
+
+
 class Conversation(SQLModel, table=True):
     # id is the client-generated uuid (stable when a chat moves local<->server).
     id: str = Field(primary_key=True)

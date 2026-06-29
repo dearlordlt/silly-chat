@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowUp, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, X } from 'lucide-react'
+import { ArrowUp, FileText, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, X } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
@@ -159,13 +159,22 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       return [...prev.slice(0, -1), fn(last)]
     })
 
+  // Documents are chat-only; images work in any mode.
+  const docsAllowed = mode === 'chat'
+  const isDoc = (f: File) =>
+    f.type === 'application/pdf' ||
+    f.type.startsWith('text/') ||
+    /\.(pdf|txt|md|markdown|csv|log)$/i.test(f.name)
+
   async function addFiles(files: FileList | File[] | null) {
-    const imgs = [...(files ?? [])].filter((f) => f.type.startsWith('image/'))
-    for (const f of imgs) {
+    const accepted = [...(files ?? [])].filter(
+      (f) => f.type.startsWith('image/') || (docsAllowed && isDoc(f)),
+    )
+    for (const f of accepted) {
       setUploading((n) => n + 1)
       try {
-        const r = await api.uploadImage(f)
-        setAttach((a) => [...a, { id: r.id, name: r.name, url: `/api/uploads/${r.id}` }])
+        const r = await api.uploadFile(f)
+        setAttach((a) => [...a, { id: r.id, name: r.name, url: `/api/uploads/${r.id}`, kind: r.kind }])
       } catch {
         /* a failed upload just won't appear as a chip */
       } finally {
@@ -377,15 +386,29 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     <div className="flex max-w-[80%] flex-col items-end gap-1.5">
                       {turn.attachments?.length ? (
                         <div className="flex flex-wrap justify-end gap-1.5">
-                          {turn.attachments.map((a) => (
-                            <img
-                              key={a.id}
-                              src={a.url}
-                              alt={a.name}
-                              title={a.name}
-                              className="size-20 rounded-lg border object-cover"
-                            />
-                          ))}
+                          {turn.attachments.map((a) =>
+                            a.kind === 'doc' ? (
+                              <a
+                                key={a.id}
+                                href={a.url}
+                                target="_blank"
+                                rel="noopener"
+                                title={a.name}
+                                className="flex max-w-[12rem] items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-xs text-foreground"
+                              >
+                                <FileText className="size-4 shrink-0 text-muted-foreground" />
+                                <span className="truncate">{a.name}</span>
+                              </a>
+                            ) : (
+                              <img
+                                key={a.id}
+                                src={a.url}
+                                alt={a.name}
+                                title={a.name}
+                                className="size-20 rounded-lg border object-cover"
+                              />
+                            ),
+                          )}
                         </div>
                       ) : null}
                       {turn.text && (
@@ -455,7 +478,17 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 <div className="flex flex-wrap gap-2 px-3 pt-3">
                   {attach.map((a) => (
                     <div key={a.id} className="group relative">
-                      <img src={a.url} alt={a.name} className="size-16 rounded-lg border object-cover" />
+                      {a.kind === 'doc' ? (
+                        <div
+                          title={a.name}
+                          className="flex h-16 w-40 items-center gap-2 rounded-lg border bg-muted px-2.5 text-xs"
+                        >
+                          <FileText className="size-5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{a.name}</span>
+                        </div>
+                      ) : (
+                        <img src={a.url} alt={a.name} className="size-16 rounded-lg border object-cover" />
+                      )}
                       <button
                         onClick={() => setAttach((list) => list.filter((x) => x.id !== a.id))}
                         aria-label="Remove attachment"
@@ -499,7 +532,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   <input
                     ref={fileInput}
                     type="file"
-                    accept="image/*"
+                    accept={docsAllowed ? 'image/*,.pdf,.txt,.md,.markdown,.csv,.log' : 'image/*'}
                     multiple
                     hidden
                     onChange={(e) => {
@@ -509,8 +542,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   />
                   <button
                     onClick={() => fileInput.current?.click()}
-                    aria-label="Attach image"
-                    title="Attach image"
+                    aria-label="Attach file"
+                    title={docsAllowed ? 'Attach image or document' : 'Attach image (switch to Chat for documents)'}
                     className="grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
                   >
                     <Paperclip />

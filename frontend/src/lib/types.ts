@@ -13,7 +13,7 @@ export type Agent = {
   state: 'running' | 'done' | 'error'
 }
 
-export type Attachment = { id: string; name: string; url: string }
+export type Attachment = { id: string; name: string; url: string; kind: 'image' | 'doc' }
 
 export type Turn =
   | { role: 'user'; text: string; attachments?: Attachment[] }
