@@ -131,7 +131,7 @@ async def write_code(task: str, language: str = "code") -> str:
     """Write code for the task using the dedicated coding model. The code is shown
     to the user automatically — do not repeat it in your answer."""
     aid = uuid.uuid4().hex[:8]
-    agent_update(aid, label=f"Coding: {task[:50]}", status="Writing code…", state="running")
+    agent_update(aid, label=f"Coding: {task}", status="Writing code…", state="running")
     try:
         agent = Agent(coder_model(), instructions=get_prompt("subagents/coder"))
         result = await agent.run(task)
