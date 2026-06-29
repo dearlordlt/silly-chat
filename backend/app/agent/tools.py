@@ -15,6 +15,8 @@ import uuid
 
 from pydantic import BaseModel
 from pydantic_ai import Agent, BinaryContent, Tool
+from pydantic_ai.exceptions import UsageLimitExceeded
+from pydantic_ai.usage import UsageLimits
 
 from app.agent import search
 from app.agent.clock import now_str, tz_var
@@ -69,10 +71,18 @@ async def _run_worker(subtask: str) -> Finding:
     aid = uuid.uuid4().hex[:8]
     agent_update(aid, label=subtask, status="Researching…", state="running")
     token = agent_var.set(aid)
+    limit = get_settings().limits.worker_request_limit
     try:
-        result = await _worker().run(subtask)
+        result = await _worker().run(subtask, usage_limits=UsageLimits(request_limit=limit))
         agent_update(aid, status="Done", state="done")
         return Finding(subtask=subtask, summary=str(result.output))
+    except UsageLimitExceeded as exc:  # hit the search cap — keep going with what we have
+        agent_update(aid, status="Done", state="done")
+        log.info("worker [%s] hit search cap (%d): %s", aid, limit, exc)
+        return Finding(
+            subtask=subtask,
+            summary="(reached the search limit before finishing; based on the sources found so far)",
+        )
     except Exception as exc:  # one worker failing shouldn't sink the whole answer
         agent_update(aid, status="Failed", state="error")
         log.warning("worker failed [%s] %r: %s", aid, subtask[:60], exc)

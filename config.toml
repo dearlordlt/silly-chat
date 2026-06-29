@@ -28,6 +28,9 @@ max_vision_candidates = 5
 max_confirmed_hits = 3
 # Most parallel research workers the orchestrator may spawn per turn.
 max_agents = 4
+# Hard cap on model round-trips per research worker (≈ 6 web searches) — stops runaway
+# search loops from stalling a turn. The worker prompt also tells it to self-limit.
+worker_request_limit = 8
 # Per-user guardrails (Phase 4).
 user_requests_per_minute = 20
 # Retries for tool calls + structured-output validation (the repair pass).

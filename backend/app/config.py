@@ -41,6 +41,9 @@ class LimitsCfg(BaseModel):
     max_vision_candidates: int = 5
     max_confirmed_hits: int = 3
     max_agents: int = 4  # most parallel research workers per turn
+    # Hard backstop on model round-trips per research worker (≈ this many web searches)
+    # so a worker can't loop dozens of searches and stall the turn.
+    worker_request_limit: int = 8
     user_requests_per_minute: int = 20
     # Retries for tool calls + structured-output validation (the "repair pass").
     output_retries: int = 4
