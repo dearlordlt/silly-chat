@@ -21,8 +21,9 @@ agent_var: ContextVar[str | None] = ContextVar("agent", default=None)
 sources_var: ContextVar[list[Source] | None] = ContextVar("sources", default=None)
 # Accumulates research findings as (subtask, summary) — reused by the text fallback.
 findings_var: ContextVar[list[tuple[str, str]] | None] = ContextVar("findings", default=None)
-# Code artifacts written this turn as (language, content) — appended as code blocks.
-code_var: ContextVar[list[tuple[str, str]] | None] = ContextVar("code", default=None)
+# Code artifacts written this turn as (language, content, filename) — appended as code
+# blocks. filename is None for an unnamed single snippet.
+code_var: ContextVar[list[tuple[str, str, str | None]] | None] = ContextVar("code", default=None)
 
 
 def agent_update(id: str, *, label: str = "", status: str = "", state: str = "running") -> None:
@@ -49,7 +50,7 @@ def record_findings(items: list[tuple[str, str]]) -> None:
         bucket.extend(items)
 
 
-def record_code(language: str, content: str) -> None:
+def record_code(language: str, content: str, filename: str | None = None) -> None:
     bucket = code_var.get()
     if bucket is not None:
-        bucket.append((language, content))
+        bucket.append((language, content, filename))

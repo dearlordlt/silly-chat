@@ -26,6 +26,10 @@ export type Title = string | null;
 export type Type4 = "code";
 export type Language = string;
 export type Content = string;
+/**
+ * Relative path/name when the code is a real file (enables download).
+ */
+export type Filename = string | null;
 export type Type5 = "sources";
 export type Title1 = string;
 export type Url1 = string;
@@ -102,6 +106,7 @@ export interface CodeBlock {
   type?: Type4;
   language: Language;
   content: Content;
+  filename?: Filename;
   [k: string]: unknown;
 }
 /**

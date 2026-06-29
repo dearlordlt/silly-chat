@@ -52,6 +52,9 @@ class CodeBlock(BaseModel):
     type: Literal["code"] = "code"
     language: str
     content: str
+    filename: str | None = Field(
+        default=None, description="Relative path/name when the code is a real file (enables download)."
+    )
 
 
 class Source(BaseModel):

@@ -11,6 +11,7 @@ Descriptions come from the prompt registry (SSOT); nothing inline.
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
 
 from pydantic import BaseModel
@@ -137,6 +138,52 @@ def _strip_fences(code: str) -> str:
     return code
 
 
+# Extension -> highlight.js language id (fallback to the coder's declared language).
+_EXT_LANG = {
+    "html": "html", "htm": "html", "xml": "xml", "svg": "xml",
+    "js": "javascript", "mjs": "javascript", "jsx": "javascript",
+    "ts": "typescript", "tsx": "typescript", "py": "python", "rb": "ruby",
+    "go": "go", "rs": "rust", "java": "java", "kt": "kotlin", "c": "c", "h": "c",
+    "cpp": "cpp", "cc": "cpp", "hpp": "cpp", "cs": "csharp", "php": "php",
+    "swift": "swift", "css": "css", "scss": "scss", "json": "json", "yml": "yaml",
+    "yaml": "yaml", "toml": "toml", "ini": "ini", "sh": "bash", "bash": "bash",
+    "sql": "sql", "md": "markdown", "txt": "text", "mod": "text", "lua": "lua",
+}
+
+# A file boundary the coder emits, e.g. "=== FILE: src/app.py ===" (also tolerates
+# "=== File 1: app.py ==="). Only the path is captured.
+_FILE_MARKER = re.compile(r"^\s*=+\s*FILE\s*\d*\s*:?\s*(.+?)\s*=+\s*$", re.IGNORECASE)
+
+
+def _lang_for(path: str, fallback: str) -> str:
+    ext = path.rsplit(".", 1)[-1].lower() if "." in path else ""
+    return _EXT_LANG.get(ext, fallback or "code")
+
+
+def _split_files(output: str, fallback_language: str) -> list[tuple[str, str, str | None]]:
+    """Split coder output into (language, content, filename) per file.
+
+    Honors ``=== FILE: path ===`` markers so multi-file results render as separate,
+    downloadable blocks. With no markers it's a single unnamed snippet.
+    """
+    lines = output.splitlines()
+    marks = [
+        (i, m.group(1).strip())
+        for i, line in enumerate(lines)
+        if (m := _FILE_MARKER.match(line))
+    ]
+    if not marks:
+        code = _strip_fences(output)
+        return [(fallback_language or "code", code, None)] if code.strip() else []
+    files: list[tuple[str, str, str | None]] = []
+    for idx, (line_no, path) in enumerate(marks):
+        end = marks[idx + 1][0] if idx + 1 < len(marks) else len(lines)
+        body = _strip_fences("\n".join(lines[line_no + 1 : end]).strip("\n"))
+        if body.strip():
+            files.append((_lang_for(path, fallback_language), body, path))
+    return files
+
+
 async def write_code(task: str, language: str = "code") -> str:
     """Write code for the task using the dedicated coding model. The code is shown
     to the user automatically — do not repeat it in your answer."""
@@ -148,10 +195,16 @@ async def write_code(task: str, language: str = "code") -> str:
             instructions=get_prompt("subagents/coder", today=now_str(tz_var.get())),
         )
         result = await agent.run(task)
-        code = _strip_fences(str(result.output))
-        record_code(language or "code", code)
+        files = _split_files(str(result.output), language)
+        if not files:
+            return "(the coder returned nothing)"
+        for lang, content, fname in files:
+            record_code(lang, content, fname)
         agent_update(aid, status="Done", state="done")
-        return f"Wrote {code.count(chr(10)) + 1} lines of {language or 'code'} (shown to the user)."
+        if len(files) > 1:
+            return f"Wrote {len(files)} files: {', '.join(f or '(snippet)' for _, _, f in files)} (shown to the user)."
+        total = files[0][1].count(chr(10)) + 1
+        return f"Wrote {total} lines of {language or 'code'} (shown to the user)."
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
         log.warning("coder failed: %s", exc)

@@ -9,6 +9,11 @@ Rules:
 - If the task asks for a single HTML file, produce one self-contained file: include all
   CSS in a <style> tag and all JS in <script> tags. Load any libraries (e.g. Three.js)
   from a CDN. It must run by just opening the file.
+- If the solution naturally spans MULTIPLE files (e.g. a mod, a project with separate
+  config/source files), output each file on its own, each introduced by a line that is
+  EXACTLY: `=== FILE: relative/path/name.ext ===` followed by that file's contents, then
+  the next file. Put ONLY the path on that line — no "place this in…" prose. Use correct
+  relative paths. For a single file, just output the code with no FILE header.
 - Make it actually work and look decent — sensible defaults, no placeholders or TODOs.
 - Prefer a complete, runnable result over a partial sketch.
 - If the task gives you reference facts or snippets from documentation, follow them

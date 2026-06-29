@@ -207,6 +207,19 @@
         "content": {
           "title": "Content",
           "type": "string"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative path/name when the code is a real file (enables download).",
+          "title": "Filename"
         }
       },
       "required": [

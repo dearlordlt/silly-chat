@@ -175,8 +175,8 @@ def _final_events(reply, code: list[tuple[str, str]], sources: list[Source]):
     # the orchestrator's output), unless the model already emitted it as a code block.
     has_code_block = any(getattr(b, "type", None) == "code" for b in blocks)
     if not has_code_block:
-        for language, content in code:
-            blocks.append(CodeBlock(language=language, content=content))
+        for language, content, filename in code:
+            blocks.append(CodeBlock(language=language, content=content, filename=filename))
     seen: set[str] = set()
     unique: list[Source] = []
     for s in sources:
