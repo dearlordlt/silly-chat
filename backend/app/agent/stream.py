@@ -81,17 +81,32 @@ async def stream_chat(
     timezone: str | None = None,
     attachments: list[tuple[str, bytes]] | None = None,
 ) -> AsyncIterator[StreamEvent]:
-    agent = build_orchestrator(mode, timezone)
+    attachments = attachments or []
+    # Nudge the orchestrator to actually look, since its own model can't see images.
+    prompt = message
+    effective_mode: Mode = mode
+    if attachments and message.strip():
+        prompt = (
+            f"[The user attached {len(attachments)} image(s); their message below most likely "
+            f"refers to them. Use the look tool to see the image(s) first.]\n\n{message}"
+        )
+    elif attachments:
+        # Image(s) with no text — respond to the image itself, not to whatever the previous
+        # turn was about. Force neutral (chat) mode so a code/search pill bias + prior task
+        # history can't make it "continue" instead of describing the image.
+        effective_mode = "chat"
+        prompt = (
+            f"[The user sent {len(attachments)} image(s) and no text. The image IS the whole "
+            f"request. Use the look tool to see it, then just describe it / answer the obvious "
+            f"question it raises. Ignore the previous conversation — do NOT continue or repeat "
+            f"any earlier task unless the image itself clearly asks for it.]"
+        )
+    agent = build_orchestrator(effective_mode, timezone)
     message_history = _build_history(history or [])
     queue: asyncio.Queue = asyncio.Queue()
     sources: list[Source] = []
     findings: list[tuple[str, str]] = []
     code: list[tuple[str, str, str | None]] = []
-    attachments = attachments or []
-    # Nudge the orchestrator to actually look, since its own model can't see images.
-    prompt = message
-    if attachments:
-        prompt = f"[The user attached {len(attachments)} image(s). Use the look tool to see them, then answer.]\n\n{message}"
 
     def emit(ev: object) -> None:
         queue.put_nowait(ev)
