@@ -31,6 +31,7 @@ REQUIRED_PROMPTS: tuple[str, ...] = (
     "tools/research",
     "tools/find_images",
     "tools/write_code",
+    "tools/look",
     "subagents/researcher",
     "subagents/coder",
 )

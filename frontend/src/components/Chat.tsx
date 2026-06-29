@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowUp, PanelLeftOpen, Pencil, RotateCw } from 'lucide-react'
+import { ArrowUp, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, X } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
 import { effectiveTz } from '@/lib/prefs'
-import type { Mode, Slot, Turn } from '@/lib/types'
+import type { Attachment, Mode, Slot, Turn } from '@/lib/types'
 import {
   type ConvSummary,
   type Location,
@@ -46,6 +46,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [pendingDelete, setPendingDelete] = useState<{ id: string; location: Location } | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editText, setEditText] = useState('')
+  const [attach, setAttach] = useState<Attachment[]>([]) // uploaded, ready to send
+  const [uploading, setUploading] = useState(0) // in-flight uploads
+  const [dragOver, setDragOver] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
   const createdAt = useRef<number | null>(null)
   const dirty = useRef(false) // true only when the user changed THIS chat's content
   const session = useRef(0) // bumps on every chat switch; invalidates in-flight streams
@@ -78,6 +82,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     dirty.current = false
     atBottom.current = true // a freshly opened chat starts scrolled to the latest
     setBusy(false)
+    setAttach([]) // don't carry staged attachments across chats
     let cancelled = false
     loadAny(currentId).then((c) => {
       if (cancelled) return
@@ -154,11 +159,28 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       return [...prev.slice(0, -1), fn(last)]
     })
 
+  async function addFiles(files: FileList | File[] | null) {
+    const imgs = [...(files ?? [])].filter((f) => f.type.startsWith('image/'))
+    for (const f of imgs) {
+      setUploading((n) => n + 1)
+      try {
+        const r = await api.uploadImage(f)
+        setAttach((a) => [...a, { id: r.id, name: r.name, url: `/api/uploads/${r.id}` }])
+      } catch {
+        /* a failed upload just won't appear as a chip */
+      } finally {
+        setUploading((n) => n - 1)
+      }
+    }
+  }
+
   function send() {
     const message = input.trim()
-    if (!message || busy) return
+    if ((!message && attach.length === 0) || busy || uploading > 0) return
+    const atts = attach
     setInput('')
-    runTurn(message, turns)
+    setAttach([])
+    runTurn(message, turns, atts)
   }
 
   function startEdit(index: number, text: string) {
@@ -180,12 +202,12 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     const idx = turns.reduce((acc, t, i) => (t.role === 'user' ? i : acc), -1)
     const last = turns[idx]
     if (idx < 0 || last.role !== 'user') return
-    runTurn(last.text, turns.slice(0, idx))
+    runTurn(last.text, turns.slice(0, idx), last.attachments ?? [])
   }
 
   // Run one turn: append the user message to `base` and stream the reply, with
   // `base` (the prior conversation) as the model's context.
-  async function runTurn(message: string, base: Turn[]) {
+  async function runTurn(message: string, base: Turn[], attachments: Attachment[] = []) {
     const history = toHistory(base)
     const mySession = session.current
     const controller = new AbortController()
@@ -195,12 +217,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     setBusy(true)
     setTurns([
       ...base,
-      { role: 'user', text: message },
+      { role: 'user', text: message, attachments: attachments.length ? attachments : undefined },
       { role: 'assistant', status: 'Thinking…', agents: [], slots: [] },
     ])
 
     try {
-      for await (const ev of chatStream(message, mode, history, effectiveTz(), controller.signal)) {
+      const ids = attachments.map((a) => a.id)
+      for await (const ev of chatStream(message, mode, history, effectiveTz(), ids, controller.signal)) {
         if (session.current !== mySession) return // navigated away mid-stream
         switch (ev.event) {
           case 'agent_status':
@@ -351,8 +374,25 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                         <Pencil />
                       </button>
                     )}
-                    <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-sm">
-                      {turn.text}
+                    <div className="flex max-w-[80%] flex-col items-end gap-1.5">
+                      {turn.attachments?.length ? (
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          {turn.attachments.map((a) => (
+                            <img
+                              key={a.id}
+                              src={a.url}
+                              alt={a.name}
+                              title={a.name}
+                              className="size-20 rounded-lg border object-cover"
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                      {turn.text && (
+                        <div className="whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-sm">
+                          {turn.text}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
@@ -395,10 +435,56 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           </div>
 
           <div className="px-4 pb-4">
-            <div className="rounded-2xl border bg-card shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-ring">
+            <div
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragOver(true)
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDragOver(false)
+                addFiles(e.dataTransfer.files)
+              }}
+              className={cn(
+                'rounded-2xl border bg-card shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-ring',
+                dragOver && 'ring-2 ring-primary',
+              )}
+            >
+              {(attach.length > 0 || uploading > 0) && (
+                <div className="flex flex-wrap gap-2 px-3 pt-3">
+                  {attach.map((a) => (
+                    <div key={a.id} className="group relative">
+                      <img src={a.url} alt={a.name} className="size-16 rounded-lg border object-cover" />
+                      <button
+                        onClick={() => setAttach((list) => list.filter((x) => x.id !== a.id))}
+                        aria-label="Remove attachment"
+                        className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background shadow [&_svg]:size-3"
+                      >
+                        <X />
+                      </button>
+                    </div>
+                  ))}
+                  {uploading > 0 && (
+                    <div className="grid size-16 place-items-center rounded-lg border bg-muted text-muted-foreground">
+                      <Loader2 className="size-5 animate-spin" />
+                    </div>
+                  )}
+                </div>
+              )}
               <AutoTextarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onPaste={(e) => {
+                  const files = [...e.clipboardData.items]
+                    .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
+                    .map((it) => it.getAsFile())
+                    .filter((f): f is File => !!f)
+                  if (files.length) {
+                    e.preventDefault()
+                    addFiles(files)
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
@@ -409,7 +495,26 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 className="max-h-[50vh] w-full bg-transparent px-4 pt-3 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
               />
               <div className="flex items-center justify-between gap-2 px-2 pb-2">
-                <div className="flex gap-1">
+                <div className="flex items-center gap-1">
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(e) => {
+                      addFiles(e.target.files)
+                      e.target.value = '' // allow re-selecting the same file
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInput.current?.click()}
+                    aria-label="Attach image"
+                    title="Attach image"
+                    className="grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+                  >
+                    <Paperclip />
+                  </button>
                   {(['search', 'chat', 'code'] as Mode[]).map((m) => (
                     <button
                       key={m}
@@ -429,7 +534,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   size="icon"
                   className="size-8 rounded-full"
                   onClick={send}
-                  disabled={busy || !input.trim()}
+                  disabled={busy || uploading > 0 || (!input.trim() && attach.length === 0)}
                   aria-label="Send"
                 >
                   <ArrowUp />

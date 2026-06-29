@@ -10,15 +10,16 @@ export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
 
 export async function* chatStream(
   message: string,
-  mode: 'search' | 'chat',
+  mode: 'search' | 'chat' | 'code',
   history: HistoryMessage[],
   timezone: string | undefined,
+  attachments: string[],
   signal?: AbortSignal,
 ): AsyncGenerator<StreamEvent> {
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, mode, history, timezone }),
+    body: JSON.stringify({ message, mode, history, timezone, attachments }),
     credentials: 'include',
     signal,
   })

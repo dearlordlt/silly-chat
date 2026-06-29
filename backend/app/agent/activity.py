@@ -24,6 +24,8 @@ findings_var: ContextVar[list[tuple[str, str]] | None] = ContextVar("findings", 
 # Code artifacts written this turn as (language, content, filename) — appended as code
 # blocks. filename is None for an unnamed single snippet.
 code_var: ContextVar[list[tuple[str, str, str | None]] | None] = ContextVar("code", default=None)
+# Image attachments on the current turn as (media_type, bytes) — read by the vision `look` tool.
+attachments_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("attachments", default=None)
 
 
 def agent_update(id: str, *, label: str = "", status: str = "", state: str = "running") -> None:

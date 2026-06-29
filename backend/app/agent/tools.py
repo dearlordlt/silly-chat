@@ -24,6 +24,7 @@ from app.agent.clock import now_str, tz_var
 from app.agent.activity import (
     agent_update,
     agent_var,
+    attachments_var,
     record_code,
     record_findings,
     record_sources,
@@ -224,9 +225,30 @@ async def _vision_yes(image_url: str, question: str) -> bool:
     return r.output.strip().lower().startswith("y")
 
 
+async def look(question: str) -> str:
+    """Examine the image(s) the user attached to this message and answer a question."""
+    atts = attachments_var.get() or []
+    if not atts:
+        return "No image is attached to this message."
+    aid = uuid.uuid4().hex[:8]
+    agent_update(aid, label=f"Looking at {len(atts)} image(s)", status="Examining…", state="running")
+    try:
+        agent = Agent(vision_model())
+        content: list = [question]
+        content += [BinaryContent(data=data, media_type=mime) for mime, data in atts]
+        r = await agent.run(content)
+        agent_update(aid, status="Done", state="done")
+        return str(r.output)
+    except Exception as exc:
+        agent_update(aid, status="Failed", state="error")
+        log.warning("look failed: %s", exc)
+        return f"(could not view the image: {exc})"
+
+
 def build_tools() -> list[Tool]:
     return [
         Tool(research, name="research", description=get_prompt("tools/research")),
         Tool(find_images, name="find_images", description=get_prompt("tools/find_images")),
         Tool(write_code, name="write_code", description=get_prompt("tools/write_code")),
+        Tool(look, name="look", description=get_prompt("tools/look")),
     ]

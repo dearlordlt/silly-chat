@@ -23,7 +23,7 @@ from pydantic_ai.messages import (
 
 from pydantic_ai import Agent
 
-from app.agent.activity import code_var, emit_var, findings_var, sources_var
+from app.agent.activity import attachments_var, code_var, emit_var, findings_var, sources_var
 from app.agent.clock import tz_var
 from app.agent.ollama import orchestrator_model
 from app.agent.orchestrator import Mode, build_orchestrator
@@ -79,13 +79,19 @@ async def stream_chat(
     mode: Mode = "search",
     history: list[tuple[str, str]] | None = None,
     timezone: str | None = None,
+    attachments: list[tuple[str, bytes]] | None = None,
 ) -> AsyncIterator[StreamEvent]:
     agent = build_orchestrator(mode, timezone)
     message_history = _build_history(history or [])
     queue: asyncio.Queue = asyncio.Queue()
     sources: list[Source] = []
     findings: list[tuple[str, str]] = []
-    code: list[tuple[str, str]] = []
+    code: list[tuple[str, str, str | None]] = []
+    attachments = attachments or []
+    # Nudge the orchestrator to actually look, since its own model can't see images.
+    prompt = message
+    if attachments:
+        prompt = f"[The user attached {len(attachments)} image(s). Use the look tool to see them, then answer.]\n\n{message}"
 
     def emit(ev: object) -> None:
         queue.put_nowait(ev)
@@ -106,12 +112,13 @@ async def stream_chat(
         tok_f = findings_var.set(findings)
         tok_c = code_var.set(code)
         tok_tz = tz_var.set(timezone)
+        tok_a = attachments_var.set(attachments)
         log.info("turn start: mode=%s history=%d msg=%r", mode, len(history or []), message[:120])
         try:
             with capture_run_messages() as messages:
                 try:
                     result = await agent.run(
-                        message, message_history=message_history, event_stream_handler=on_events
+                        prompt, message_history=message_history, event_stream_handler=on_events
                     )
                     output = result.output
                 except Exception as primary:
@@ -132,6 +139,7 @@ async def stream_chat(
             findings_var.reset(tok_f)
             code_var.reset(tok_c)
             tz_var.reset(tok_tz)
+            attachments_var.reset(tok_a)
             queue.put_nowait(_DONE)
 
     task = asyncio.create_task(run())

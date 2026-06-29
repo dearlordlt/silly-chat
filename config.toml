@@ -39,6 +39,12 @@ output_retries = 4
 preview_ttl_minutes = 30
 preview_max_kb = 2048
 preview_max_per_user = 20
+# Attachments (uploaded images): recompressed on ingest; quotas + TTL keep disk in check.
+upload_max_mb = 10
+upload_image_max_dim = 1568
+upload_user_quota_mb = 200
+upload_global_quota_mb = 20000
+upload_ttl_days = 7
 
 [db]
 path = "data/silly.db"

@@ -52,6 +52,13 @@ class LimitsCfg(BaseModel):
     preview_ttl_minutes: int = 30
     preview_max_kb: int = 2048
     preview_max_per_user: int = 20
+    # Attachments (images now; docs later). Images are recompressed on ingest, so disk
+    # use stays small; quotas + TTL are the backstops that keep the 50 GB box clean.
+    upload_max_mb: int = 10  # reject a single upload larger than this (pre-compression)
+    upload_image_max_dim: int = 1568  # downscale longest side to this before storing
+    upload_user_quota_mb: int = 200  # per-user ceiling
+    upload_global_quota_mb: int = 20000  # whole-app ceiling (LRU-evict when exceeded)
+    upload_ttl_days: int = 7  # delete uploads older than this
 
 
 class DbCfg(BaseModel):

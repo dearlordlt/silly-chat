@@ -31,6 +31,22 @@ class AppSetting(SQLModel, table=True):
     value: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
+class Upload(SQLModel, table=True):
+    """An uploaded attachment (image now; docs later). Bytes live on disk keyed by
+    content hash so identical files dedupe; this row is the per-user reference + metadata."""
+
+    id: str = Field(primary_key=True)  # uuid; what the client/chat references
+    user_id: int = Field(index=True, foreign_key="user.id")
+    sha256: str = Field(index=True)  # on-disk file name; dedupes identical bytes
+    kind: str = "image"  # image | doc
+    mime: str = "application/octet-stream"
+    ext: str = "bin"
+    size: int = 0  # stored (post-compression) byte size
+    name: str = ""  # original filename, for display/download
+    created_at: datetime = Field(default_factory=_utcnow)
+    last_used_at: datetime = Field(default_factory=_utcnow)
+
+
 class Conversation(SQLModel, table=True):
     # id is the client-generated uuid (stable when a chat moves local<->server).
     id: str = Field(primary_key=True)

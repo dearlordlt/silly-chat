@@ -13,11 +13,12 @@ from sse_starlette.sse import EventSourceResponse
 from app import ratelimit
 from app.agent.orchestrator import Mode
 from app.agent.stream import stream_chat
-from app.auth.deps import ApprovedUser
+from app.auth.deps import ApprovedUser, SessionDep
 from app.auth.routes import admin_router, auth_router
 from app.config import get_settings
 from app.conversations import router as conversations_router
 from app.preview import router as preview_router
+from app.uploads import load_attachment, router as uploads_router
 from app.db import init_db
 from app.prompts.registry import validate_prompts
 
@@ -32,6 +33,9 @@ async def lifespan(app: FastAPI):
     validate_prompts()
     init_db()
     runtime.load_overrides()
+    from app.uploads import sweep_expired
+
+    sweep_expired()  # drop attachments past their TTL on boot
     get_logger("app").info("silly-chat ready — models=%s", runtime.current())
     yield
 
@@ -51,6 +55,7 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(conversations_router)
 app.include_router(preview_router)
+app.include_router(uploads_router)
 
 
 class HistoryMessage(BaseModel):
@@ -63,6 +68,7 @@ class ChatRequest(BaseModel):
     mode: Mode = "search"
     history: list[HistoryMessage] = []
     timezone: str | None = None  # IANA tz, only if the user opted to share it
+    attachments: list[str] = []  # upload ids to attach to this message (images)
 
 
 @app.get("/api/health")
@@ -71,14 +77,16 @@ async def health() -> dict:
 
 
 @app.post("/api/chat")
-async def chat(req: ChatRequest, user: ApprovedUser) -> EventSourceResponse:
+async def chat(req: ChatRequest, user: ApprovedUser, session: SessionDep) -> EventSourceResponse:
     if not ratelimit.allow(f"user:{user.id}", get_settings().limits.user_requests_per_minute):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "slow down a moment")
 
     history = [(m.role, m.content) for m in req.history]
+    # Resolve attachment ids to (mime, bytes), owner-checked; silently drop any expired.
+    attachments = [a for a in (load_attachment(session, aid, user.id) for aid in req.attachments) if a]
 
     async def event_generator():
-        async for event in stream_chat(req.message, req.mode, history, req.timezone):
+        async for event in stream_chat(req.message, req.mode, history, req.timezone, attachments):
             yield {"event": event.event, "data": event.model_dump_json()}
 
     return EventSourceResponse(event_generator())

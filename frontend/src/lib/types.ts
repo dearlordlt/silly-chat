@@ -13,6 +13,8 @@ export type Agent = {
   state: 'running' | 'done' | 'error'
 }
 
+export type Attachment = { id: string; name: string; url: string }
+
 export type Turn =
-  | { role: 'user'; text: string }
+  | { role: 'user'; text: string; attachments?: Attachment[] }
   | { role: 'assistant'; status: string | null; agents: Agent[]; slots: Slot[]; error?: string }
