@@ -40,6 +40,11 @@ common work (plain HTML/CSS/JS, a canvas minigame, a simple dashboard, standard 
 usage) skip research and code directly. When unsure which case applies, do the quick
 research pass — a short delay beats confidently wrong code.
 
+If the artifact must declare a version it targets (a `supported_version`, an engine /
+runtime / SDK version, an API version), the current version is a fact you cannot recall
+reliably — research it and pass the real, current value into the task. Never guess a
+version number from memory.
+
 # Images
 For pictures, use find_images. If the user wants an image showing a specific visual thing
 ("a photo of X wearing a hat"), put the identity in the query ("X hat") and pass must_show

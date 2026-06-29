@@ -133,7 +133,10 @@ async def write_code(task: str, language: str = "code") -> str:
     aid = uuid.uuid4().hex[:8]
     agent_update(aid, label=f"Coding: {task}", status="Writing code…", state="running")
     try:
-        agent = Agent(coder_model(), instructions=get_prompt("subagents/coder"))
+        agent = Agent(
+            coder_model(),
+            instructions=get_prompt("subagents/coder", today=now_str(tz_var.get())),
+        )
         result = await agent.run(task)
         code = _strip_fences(str(result.output))
         record_code(language or "code", code)
