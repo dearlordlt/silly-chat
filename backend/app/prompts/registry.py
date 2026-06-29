@@ -26,6 +26,7 @@ REQUIRED_PROMPTS: tuple[str, ...] = (
     "orchestrator",
     "mode_search",
     "mode_chat",
+    "mode_code",
     "tools/web_search",
     "tools/research",
     "tools/find_images",

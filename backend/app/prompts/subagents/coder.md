@@ -8,3 +8,7 @@ Rules:
   from a CDN. It must run by just opening the file.
 - Make it actually work and look decent — sensible defaults, no placeholders or TODOs.
 - Prefer a complete, runnable result over a partial sketch.
+- If the task gives you reference facts or snippets from documentation, follow them
+  exactly — use the real API names, file paths, fields, and syntax provided; do not invent
+  or "improve" them. If a needed detail isn't given and you're unsure, prefer standard,
+  widely-supported approaches over guessing at niche specifics.
