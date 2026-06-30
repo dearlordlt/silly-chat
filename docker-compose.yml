@@ -17,6 +17,11 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       - searxng
+    # Persist the SQLite DB + uploaded files across image rebuilds. Without this,
+    # `git pull && ./start.sh` (which rebuilds the backend) would wipe all accounts,
+    # conversations, and attachments on every deploy.
+    volumes:
+      - silly-data:/srv/data
     restart: unless-stopped
 
   frontend:
@@ -33,3 +38,6 @@ services:
     volumes:
       - ./searxng:/etc/searxng:rw
     restart: unless-stopped
+
+volumes:
+  silly-data: # backend SQLite DB + uploaded files (survives rebuilds/redeploys)
