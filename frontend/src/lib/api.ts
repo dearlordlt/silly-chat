@@ -6,6 +6,26 @@ export type Me = {
   settings?: { storageMode?: string } & Record<string, unknown>
 }
 
+// FastAPI errors come back as {detail: string} OR {detail: [{msg, loc}, ...]} (422
+// validation). Turn either into one readable sentence — never "[object Object]".
+function errorMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const msgs = detail.map((e) => (e && typeof e === 'object' && 'msg' in e ? String(e.msg) : String(e)))
+    return msgs.join('; ') || fallback
+  }
+  if (detail && typeof detail === 'object' && 'msg' in detail) return String((detail as { msg: unknown }).msg)
+  return fallback
+}
+
+async function readError(res: Response): Promise<string> {
+  try {
+    return errorMessage((await res.json()).detail, res.statusText)
+  } catch {
+    return res.statusText
+  }
+}
+
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method,
@@ -13,15 +33,7 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
     body: body ? JSON.stringify(body) : undefined,
     credentials: 'include',
   })
-  if (!res.ok) {
-    let detail = res.statusText
-    try {
-      detail = (await res.json()).detail ?? detail
-    } catch {
-      /* ignore */
-    }
-    throw new Error(detail)
-  }
+  if (!res.ok) throw new Error(await readError(res))
   const text = await res.text()
   return (text ? JSON.parse(text) : null) as T
 }
@@ -59,15 +71,7 @@ export const api = {
     const form = new FormData()
     form.append('file', file)
     const res = await fetch('/api/uploads', { method: 'POST', body: form, credentials: 'include' })
-    if (!res.ok) {
-      let detail = res.statusText
-      try {
-        detail = (await res.json()).detail ?? detail
-      } catch {
-        /* ignore */
-      }
-      throw new Error(detail)
-    }
+    if (!res.ok) throw new Error(await readError(res))
     return res.json()
   },
 }
