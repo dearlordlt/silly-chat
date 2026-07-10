@@ -17,6 +17,9 @@ from this file.
   how much of the context window this chat is using (used/total and %).
 - **Message timestamps** — every message carries a subtle time (date shown when
   it isn't from today).
+- **Live code** — while the coding agent works, you watch the code being written
+  line by line instead of staring at a spinner; the finished, downloadable code
+  block replaces it when the turn completes.
 
 ## v1.4.0 — 2026-07-10
 

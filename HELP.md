@@ -70,8 +70,9 @@ countries) can be outlined; historical or rough regions can be sketched approxim
 
 ## Code canvas
 
-Generated code appears in a canvas with syntax highlighting and line numbers. HTML runs
-in a live Preview tab and can open in its own sandboxed browser tab; multi-file
+Generated code appears in a canvas with syntax highlighting and line numbers. While the
+coding agent works you see the code being written live; the finished block replaces it.
+HTML runs in a live Preview tab and can open in its own sandboxed browser tab; multi-file
 projects appear as separate files, each downloadable.
 
 ## Chat history & storage
