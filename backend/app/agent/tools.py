@@ -203,9 +203,10 @@ def _split_files(output: str, fallback_language: str) -> list[tuple[str, str, st
 async def write_code(task: str, language: str = "code") -> str:
     """Write code for the task using the dedicated coding model. The code is shown
     to the user automatically — do not repeat it in your answer."""
-    # Refuse an exact duplicate of a task already dispatched this turn — models
-    # sometimes emit the same call twice (parallel tool calls / output retries),
-    # which used to burn a second full coder run and show duplicate agent rows.
+    # Guardrails against runaway re-coding (seen live: a "fix it" turn produced three
+    # different games). Exact duplicates are refused, and no turn runs the coder more
+    # than twice — eager models otherwise hedge with rewrite after rewrite, since they
+    # can't verify the result themselves.
     seen = code_tasks_var.get()
     key = " ".join(task.split())[:500]
     if seen is not None:
@@ -213,6 +214,12 @@ async def write_code(task: str, language: str = "code") -> str:
             return (
                 "(this exact artifact was already written by an earlier write_code call "
                 "this turn and is shown to the user — do not call write_code again)"
+            )
+        if len(seen) >= 2:
+            return (
+                "(REFUSED: the coder already ran twice this turn. Do NOT write another "
+                "version — the existing code is shown to the user. Give your final "
+                "answer now, describing what was built.)"
             )
         seen[key] = "running"
 
@@ -253,9 +260,15 @@ async def write_code(task: str, language: str = "code") -> str:
             record_code(lang, content, fname)
         agent_update(aid, status="Done", state="done")
         if len(files) > 1:
-            return f"Wrote {len(files)} files: {', '.join(f or '(snippet)' for _, _, f in files)} (shown to the user)."
+            return (
+                f"Wrote {len(files)} files: {', '.join(f or '(snippet)' for _, _, f in files)} — "
+                "already shown to the user. Do not call write_code again for this; give your final answer."
+            )
         total = files[0][1].count(chr(10)) + 1
-        return f"Wrote {total} lines of {language or 'code'} (shown to the user)."
+        return (
+            f"Wrote {total} lines of {language or 'code'} — already shown to the user. "
+            "Do not call write_code again for this; give your final answer."
+        )
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
         log.warning("coder failed: %s", exc)
