@@ -71,6 +71,9 @@ class ChatRequest(BaseModel):
     history: list[HistoryMessage] = []
     timezone: str | None = None  # IANA tz, only if the user opted to share it
     attachments: list[str] = []  # upload ids to attach to this message (images)
+    # Flattened content of @-linked conversations, prepended as background context
+    # (kept outside the recent-history trim so long chats don't push it out).
+    context: str | None = None
 
 
 @app.get("/api/health")
@@ -105,7 +108,7 @@ async def chat(req: ChatRequest, user: ApprovedUser, session: SessionDep) -> Eve
 
     async def event_generator():
         async for event in stream_chat(
-            req.message, req.mode, history, req.timezone, images, doc_chunks
+            req.message, req.mode, history, req.timezone, images, doc_chunks, req.context
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 

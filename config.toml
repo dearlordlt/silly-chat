@@ -23,6 +23,9 @@ coder = "glm-5.2"
 # runs on the local embed appliance (see [ollama].embed_base_url / compose `embed`
 # profile) or a dev box's own daemon.
 embed = "nomic-embed-text:v1.5"
+# Context window of the orchestrator (tokens) — shown as the "total" in the UI's
+# context status line. deepseek-v4 class models: 128k.
+context_window = 131072
 
 [maps]
 # Free OpenStreetMap ecosystem (no API keys). Swap for self-hosted instances anytime.

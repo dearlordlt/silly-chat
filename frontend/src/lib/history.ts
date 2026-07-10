@@ -17,6 +17,7 @@ export interface FullConv {
   id: string
   title: string
   turns: Turn[]
+  linked?: string[] // ids of @-linked conversations (context for this chat)
   createdAt: number
   updatedAt: number
 }
@@ -82,7 +83,15 @@ export async function loadAny(id: string): Promise<(FullConv & { location: Locat
   try {
     const c = await api.getServerConvo(id)
     const ts = Date.parse(c.updated_at)
-    return { id: c.id, title: c.title, turns: c.turns as Turn[], createdAt: ts, updatedAt: ts, location: 'server' }
+    return {
+      id: c.id,
+      title: c.title,
+      turns: c.turns as Turn[],
+      linked: c.linked ?? [],
+      createdAt: ts,
+      updatedAt: ts,
+      location: 'server',
+    }
   } catch {
     return undefined
   }
@@ -95,6 +104,7 @@ export async function loadFull(id: string, location: Location): Promise<FullConv
     id: c.id,
     title: c.title,
     turns: c.turns as Turn[],
+    linked: c.linked ?? [],
     createdAt: Date.parse(c.updated_at),
     updatedAt: Date.parse(c.updated_at),
   }
@@ -104,7 +114,11 @@ export async function save(conv: FullConv, location: Location): Promise<void> {
   if (location === 'local') {
     await db.conversations.put(conv)
   } else {
-    await api.putServerConvo(conv.id, { title: conv.title, turns: conv.turns })
+    await api.putServerConvo(conv.id, {
+      title: conv.title,
+      turns: conv.turns,
+      linked: conv.linked ?? [],
+    })
   }
 }
 

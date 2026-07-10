@@ -16,6 +16,22 @@ export type Agent = {
 
 export type Attachment = { id: string; name: string; url: string; kind: 'image' | 'doc'; size?: number }
 
+// Telemetry from the DoneEvent — powers the context/model status line.
+export type TurnStats = {
+  inputTokens?: number
+  outputTokens?: number
+  contextWindow?: number
+  models: string[]
+}
+
 export type Turn =
-  | { role: 'user'; text: string; attachments?: Attachment[] }
-  | { role: 'assistant'; status: string | null; agents: Agent[]; slots: Slot[]; error?: string; stopped?: boolean }
+  | { role: 'user'; text: string; attachments?: Attachment[]; ts?: number }
+  | {
+      role: 'assistant'
+      status: string | null
+      agents: Agent[]
+      slots: Slot[]
+      error?: string
+      stopped?: boolean
+      ts?: number
+    }

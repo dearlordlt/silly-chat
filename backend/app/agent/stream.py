@@ -85,8 +85,16 @@ def _describe(messages) -> str:
     return " || ".join(out)
 
 
-def _build_history(history: list[tuple[str, str]]):
+_MAX_CONTEXT_CHARS = 24_000  # backstop on @-linked context riding in from the client
+
+
+def _build_history(history: list[tuple[str, str]], context: str | None = None):
     messages = []
+    if context and context.strip():
+        # Linked-chat context sits BEFORE the recent-history window, paired with an
+        # ack so the transcript keeps user/assistant alternation.
+        messages.append(ModelRequest(parts=[UserPromptPart(content=context[:_MAX_CONTEXT_CHARS])]))
+        messages.append(ModelResponse(parts=[TextPart(content="Noted — I'll use that as background context.")]))
     for role, content in history[-_MAX_HISTORY:]:
         if not content.strip():
             continue
@@ -104,6 +112,7 @@ async def stream_chat(
     timezone: str | None = None,
     attachments: list[tuple[str, bytes]] | None = None,
     doc_chunks: list[tuple[str, bytes]] | None = None,
+    context: str | None = None,
 ) -> AsyncIterator[StreamEvent]:
     attachments = attachments or []
     doc_chunks = doc_chunks or []
@@ -137,12 +146,13 @@ async def stream_chat(
                 f"earlier task unless the attachment itself asks for it.]"
             )
     agent = build_orchestrator(effective_mode, timezone)
-    message_history = _build_history(history or [])
+    message_history = _build_history(history or [], context)
     queue: asyncio.Queue = asyncio.Queue()
     sources: list[Source] = []
     findings: list[tuple[str, str]] = []
     code: list[tuple[str, str, str | None]] = []
     built_maps: list = []
+    stats: dict[str, int] = {}  # turn telemetry for the status line
 
     def emit(ev: object) -> None:
         queue.put_nowait(ev)
@@ -238,6 +248,15 @@ async def stream_chat(
                         prompt, message_history=message_history, event_stream_handler=on_events
                     )
                     output = result.output
+                    # Context used = prompt tokens of the LAST model request (the full
+                    # conversation as the model saw it); output = whole-turn total.
+                    for m in reversed(result.all_messages()):
+                        if isinstance(m, ModelResponse) and m.usage and m.usage.input_tokens:
+                            stats["input_tokens"] = m.usage.input_tokens
+                            break
+                    usage = result.usage() if callable(result.usage) else result.usage
+                    if usage and usage.output_tokens:
+                        stats["output_tokens"] = usage.output_tokens
                 except Exception as primary:
                     # Surface what the model produced, then salvage the research into a
                     # plain-text answer instead of failing the whole turn.
@@ -279,7 +298,22 @@ async def stream_chat(
             else:
                 yield item  # AgentStatusEvent / AgentUpdateEvent / block streaming
 
-        yield DoneEvent()
+        from app import runtime
+        from app.config import get_settings
+
+        models = [runtime.model_for("orchestrator")]
+        if findings:
+            models.append(runtime.model_for("worker"))
+        if attachments:
+            models.append(runtime.model_for("vision"))
+        if code:
+            models.append(runtime.model_for("coder"))
+        yield DoneEvent(
+            input_tokens=stats.get("input_tokens"),
+            output_tokens=stats.get("output_tokens"),
+            context_window=get_settings().models.context_window,
+            models=list(dict.fromkeys(models)),
+        )
     finally:
         # Client gone (stop button / closed tab) or normal end: make sure the agent
         # task dies with the stream so an abandoned turn stops burning tokens.

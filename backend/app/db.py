@@ -32,6 +32,10 @@ def _ensure_columns() -> None:
         if "settings" not in cols:
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN settings TEXT DEFAULT '{}'")
             conn.commit()
+        cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(conversation)").fetchall()}
+        if "linked" not in cols:
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN linked TEXT DEFAULT '[]'")
+            conn.commit()
 
 
 def get_session() -> Iterator[Session]:

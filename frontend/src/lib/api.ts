@@ -45,7 +45,7 @@ export type AppMeta = {
 }
 
 export type ServerConvSummary = { id: string; title: string; updated_at: string }
-export type ServerConv = ServerConvSummary & { turns: unknown[] }
+export type ServerConv = ServerConvSummary & { turns: unknown[]; linked?: string[] }
 
 export const api = {
   me: () => req<Me | null>('GET', '/api/auth/me'),
@@ -70,7 +70,7 @@ export const api = {
   // Server-side conversation store ("save to server" mode).
   listServerConvos: () => req<ServerConvSummary[]>('GET', '/api/conversations'),
   getServerConvo: (id: string) => req<ServerConv>('GET', `/api/conversations/${id}`),
-  putServerConvo: (id: string, body: { title: string; turns: unknown[] }) =>
+  putServerConvo: (id: string, body: { title: string; turns: unknown[]; linked?: string[] }) =>
     req<ServerConvSummary>('PUT', `/api/conversations/${id}`, body),
   deleteServerConvo: (id: string) => req<{ ok: boolean }>('DELETE', `/api/conversations/${id}`),
 

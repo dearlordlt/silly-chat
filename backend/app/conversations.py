@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api/conversations", tags=["conversations"])
 class ConvIn(BaseModel):
     title: str = ""
     turns: list[Any] = []
+    linked: list[str] = []  # ids of @-linked conversations (context for this chat)
 
 
 class ConvSummary(BaseModel):
@@ -33,6 +34,7 @@ class ConvSummary(BaseModel):
 
 class ConvOut(ConvSummary):
     turns: list[Any]
+    linked: list[str] = []
 
 
 def _utc(dt: datetime) -> datetime:
@@ -61,7 +63,9 @@ def list_conversations(user: ApprovedUser, session: SessionDep) -> list[ConvSumm
 @router.get("/{cid}")
 def get_conversation(cid: str, user: ApprovedUser, session: SessionDep) -> ConvOut:
     c = _own(session, user, cid)
-    return ConvOut(id=c.id, title=c.title, turns=c.turns, updated_at=_utc(c.updated_at))
+    return ConvOut(
+        id=c.id, title=c.title, turns=c.turns, linked=c.linked or [], updated_at=_utc(c.updated_at)
+    )
 
 
 @router.put("/{cid}")
@@ -75,10 +79,11 @@ def upsert_conversation(
             raise HTTPException(status.HTTP_404_NOT_FOUND, "no such conversation")
         c.title = body.title
         c.turns = body.turns
+        c.linked = body.linked
         c.updated_at = now
     else:
         c = Conversation(
-            id=cid, user_id=user.id, title=body.title, turns=body.turns,
+            id=cid, user_id=user.id, title=body.title, turns=body.turns, linked=body.linked,
             created_at=now, updated_at=now,
         )
     session.add(c)

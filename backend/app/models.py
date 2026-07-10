@@ -64,5 +64,7 @@ class Conversation(SQLModel, table=True):
     user_id: int = Field(index=True, foreign_key="user.id")
     title: str = ""
     turns: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    # Ids of other conversations @-linked into this one's context.
+    linked: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)

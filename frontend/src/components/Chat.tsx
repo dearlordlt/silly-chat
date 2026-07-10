@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowUp, FileText, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, Square, X } from 'lucide-react'
+import { ArrowUp, FileText, Link2, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, Square, X } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
 import { effectiveTz } from '@/lib/prefs'
-import type { Attachment, Mode, Slot, Turn } from '@/lib/types'
+import type { Attachment, Mode, Slot, Turn, TurnStats } from '@/lib/types'
 import {
   type ConvSummary,
   type Location,
@@ -54,6 +54,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [attach, setAttach] = useState<Attachment[]>([]) // uploaded, ready to send
   const [uploading, setUploading] = useState(0) // in-flight uploads
   const [dragOver, setDragOver] = useState(false)
+  const [linked, setLinked] = useState<string[]>([]) // @-linked chats (context for this one)
+  // @-mention typeahead: start = index of the '@' in the input, sel = highlighted row.
+  const [mention, setMention] = useState<{ start: number; query: string; sel: number } | null>(null)
+  const [stats, setStats] = useState<TurnStats | null>(null) // last turn's telemetry
+  const composerRef = useRef<HTMLTextAreaElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const createdAt = useRef<number | null>(null)
   const dirty = useRef(false) // true only when the user changed THIS chat's content
@@ -88,15 +93,19 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     atBottom.current = true // a freshly opened chat starts scrolled to the latest
     setBusy(false)
     setAttach([]) // don't carry staged attachments across chats
+    setMention(null)
+    setStats(null)
     let cancelled = false
     loadAny(currentId).then((c) => {
       if (cancelled) return
       if (c) {
         setTurns(c.turns)
+        setLinked(c.linked ?? [])
         setCurrentMode(c.location)
         createdAt.current = c.createdAt
       } else {
         setTurns([])
+        setLinked([])
         createdAt.current = null
       }
     })
@@ -118,11 +127,23 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     const made = createdAt.current ?? Date.now()
     createdAt.current = made
     save(
-      { id: currentId, title: titleFrom(turns), turns, createdAt: made, updatedAt: Date.now() },
+      { id: currentId, title: titleFrom(turns), turns, linked, createdAt: made, updatedAt: Date.now() },
       currentMode === 'server' ? 'server' : 'local',
     ).then(refreshList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turns, busy])
+
+  // Link/unlink another chat as context. Persists immediately when this chat is
+  // already saved; an empty/unsaved chat just keeps it in state until first save.
+  function changeLinked(next: string[]) {
+    setLinked(next)
+    if (currentMode === 'off' || turns.length === 0) return
+    const made = createdAt.current ?? Date.now()
+    save(
+      { id: currentId, title: titleFrom(turns), turns, linked: next, createdAt: made, updatedAt: Date.now() },
+      currentMode === 'server' ? 'server' : 'local',
+    ).catch(() => {})
+  }
 
   function newChat() {
     setCurrentMode(storageMode)
@@ -154,6 +175,60 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     await move(id, from, to)
     await refreshList()
     if (id === currentId) setCurrentMode(to)
+  }
+
+  // ---- @-mention typeahead (link another chat as context) ----
+
+  // Candidates for the open typeahead: other chats matching what follows the '@'.
+  const mentionHits = useMemo(() => {
+    if (!mention) return []
+    const q = mention.query.toLowerCase()
+    return conversations
+      .filter((c) => c.id !== currentId && !linked.includes(c.id) && c.title.toLowerCase().includes(q))
+      .slice(0, 6)
+  }, [mention, conversations, linked, currentId])
+
+  // An '@' word being typed at the caret opens the typeahead; anything else closes it.
+  function updateMention(value: string, caret: number) {
+    const m = /(^|\s)@([^\s@]*)$/.exec(value.slice(0, caret))
+    if (m) setMention({ start: caret - m[2].length - 1, query: m[2], sel: 0 })
+    else setMention(null)
+  }
+
+  function selectMention(c: ConvSummary) {
+    if (!mention) return
+    const el = composerRef.current
+    const caret = el ? el.selectionStart : input.length
+    const title = c.title || 'Untitled'
+    setInput(input.slice(0, mention.start) + '@' + title + ' ' + input.slice(caret))
+    setMention(null)
+    changeLinked([...linked, c.id])
+    requestAnimationFrame(() => {
+      const pos = mention.start + title.length + 2
+      el?.focus()
+      el?.setSelectionRange(pos, pos)
+    })
+  }
+
+  // Flatten @-linked chats into one context string sent with every message here.
+  // A linked chat that was deleted later is skipped silently.
+  async function linkedContext(): Promise<string | undefined> {
+    if (linked.length === 0) return undefined
+    const parts: string[] = []
+    for (const id of linked) {
+      const c = await loadAny(id)
+      if (!c) continue
+      const flat = toHistory(c.turns)
+        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n')
+      parts.push(`### Linked chat: "${c.title || 'Untitled'}"\n${flat.slice(-8000)}`)
+    }
+    if (parts.length === 0) return undefined
+    return (
+      '[The user linked earlier conversation(s) into this chat as background context. ' +
+      'Use them when relevant; the current conversation takes precedence.]\n\n' +
+      parts.join('\n\n')
+    )
   }
 
   // Pure update of the last (assistant) turn — safe under StrictMode double-invoke.
@@ -237,13 +312,14 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     setBusy(true)
     setTurns([
       ...base,
-      { role: 'user', text: message, attachments: attachments.length ? attachments : undefined },
+      { role: 'user', text: message, attachments: attachments.length ? attachments : undefined, ts: Date.now() },
       { role: 'assistant', status: 'Thinking…', agents: [], slots: [] },
     ])
 
     try {
       const ids = attachments.map((a) => a.id)
-      for await (const ev of chatStream(message, mode, history, effectiveTz(), ids, controller.signal)) {
+      const context = await linkedContext()
+      for await (const ev of chatStream(message, mode, history, effectiveTz(), ids, context, controller.signal)) {
         if (session.current !== mySession) return // navigated away mid-stream
         switch (ev.event) {
           case 'agent_status':
@@ -304,7 +380,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             patchLast((t) => ({ ...t, status: null, error: ev.message }))
             break
           case 'done':
-            patchLast((t) => ({ ...t, status: null }))
+            patchLast((t) => ({ ...t, status: null, ts: Date.now() }))
+            setStats({
+              inputTokens: ev.input_tokens ?? undefined,
+              outputTokens: ev.output_tokens ?? undefined,
+              contextWindow: ev.context_window ?? undefined,
+              models: ev.models ?? [],
+            })
             break
         }
       }
@@ -312,9 +394,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       if (session.current === mySession) {
         if (controller.signal.aborted) {
           // The user hit Stop — keep whatever already streamed, no error box.
-          patchLast((t) => ({ ...t, status: null, stopped: true }))
+          patchLast((t) => ({ ...t, status: null, stopped: true, ts: Date.now() }))
         } else {
-          patchLast((t) => ({ ...t, status: null, error: String(e) }))
+          patchLast((t) => ({ ...t, status: null, error: String(e), ts: Date.now() }))
         }
       }
     } finally {
@@ -385,6 +467,26 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             })()}
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            {/* Status line: model(s) + context used last turn (from the done event). */}
+            {stats && (
+              <span
+                className="mr-1 hidden text-[11px] font-medium text-muted-foreground md:block"
+                title={
+                  stats.outputTokens != null
+                    ? `Context sent to the model last turn · ${fmtTok(stats.outputTokens)} tokens generated`
+                    : 'Context sent to the model last turn'
+                }
+              >
+                {stats.models.join(' + ')}
+                {stats.inputTokens != null && stats.contextWindow != null && (
+                  <>
+                    {' · '}
+                    {fmtTok(stats.inputTokens)}/{fmtTok(stats.contextWindow)} (
+                    {Math.max(1, Math.round((stats.inputTokens / stats.contextWindow) * 100))}%)
+                  </>
+                )}
+              </span>
+            )}
             <UserMenu
               me={me}
               onSettings={() => navigate('/settings')}
@@ -482,6 +584,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                           {turn.text}
                         </div>
                       )}
+                      {turn.ts && <span className="text-[10px] text-muted-foreground/70">{fmtTime(turn.ts)}</span>}
                     </div>
                   </div>
                 )
@@ -522,6 +625,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   {turn.stopped && (
                     <p className="text-xs font-medium text-muted-foreground">Stopped.</p>
                   )}
+                  {turn.ts != null && !turn.status && (
+                    <p className="text-[10px] text-muted-foreground/70">{fmtTime(turn.ts)}</p>
+                  )}
                   {turn.error && (
                     <div className="animate-rise flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3.5">
                       <div className="min-w-0 text-sm">
@@ -559,10 +665,60 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 addFiles(e.dataTransfer.files)
               }}
               className={cn(
-                'rounded-xl border bg-card shadow-[0_6px_24px_0_color-mix(in_oklch,var(--color-primary)_7%,transparent)] transition-shadow focus-within:ring-2 focus-within:ring-ring',
+                'relative rounded-xl border bg-card shadow-[0_6px_24px_0_color-mix(in_oklch,var(--color-primary)_7%,transparent)] transition-shadow focus-within:ring-2 focus-within:ring-ring',
                 dragOver && 'ring-2 ring-primary',
               )}
             >
+              {/* @-mention typeahead: pick a chat to link as context. */}
+              {mention && mentionHits.length > 0 && (
+                <div className="animate-rise absolute bottom-full left-3 right-3 z-30 mb-2 overflow-hidden rounded-lg border bg-card shadow-lg">
+                  <p className="border-b bg-muted/40 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground">
+                    Link a chat as context
+                  </p>
+                  {mentionHits.map((c, i) => (
+                    <button
+                      key={`${c.location}:${c.id}`}
+                      // mousedown (not click) so the textarea keeps focus
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        selectMention(c)
+                      }}
+                      onMouseEnter={() => setMention((m) => (m ? { ...m, sel: i } : m))}
+                      className={cn(
+                        'flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors',
+                        i === mention.sel && 'bg-accent text-accent-foreground',
+                      )}
+                    >
+                      <Link2 className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{c.title || 'Untitled'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {linked.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+                  {linked.map((id) => {
+                    const title = conversations.find((c) => c.id === id)?.title
+                    return (
+                      <span
+                        key={id}
+                        title="This chat's content is included as context"
+                        className="flex items-center gap-1.5 rounded-full border bg-muted px-2.5 py-1 text-[11px] font-medium"
+                      >
+                        <Link2 className="size-3 shrink-0 text-primary" />
+                        <span className="max-w-[10rem] truncate">{title ?? 'deleted chat'}</span>
+                        <button
+                          onClick={() => changeLinked(linked.filter((x) => x !== id))}
+                          aria-label="Unlink chat"
+                          className="grid size-3.5 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-3"
+                        >
+                          <X />
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
               {(attach.length > 0 || uploading > 0) && (
                 <div className="flex flex-wrap gap-2 px-3 pt-3">
                   {attach.map((a) => (
@@ -600,8 +756,12 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 </div>
               )}
               <AutoTextarea
+                ref={composerRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value)
+                  updateMention(e.target.value, e.target.selectionStart ?? e.target.value.length)
+                }}
                 onPaste={(e) => {
                   const files = [...e.clipboardData.items]
                     .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
@@ -613,6 +773,23 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   }
                 }}
                 onKeyDown={(e) => {
+                  if (mention && mentionHits.length > 0) {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                      e.preventDefault()
+                      const d = e.key === 'ArrowDown' ? 1 : -1
+                      setMention({ ...mention, sel: (mention.sel + d + mentionHits.length) % mentionHits.length })
+                      return
+                    }
+                    if (e.key === 'Enter' || e.key === 'Tab') {
+                      e.preventDefault()
+                      selectMention(mentionHits[mention.sel])
+                      return
+                    }
+                    if (e.key === 'Escape') {
+                      setMention(null)
+                      return
+                    }
+                  }
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
                     send()
@@ -728,6 +905,8 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
             return `[images: ${b.images.map((i) => i.caption || i.url).join('; ')}]`
           case 'chart':
             return `[chart: ${b.title ?? ''}]`
+          case 'slides':
+            return `[presentation: ${b.title ?? ''} — slides: ${b.slides.map((s) => s.title).join('; ')}]`
           case 'sources':
             return 'Sources: ' + b.items.map((i) => i.title).join('; ')
         }
@@ -737,6 +916,19 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
     if (content) out.push({ role: 'assistant', content })
   }
   return out
+}
+
+// "14:32" today, "Jul 9 · 14:32" otherwise — subtle per-message timestamps.
+function fmtTime(ts: number): string {
+  const d = new Date(ts)
+  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === new Date().toDateString()) return time
+  return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${time}`
+}
+
+// 131072 → "131.1k" — compact token counts for the status line.
+function fmtTok(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
 }
 
 function Dot({ delay = '0ms' }: { delay?: string }) {
