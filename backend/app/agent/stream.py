@@ -9,6 +9,7 @@ its proof.
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import AsyncIterator
 
 from pydantic_ai import RunContext, capture_run_messages
@@ -369,7 +370,7 @@ async def stream_chat(
                 if kind == "error":
                     yield ErrorEvent(message=str(payload))
                 else:
-                    for ev in _final_events(payload, code, built_maps, sources, edits):
+                    for ev in _final_events(payload, code, built_maps, sources, edits, artifacts):
                         yield ev
             else:
                 yield item  # AgentStatusEvent / AgentUpdateEvent / block streaming
@@ -417,14 +418,49 @@ async def _text_fallback(message: str, findings: list[tuple[str, str]], history)
     return Reply(blocks=[TextBlock(markdown=str(result.output))])
 
 
+_LEAKED_TAGS = re.compile(r"</?\s*(?:content|write_code|final_result)\s*>", re.IGNORECASE)
+_EMPTY_FENCE = re.compile(r"```[\w-]*\s*\n\s*```")
+
+
+def _scrub_code_leaks(blocks: list, artifact_contents: list[str]) -> list:
+    """Models sometimes regurgitate artifact code (and tool-tag debris) into their
+    prose — seen live as hundreds of code lines spilling through a text block. The
+    code already has its own canvas: surgically drop prose lines that are verbatim
+    artifact lines, plus leaked pseudo-tags and fences left empty by the surgery."""
+    code_lines: set[str] = set()
+    for content in artifact_contents:
+        for line in content.split("\n"):
+            s = line.strip()
+            if len(s) >= 18:
+                code_lines.add(s)
+    out = []
+    for b in blocks:
+        if getattr(b, "type", None) == "text":
+            md = _LEAKED_TAGS.sub("", b.markdown)
+            if code_lines:
+                md = "\n".join(l for l in md.split("\n") if l.strip() not in code_lines)
+            md = _EMPTY_FENCE.sub("", md)
+            md = "\n".join(l.rstrip() for l in md.split("\n"))
+            md = re.sub(r"\n{3,}", "\n\n", md).strip()
+            if not md:
+                continue  # the whole block was leaked code
+            b.markdown = md
+        out.append(b)
+    return out
+
+
 def _final_events(
     reply,
     code: list[tuple[str, str, str | None, str]],
     built_maps: list,
     sources: list[Source],
     edits: list | None = None,
+    artifacts: dict[str, tuple[str, str, str]] | None = None,
 ):
     blocks = list(reply.blocks)
+    contents = [v[2] for v in (artifacts or {}).values()] + [c for _, c, _, _ in code]
+    if contents:
+        blocks = _scrub_code_leaks(blocks, contents)
     # Targeted-edit records (what changed) come before the updated code (the result).
     blocks.extend(edits or [])
     # Code the coder wrote this turn, deduped by artifact id (last version wins).
