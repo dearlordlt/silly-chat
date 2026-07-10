@@ -36,9 +36,6 @@ class ModelsCfg(BaseModel):
     vision: str
     coder: str
     embed: str  # embedding model for document RAG
-    # Context window of the orchestrator model (tokens) — powers the "context used"
-    # status line in the UI. Informational; nothing is truncated against it.
-    context_window: int = 1_000_000
 
 
 class SearchCfg(BaseModel):

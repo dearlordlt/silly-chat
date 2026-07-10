@@ -501,13 +501,16 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 }
               >
                 {stats.models.join(' + ')}
-                {stats.inputTokens != null && stats.contextWindow != null && (
-                  <>
-                    {' · '}
-                    {fmtTok(stats.inputTokens)}/{fmtTok(stats.contextWindow)} (
-                    {Math.max(1, Math.round((stats.inputTokens / stats.contextWindow) * 100))}%)
-                  </>
-                )}
+                {stats.inputTokens != null &&
+                  (stats.contextWindow != null ? (
+                    <>
+                      {' · '}
+                      {fmtTok(stats.inputTokens)}/{fmtTok(stats.contextWindow)} (
+                      {Math.max(1, Math.round((stats.inputTokens / stats.contextWindow) * 100))}%)
+                    </>
+                  ) : (
+                    <> · {fmtTok(stats.inputTokens)} used</>
+                  ))}
               </span>
             )}
             <UserMenu

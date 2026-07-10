@@ -310,7 +310,7 @@ async def stream_chat(
                 yield item  # AgentStatusEvent / AgentUpdateEvent / block streaming
 
         from app import runtime
-        from app.config import get_settings
+        from app.agent.ollama import context_window
 
         models = [runtime.model_for("orchestrator")]
         if findings:
@@ -322,7 +322,8 @@ async def stream_chat(
         yield DoneEvent(
             input_tokens=stats.get("input_tokens"),
             output_tokens=stats.get("output_tokens"),
-            context_window=get_settings().models.context_window,
+            # From Ollama's own model metadata (cached) — never hardcoded.
+            context_window=await context_window(models[0]),
             models=list(dict.fromkeys(models)),
         )
     finally:
