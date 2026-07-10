@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Copy, Check, Maximize2, X } from 'lucide-react'
+import { Code2, Copy, Check, Eye, Maximize2, X } from 'lucide-react'
 import type { DiagramBlock } from '@/types/contract'
+import { cn } from '@/lib/utils'
 
 /**
  * Mermaid diagram block (model-authored). The library is lazy-loaded (it's heavy),
@@ -91,6 +92,7 @@ function useMermaid(source: string) {
 
 export function DiagramBlockView({ block }: { block: DiagramBlock }) {
   const { svg, error } = useMermaid(block.mermaid)
+  const [tab, setTab] = useState<'preview' | 'code'>('preview')
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -138,6 +140,14 @@ export function DiagramBlockView({ block }: { block: DiagramBlock }) {
       <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-3 py-1.5">
         <span className="truncate text-xs font-semibold">{block.title || 'Diagram'}</span>
         <div className="flex shrink-0 items-center gap-1">
+          <div className="mr-1 flex rounded-md bg-muted p-0.5 text-xs">
+            <TabBtn active={tab === 'code'} onClick={() => setTab('code')} icon={<Code2 />}>
+              Code
+            </TabBtn>
+            <TabBtn active={tab === 'preview'} onClick={() => setTab('preview')} icon={<Eye />}>
+              Preview
+            </TabBtn>
+          </div>
           <IconBtn label="Copy Mermaid source" onClick={copy}>
             {copied ? <Check className="text-success" /> : <Copy />}
           </IconBtn>
@@ -146,7 +156,18 @@ export function DiagramBlockView({ block }: { block: DiagramBlock }) {
           </IconBtn>
         </div>
       </div>
-      {diagram}
+      {tab === 'preview' ? (
+        diagram
+      ) : (
+        <div className="flex max-h-[460px] overflow-auto text-sm">
+          <pre className="sticky left-0 select-none border-r bg-card px-3 py-3 text-right font-mono text-xs leading-[1.625rem] text-muted-foreground">
+            {Array.from({ length: block.mermaid.split('\n').length }, (_, i) => i + 1).join('\n')}
+          </pre>
+          <pre className="flex-1 whitespace-pre px-3 py-3 font-mono text-[12.5px] leading-[1.625rem]">
+            {block.mermaid}
+          </pre>
+        </div>
+      )}
 
       {expanded &&
         createPortal(
@@ -169,6 +190,31 @@ export function DiagramBlockView({ block }: { block: DiagramBlock }) {
           document.body,
         )}
     </div>
+  )
+}
+
+function TabBtn({
+  children,
+  icon,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode
+  icon: React.ReactNode
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors [&_svg]:size-3.5',
+        active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+      )}
+    >
+      {icon}
+      {children}
+    </button>
   )
 }
 

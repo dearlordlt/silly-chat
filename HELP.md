@@ -39,9 +39,9 @@ carry several series.
 ## Diagrams
 
 Ask for structure and the assistant draws it: "how do I set up my home network?",
-"diagram a microservice architecture for an e-shop", flows, sequences, ER models. Use
-the expand button for fullscreen and the copy button to grab the Mermaid source for
-your own docs.
+"diagram a microservice architecture for an e-shop", flows, sequences, ER models.
+Toggle between Preview and Code (the Mermaid source) with the tabs, copy the source
+for your own docs, and use the expand button for fullscreen.
 
 ## Maps & navigation
 
