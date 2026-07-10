@@ -57,10 +57,17 @@ class ImageHit(BaseModel):
 
 
 # ---- worker-side web search (streams status, records sources) ----
-async def _web_search(query: str) -> list[dict]:
+async def _web_search(query: str) -> list[dict] | str:
     """Search the web and return results (title, url, snippet)."""
     status_for_current_agent(f"Searching: {query}")
     results = await search.search_text(query)
+    if not results:
+        # Fail fast and loud: without this, models retry empty searches until they
+        # burn the whole request cap (seen live when the search backend degraded).
+        return (
+            "NO RESULTS — the search backend may be degraded. Do not retry more than "
+            "once; answer from what you already have and say so."
+        )
     record_sources([Source(title=r.title or r.url, url=r.url) for r in results if r.url])
     return [{"title": r.title, "url": r.url, "snippet": r.snippet} for r in results]
 
