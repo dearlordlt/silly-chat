@@ -23,7 +23,7 @@ from pydantic_ai.messages import (
 
 from pydantic_ai import Agent
 
-from app.agent.activity import attachments_var, code_var, docs_var, emit_var, findings_var, sources_var
+from app.agent.activity import attachments_var, code_var, docs_var, emit_var, findings_var, maps_var, sources_var
 from app.agent.clock import tz_var
 from app.agent.ollama import orchestrator_model
 from app.agent.orchestrator import Mode, build_orchestrator
@@ -43,7 +43,11 @@ from app.schema import (
 log = get_logger("chat")
 
 _DONE = object()
-_TOOL_STATUS = {"research": "Planning the research…", "find_images": "Looking for images…"}
+_TOOL_STATUS = {
+    "research": "Planning the research…",
+    "find_images": "Looking for images…",
+    "show_map": "Drawing the map…",
+}
 _MAX_HISTORY = 20  # messages of prior context fed to the model
 
 
@@ -119,6 +123,7 @@ async def stream_chat(
     sources: list[Source] = []
     findings: list[tuple[str, str]] = []
     code: list[tuple[str, str, str | None]] = []
+    built_maps: list = []
 
     def emit(ev: object) -> None:
         queue.put_nowait(ev)
@@ -138,6 +143,7 @@ async def stream_chat(
         tok_s = sources_var.set(sources)
         tok_f = findings_var.set(findings)
         tok_c = code_var.set(code)
+        tok_m = maps_var.set(built_maps)
         tok_tz = tz_var.set(timezone)
         tok_a = attachments_var.set(attachments)
         tok_d = docs_var.set(doc_chunks)
@@ -166,6 +172,7 @@ async def stream_chat(
             sources_var.reset(tok_s)
             findings_var.reset(tok_f)
             code_var.reset(tok_c)
+            maps_var.reset(tok_m)
             tz_var.reset(tok_tz)
             attachments_var.reset(tok_a)
             docs_var.reset(tok_d)
@@ -183,7 +190,7 @@ async def stream_chat(
             if kind == "error":
                 yield ErrorEvent(message=str(payload))
             else:
-                for ev in _final_events(payload, code, sources):
+                for ev in _final_events(payload, code, built_maps, sources):
                     yield ev
         else:
             yield item  # AgentStatusEvent / AgentUpdateEvent
@@ -206,7 +213,7 @@ async def _text_fallback(message: str, findings: list[tuple[str, str]], history)
     return Reply(blocks=[TextBlock(markdown=str(result.output))])
 
 
-def _final_events(reply, code: list[tuple[str, str]], sources: list[Source]):
+def _final_events(reply, code: list[tuple[str, str, str | None]], built_maps: list, sources: list[Source]):
     blocks = list(reply.blocks)
     # Append code written by the coder agent (verbatim — never round-tripped through
     # the orchestrator's output), unless the model already emitted it as a code block.
@@ -214,6 +221,10 @@ def _final_events(reply, code: list[tuple[str, str]], sources: list[Source]):
     if not has_code_block:
         for language, content, filename in code:
             blocks.append(CodeBlock(language=language, content=content, filename=filename))
+    # Maps built by show_map carry real geocoded coordinates — always appended verbatim
+    # (the model can't emit map blocks itself, so there's nothing to dedupe against).
+    if not any(getattr(b, "type", None) == "map" for b in blocks):
+        blocks.extend(built_maps)
     seen: set[str] = set()
     unique: list[Source] = []
     for s in sources:

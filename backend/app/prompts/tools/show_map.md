@@ -1,0 +1,7 @@
+Show places on an interactive map. Pass a list of place names — they are geocoded to
+real coordinates and shown as markers (the map appears automatically; don't describe
+coordinates yourself). Set route=true to also draw the way between them in the order
+given (returns distance and drive time). Use this whenever the user asks where
+something is, how to get from A to B, or anything location-shaped. Use short, local
+place names ("Seimas, Vilnius" — not long official titles); if a place isn't found,
+retry once with a simpler or more local phrasing. Optional title labels the map.

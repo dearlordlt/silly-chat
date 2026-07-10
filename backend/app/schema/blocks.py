@@ -68,6 +68,32 @@ class CodeBlock(BaseModel):
     )
 
 
+class MapPoint(BaseModel):
+    name: str
+    lat: float
+    lon: float
+
+
+class MapRoute(BaseModel):
+    distance_km: float
+    duration_min: float
+    # Route geometry as [lat, lon] pairs, ready for the map renderer.
+    geometry: list[list[float]]
+
+
+class MapBlock(BaseModel):
+    """A map with resolved locations (and optionally a route between them).
+
+    Never authored by the model directly — the ``show_map`` tool geocodes real
+    coordinates and records this block, so positions can't be hallucinated.
+    """
+
+    type: Literal["map"] = "map"
+    points: list[MapPoint]
+    route: MapRoute | None = None
+    title: str | None = None
+
+
 class Source(BaseModel):
     title: str
     url: str
@@ -81,7 +107,7 @@ class SourcesBlock(BaseModel):
 
 
 Block = Annotated[
-    Union[TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, SourcesBlock],
+    Union[TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, MapBlock, SourcesBlock],
     Field(discriminator="type"),
 ]
 

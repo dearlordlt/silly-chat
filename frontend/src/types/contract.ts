@@ -39,11 +39,20 @@ export type Content = string;
  * Relative path/name when the code is a real file (enables download).
  */
 export type Filename = string | null;
-export type Type5 = "sources";
-export type Title1 = string;
+export type Type5 = "map";
+export type Name1 = string;
+export type Lat = number;
+export type Lon = number;
+export type Points = MapPoint[];
+export type DistanceKm = number;
+export type DurationMin = number;
+export type Geometry = number[][];
+export type Title1 = string | null;
+export type Type6 = "sources";
+export type Title2 = string;
 export type Url1 = string;
 export type Items = Source[];
-export type Blocks = (TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | SourcesBlock)[];
+export type Blocks = (TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | MapBlock | SourcesBlock)[];
 export type Event =
   TextDeltaEvent | BlockStartEvent | BlockDataEvent | AgentStatusEvent | AgentUpdateEvent | DoneEvent | ErrorEvent;
 export type Event1 = "text_delta";
@@ -54,7 +63,7 @@ export type BlockId1 = string;
 export type BlockType = string;
 export type Event3 = "block_data";
 export type BlockId2 = string;
-export type Block = TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | SourcesBlock;
+export type Block = TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | MapBlock | SourcesBlock;
 export type Event4 = "agent_status";
 export type Message = string;
 export type Event5 = "agent_update";
@@ -125,15 +134,40 @@ export interface CodeBlock {
   [k: string]: unknown;
 }
 /**
+ * A map with resolved locations (and optionally a route between them).
+ *
+ * Never authored by the model directly — the ``show_map`` tool geocodes real
+ * coordinates and records this block, so positions can't be hallucinated.
+ */
+export interface MapBlock {
+  type?: Type5;
+  points: Points;
+  route?: MapRoute | null;
+  title?: Title1;
+  [k: string]: unknown;
+}
+export interface MapPoint {
+  name: Name1;
+  lat: Lat;
+  lon: Lon;
+  [k: string]: unknown;
+}
+export interface MapRoute {
+  distance_km: DistanceKm;
+  duration_min: DurationMin;
+  geometry: Geometry;
+  [k: string]: unknown;
+}
+/**
  * Citations — the proof behind a grounded answer.
  */
 export interface SourcesBlock {
-  type?: Type5;
+  type?: Type6;
   items: Items;
   [k: string]: unknown;
 }
 export interface Source {
-  title: Title1;
+  title: Title2;
   url: Url1;
   [k: string]: unknown;
 }

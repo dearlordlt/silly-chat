@@ -5,6 +5,7 @@ import { TableBlockView } from './TableBlock'
 import { GalleryBlockView } from './GalleryBlock'
 import { ChartBlockView } from './ChartBlock'
 import { CodeBlockView } from './CodeBlock'
+import { MapBlockView } from './MapBlock'
 import { SourcesBlockView } from './SourcesBlock'
 
 /** Render a completed block by dispatching on its discriminant. */
@@ -20,6 +21,8 @@ export function BlockView({ block }: { block: Block }) {
       return <ChartBlockView block={block} />
     case 'code':
       return <CodeBlockView block={block} />
+    case 'map':
+      return <MapBlockView block={block} />
     case 'sources':
       return <SourcesBlockView block={block} />
   }
@@ -46,6 +49,8 @@ export function BlockSkeleton({ blockType }: { blockType: string }) {
       )
     case 'chart':
       return <Skeleton className="h-40 w-full" />
+    case 'map':
+      return <Skeleton className="h-[320px] w-full" />
     case 'code':
       return <Skeleton className="h-24 w-full" />
     default:

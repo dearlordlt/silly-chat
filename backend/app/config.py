@@ -38,6 +38,12 @@ class SearchCfg(BaseModel):
     searxng_url: str = "http://localhost:8080"
 
 
+class MapsCfg(BaseModel):
+    # Free OSM ecosystem endpoints (no keys). Self-hostable — just point these elsewhere.
+    nominatim_url: str = "https://nominatim.openstreetmap.org"
+    osrm_url: str = "https://router.project-osrm.org"
+
+
 class LimitsCfg(BaseModel):
     max_vision_candidates: int = 5
     max_confirmed_hits: int = 3
@@ -105,6 +111,7 @@ class Settings(BaseSettings):
     ollama: OllamaCfg = OllamaCfg()
     models: ModelsCfg
     search: SearchCfg = SearchCfg()
+    maps: MapsCfg = MapsCfg()
     limits: LimitsCfg = LimitsCfg()
     db: DbCfg = DbCfg()
     auth: AuthCfg = AuthCfg()

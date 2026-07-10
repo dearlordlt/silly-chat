@@ -28,10 +28,13 @@ from app.agent.activity import (
     docs_var,
     record_code,
     record_findings,
+    record_map,
     record_sources,
     status_for_current_agent,
 )
+from app.agent import maps as osm
 from app.embeddings import embed_texts, rank
+from app.schema import MapBlock
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
 from app.agent.ollama import coder_model, vision_model, worker_model
 from app.config import get_settings
@@ -267,6 +270,37 @@ async def search_document(query: str) -> str:
         return f"(could not search the document: {exc})"
 
 
+async def show_map(places: list[str], route: bool = False, title: str = "") -> str:
+    """Geocode places and show them on a map (optionally routed in order)."""
+    aid = uuid.uuid4().hex[:8]
+    agent_update(aid, label=f"Mapping: {', '.join(places)[:80]}", status="Finding places…", state="running")
+    try:
+        points = []
+        misses = []
+        for q in places:
+            p = await osm.geocode(q)
+            (points.append(p) if p else misses.append(q))
+        if not points:
+            agent_update(aid, status="Failed", state="error")
+            return f"(could not find any of: {', '.join(misses)} — try simpler or more local names)"
+        r = None
+        if route and len(points) >= 2:
+            agent_update(aid, status="Routing…")
+            r = await osm.route(points)
+        record_map(MapBlock(points=points, route=r, title=title or None))
+        agent_update(aid, status="Done", state="done")
+        parts = [f"Map shown with {len(points)} place(s): {', '.join(p.name for p in points)}."]
+        if r:
+            parts.append(f"Route: {r.distance_km} km, about {r.duration_min:.0f} min by car.")
+        if misses:
+            parts.append(f"Could not find: {', '.join(misses)} (try a simpler/local name).")
+        return " ".join(parts)
+    except Exception as exc:
+        agent_update(aid, status="Failed", state="error")
+        log.warning("show_map failed: %s", exc)
+        return f"(map failed: {exc})"
+
+
 def build_tools() -> list[Tool]:
     return [
         Tool(research, name="research", description=get_prompt("tools/research")),
@@ -274,4 +308,5 @@ def build_tools() -> list[Tool]:
         Tool(write_code, name="write_code", description=get_prompt("tools/write_code")),
         Tool(look, name="look", description=get_prompt("tools/look")),
         Tool(search_document, name="search_document", description=get_prompt("tools/search_document")),
+        Tool(show_map, name="show_map", description=get_prompt("tools/show_map")),
     ]

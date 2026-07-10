@@ -244,6 +244,25 @@ body {
   .silly-shimmer { animation: none; }
 }
 
+/* ---- Maps (Leaflet + OSM tiles) ---- */
+/* Dark themes: invert the light tiles into a muted night map that fits the theme. */
+.dark .map-tiles {
+  filter: brightness(0.7) invert(1) hue-rotate(200deg) saturate(0.55) contrast(0.9);
+}
+.leaflet-container {
+  background: var(--color-muted);
+  font: inherit;
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--color-card);
+  color: var(--color-foreground);
+  box-shadow: 0 4px 16px oklch(0 0 0 / 0.18);
+}
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius-md);
+}
+
 /* Quiet, modern scrollbars. */
 * {
   scrollbar-width: thin;

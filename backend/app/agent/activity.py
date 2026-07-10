@@ -28,6 +28,8 @@ code_var: ContextVar[list[tuple[str, str, str | None]] | None] = ContextVar("cod
 attachments_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("attachments", default=None)
 # Document chunks attached this turn as (text, embedding_bytes) — read by `search_document`.
 docs_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("docs", default=None)
+# Maps built this turn by the show_map tool — appended as map blocks.
+maps_var: ContextVar[list[object] | None] = ContextVar("maps", default=None)
 
 
 def agent_update(id: str, *, label: str = "", status: str = "", state: str = "running") -> None:
@@ -58,3 +60,9 @@ def record_code(language: str, content: str, filename: str | None = None) -> Non
     bucket = code_var.get()
     if bucket is not None:
         bucket.append((language, content, filename))
+
+
+def record_map(block: object) -> None:
+    bucket = maps_var.get()
+    if bucket is not None:
+        bucket.append(block)

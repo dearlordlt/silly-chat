@@ -19,6 +19,11 @@ coder = "deepseek-v4-pro:cloud"
 # Embedding model for document RAG (must be an embedding model, not a chat model).
 embed = "nomic-embed-text:v1.5"
 
+[maps]
+# Free OpenStreetMap ecosystem (no API keys). Swap for self-hosted instances anytime.
+nominatim_url = "https://nominatim.openstreetmap.org"
+osrm_url = "https://router.project-osrm.org"
+
 [search]
 # SearXNG instance reachable by the backend (json format must be enabled).
 # Override per-environment via SEARCH__SEARXNG_URL in .env (e.g. a private instance).

@@ -79,6 +79,7 @@
               "chart": "#/$defs/ChartBlock",
               "code": "#/$defs/CodeBlock",
               "gallery": "#/$defs/GalleryBlock",
+              "map": "#/$defs/MapBlock",
               "sources": "#/$defs/SourcesBlock",
               "table": "#/$defs/TableBlock",
               "text": "#/$defs/TextBlock"
@@ -100,6 +101,9 @@
             },
             {
               "$ref": "#/$defs/CodeBlock"
+            },
+            {
+              "$ref": "#/$defs/MapBlock"
             },
             {
               "$ref": "#/$defs/SourcesBlock"
@@ -359,6 +363,104 @@
       "title": "GalleryImage",
       "type": "object"
     },
+    "MapBlock": {
+      "description": "A map with resolved locations (and optionally a route between them).\n\nNever authored by the model directly \u2014 the ``show_map`` tool geocodes real\ncoordinates and records this block, so positions can't be hallucinated.",
+      "properties": {
+        "type": {
+          "const": "map",
+          "default": "map",
+          "title": "Type",
+          "type": "string"
+        },
+        "points": {
+          "items": {
+            "$ref": "#/$defs/MapPoint"
+          },
+          "title": "Points",
+          "type": "array"
+        },
+        "route": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MapRoute"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "required": [
+        "points"
+      ],
+      "title": "MapBlock",
+      "type": "object"
+    },
+    "MapPoint": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "lat": {
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "title": "Lon",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "lat",
+        "lon"
+      ],
+      "title": "MapPoint",
+      "type": "object"
+    },
+    "MapRoute": {
+      "properties": {
+        "distance_km": {
+          "title": "Distance Km",
+          "type": "number"
+        },
+        "duration_min": {
+          "title": "Duration Min",
+          "type": "number"
+        },
+        "geometry": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "Geometry",
+          "type": "array"
+        }
+      },
+      "required": [
+        "distance_km",
+        "duration_min",
+        "geometry"
+      ],
+      "title": "MapRoute",
+      "type": "object"
+    },
     "Reply": {
       "description": "The orchestrator's final structured answer.",
       "properties": {
@@ -369,6 +471,7 @@
                 "chart": "#/$defs/ChartBlock",
                 "code": "#/$defs/CodeBlock",
                 "gallery": "#/$defs/GalleryBlock",
+                "map": "#/$defs/MapBlock",
                 "sources": "#/$defs/SourcesBlock",
                 "table": "#/$defs/TableBlock",
                 "text": "#/$defs/TextBlock"
@@ -390,6 +493,9 @@
               },
               {
                 "$ref": "#/$defs/CodeBlock"
+              },
+              {
+                "$ref": "#/$defs/MapBlock"
               },
               {
                 "$ref": "#/$defs/SourcesBlock"
