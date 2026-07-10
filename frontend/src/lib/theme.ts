@@ -86,29 +86,54 @@ export const THEMES: Theme[] = [
   { id: 'ragnarok', name: 'Ragnarök', category: 'mixed', mode: 'dark', vars: dark(45, 40, 0.16, { bgL: 0.165, bgC: 0.03 }) },
 ]
 
-const DEFAULT = 'frigg'
+// 'auto' follows the device (prefers-color-scheme) using the two showcase themes.
+export const AUTO_THEME = 'auto'
+const AUTO_LIGHT = 'frigg'
+const AUTO_DARK = 'bifrost'
+
+const DEFAULT = AUTO_THEME
 const KEY = 'silly:theme'
 const CACHE = 'silly:themeVars'
 
+const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches
+
 export function getThemeId(): string {
   const v = localStorage.getItem(KEY)
-  return THEMES.some((t) => t.id === v) ? (v as string) : DEFAULT
+  return v === AUTO_THEME || THEMES.some((t) => t.id === v) ? (v as string) : DEFAULT
+}
+
+function find(id: string): Theme {
+  return THEMES.find((x) => x.id === id) ?? THEMES[0]
 }
 
 export function applyTheme(id: string): void {
-  const t = THEMES.find((x) => x.id === id) ?? THEMES[0]
+  const auto = id === AUTO_THEME
+  const t = auto ? find(prefersDark() ? AUTO_DARK : AUTO_LIGHT) : find(id)
   const root = document.documentElement
   for (const [k, v] of Object.entries(t.vars)) root.style.setProperty(`--${k}`, v)
   root.classList.toggle('dark', t.mode === 'dark')
   root.dataset.theme = t.id // drives per-theme effects (mixed themes)
   root.style.colorScheme = t.mode
+  // Pre-paint cache (read by the index.html boot script). For auto we cache BOTH
+  // palettes so the boot script can honor the device theme without a flash even
+  // if the OS switched while the app was closed.
+  const entry = (x: Theme) => ({ id: x.id, vars: x.vars, dark: x.mode === 'dark', scheme: x.mode })
   localStorage.setItem(
     CACHE,
-    JSON.stringify({ id: t.id, vars: t.vars, dark: t.mode === 'dark', scheme: t.mode }),
+    JSON.stringify(
+      auto ? { ...entry(t), auto: { light: entry(find(AUTO_LIGHT)), dark: entry(find(AUTO_DARK)) } } : entry(t),
+    ),
   )
 }
 
 export function setTheme(id: string): void {
   localStorage.setItem(KEY, id)
   applyTheme(id)
+}
+
+// Live-follow the device: if the user is on Auto, re-skin when the OS flips.
+if (typeof window !== 'undefined' && 'matchMedia' in window) {
+  window
+    .matchMedia('(prefers-color-scheme: dark)')
+    .addEventListener('change', () => getThemeId() === AUTO_THEME && applyTheme(AUTO_THEME))
 }

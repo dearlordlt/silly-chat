@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ArrowLeft, Check } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { FONTS, type FontId, getFont, setFont } from '@/lib/fonts'
-import { getThemeId, setTheme, THEMES, type Theme, type ThemeCategory } from '@/lib/theme'
+import { AUTO_THEME, getThemeId, setTheme, THEMES, type Theme, type ThemeCategory } from '@/lib/theme'
 import { getRadius, RADII, type RadiusId, setRadius } from '@/lib/radius'
 import { BACKGROUNDS, type BgId, getBg, setBg } from '@/lib/background'
 import {
@@ -140,6 +140,14 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
           <main className="min-w-0 flex-1">
             {section === 'theme' && (
               <div className="space-y-6">
+                <div>
+                  <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                    Automatic — follows your device
+                  </h3>
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-2.5">
+                    <AutoSwatch active={theme === AUTO_THEME} onClick={() => chooseTheme(AUTO_THEME)} />
+                  </div>
+                </div>
                 {GROUPS.map((g) => (
                   <div key={g.key}>
                     <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
@@ -305,6 +313,33 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
         </div>
       </div>
     </div>
+  )
+}
+
+// Auto swatch: half light (Frigg), half dark (Bifröst) — day and night in one card.
+function AutoSwatch({ active, onClick }: { active: boolean; onClick: () => void }) {
+  const l = THEMES.find((t) => t.id === 'frigg')!.vars
+  const d = THEMES.find((t) => t.id === 'bifrost')!.vars
+  return (
+    <button
+      onClick={onClick}
+      title="Light or dark, matching your device setting"
+      className={cn(
+        'rounded-lg border bg-card p-[7px] text-left transition-all',
+        active ? 'ring-2 ring-primary' : 'hover:border-muted-foreground/40',
+      )}
+    >
+      <div
+        className="h-[42px] w-full rounded-md"
+        style={{
+          background: `linear-gradient(135deg, ${l.background} 0%, ${l.primary} 42%, ${d.primary} 58%, ${d.background} 100%)`,
+        }}
+      />
+      <div className="mt-1.5 flex items-center justify-between px-0.5">
+        <span className={cn('text-xs font-semibold', active ? 'text-primary' : 'text-foreground')}>Auto</span>
+        {active && <Check className="size-3.5 shrink-0 text-primary" />}
+      </div>
+    </button>
   )
 }
 

@@ -18,6 +18,8 @@
         try {
           var s = JSON.parse(localStorage.getItem('silly:themeVars') || 'null');
           if (!s) return;
+          // Auto theme: the cache carries both palettes — pick by the device theme.
+          if (s.auto) s = matchMedia('(prefers-color-scheme: dark)').matches ? s.auto.dark : s.auto.light;
           var r = document.documentElement;
           for (var k in s.vars) r.style.setProperty('--' + k, s.vars[k]);
           r.classList.toggle('dark', !!s.dark);
