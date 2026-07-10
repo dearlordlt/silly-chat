@@ -5,6 +5,8 @@ import {
   CloudUpload,
   HardDrive,
   HardDriveDownload,
+  HelpCircle,
+  Sparkles,
   Loader2,
   MoreHorizontal,
   PanelLeftClose,
@@ -14,7 +16,9 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { ConvSummary, Location, StorageMode } from '@/lib/history'
+import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { AboutDialog, HelpDialog } from '@/components/MetaDialogs'
 import { cn } from '@/lib/utils'
 
 const MODES: { value: StorageMode; label: string }[] = [
@@ -71,7 +75,13 @@ export function Sidebar({
   const [query, setQuery] = useState('')
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [movingId, setMovingId] = useState<string | null>(null)
+  const [version, setVersion] = useState('')
+  const [dialog, setDialog] = useState<'about' | 'help' | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    api.getMeta().then((m) => setVersion(m.version)).catch(() => {})
+  }, [])
 
   // A finished move re-renders the list — clear the transient "Moving…" state then.
   useEffect(() => setMovingId(null), [conversations])
@@ -267,7 +277,30 @@ export function Sidebar({
           ))}
         </div>
         <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground">{MODE_HINT[mode]}</p>
+
+        {/* Version chip → About; ? → searchable Help (both fed by /api/meta). */}
+        <div className="mt-2 flex items-center justify-between border-t pt-2">
+          <button
+            onClick={() => setDialog('about')}
+            title="About silly-chat"
+            className="flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Sparkles className="size-3 text-primary" />
+            {version ? `v${version}` : 'About'}
+          </button>
+          <button
+            onClick={() => setDialog('help')}
+            aria-label="Help"
+            title="Help"
+            className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+          >
+            <HelpCircle />
+          </button>
+        </div>
       </div>
+
+      {dialog === 'about' && <AboutDialog onClose={() => setDialog(null)} />}
+      {dialog === 'help' && <HelpDialog onClose={() => setDialog(null)} />}
     </aside>
   )
 }

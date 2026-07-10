@@ -22,12 +22,15 @@ Mode = Literal["search", "chat", "code"]
 
 
 def build_orchestrator(mode: Mode = "search", timezone: str | None = None) -> Agent[None, Reply]:
+    from app.meta import genome
+
     limits = get_settings().limits
     instructions = get_prompt(
         "orchestrator",
         mode_bias=get_prompt(f"mode_{mode}"),
         max_agents=limits.max_agents,
         today=now_str(timezone),
+        **genome(),  # version / features / history — the app's self-knowledge
     )
     return Agent(
         orchestrator_model(),

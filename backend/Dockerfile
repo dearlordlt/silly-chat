@@ -16,6 +16,7 @@ RUN uv sync --frozen --no-dev
 # App code + non-secret config (config.py resolves ROOT=/srv).
 COPY backend/ /srv/backend/
 COPY config.toml /srv/config.toml
+COPY CHANGELOG.md HELP.md /srv/
 
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

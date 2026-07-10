@@ -5,6 +5,8 @@ services:
     volumes:
       - ./backend/app:/srv/backend/app:rw
       - ./config.toml:/srv/config.toml:ro
+      - ./CHANGELOG.md:/srv/CHANGELOG.md:ro
+      - ./HELP.md:/srv/HELP.md:ro
     command:
       ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
