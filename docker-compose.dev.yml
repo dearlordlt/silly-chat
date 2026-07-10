@@ -11,6 +11,9 @@ services:
       - "8000:8000"
 
   frontend:
+    # Drop the base service's `build:` — otherwise compose builds the prod (nginx)
+    # image and TAGS it as node:22-alpine, clobbering the real Node image (npm: not found).
+    build: !reset null
     image: node:22-alpine
     working_dir: /app
     environment:
