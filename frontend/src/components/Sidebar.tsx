@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Cloud,
+  CloudOff,
   CloudUpload,
   HardDrive,
   HardDriveDownload,
+  Loader2,
+  MoreHorizontal,
   PanelLeftClose,
   Plus,
   Search,
@@ -65,6 +68,26 @@ export function Sidebar({
   onCollapse: () => void
 }) {
   const [query, setQuery] = useState('')
+  const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [movingId, setMovingId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // A finished move re-renders the list — clear the transient "Moving…" state then.
+  useEffect(() => setMovingId(null), [conversations])
+
+  useEffect(() => {
+    if (!menuFor) return
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null)
+    }
+    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && setMenuFor(null)
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onEsc)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onEsc)
+    }
+  }, [menuFor])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -76,8 +99,8 @@ export function Sidebar({
   return (
     <aside className="flex h-dvh w-72 shrink-0 flex-col bg-sidebar">
       <div className="flex items-center justify-between px-3 py-3">
-        <span className="flex items-center gap-2 px-1 text-sm font-semibold tracking-tight">
-          <span className="grid size-6 place-items-center rounded-md bg-primary text-xs text-primary-foreground">
+        <span className="flex items-center gap-2 px-1 text-[15px] font-extrabold tracking-[-0.02em]">
+          <span className="grid size-6 place-items-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
             s
           </span>
           silly-chat
@@ -88,17 +111,20 @@ export function Sidebar({
       </div>
 
       <div className="space-y-2 px-3 pb-2">
-        <Button variant="outline" className="w-full justify-start" onClick={onNew}>
+        <button
+          onClick={onNew}
+          className="flex h-10 w-full items-center justify-center gap-2 rounded-md border bg-card text-sm font-semibold shadow-[0_1px_3px_0_oklch(0_0_0/0.05)] transition-colors hover:bg-accent [&_svg]:size-4"
+        >
           <Plus />
           New chat
-        </Button>
-        <div className="flex items-center gap-2 rounded-lg bg-muted px-3 text-muted-foreground">
+        </button>
+        <div className="flex items-center gap-2 rounded-md border bg-background px-3 text-muted-foreground">
           <Search className="size-4 shrink-0" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search chats"
-            className="h-9 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            className="h-10 w-full bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
       </div>
@@ -114,21 +140,23 @@ export function Sidebar({
               const b = bucket(c.updatedAt)
               const header = b !== lastBucket ? ((lastBucket = b), b) : null
               const active = c.id === currentId
+              const moving = c.id === movingId
               return (
                 <li key={`${c.location}:${c.id}`}>
                   {header && (
-                    <p className="px-2 pb-1 pt-3 text-[11px] font-medium text-muted-foreground">
+                    <p className="px-2 pb-1 pt-3 text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
                       {header}
                     </p>
                   )}
                   <div
                     className={cn(
-                      'group flex items-center gap-2 rounded-lg pl-2 pr-1 text-sm transition-colors',
+                      'group relative flex items-center gap-2 rounded-sm p-2 text-[13.5px] transition-colors',
                       active ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/60',
+                      moving && 'pointer-events-none opacity-60',
                     )}
                   >
                     <button
-                      className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left"
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
                       onClick={() => onOpen(c.id, c.location)}
                       title={c.title}
                     >
@@ -139,23 +167,65 @@ export function Sidebar({
                       )}
                       <span className="truncate">{c.title || 'Untitled'}</span>
                     </button>
-                    <span className="shrink-0 text-[11px] text-muted-foreground group-hover:hidden">
-                      {relTime(c.updatedAt)}
-                    </span>
-                    <div className="hidden shrink-0 items-center group-hover:flex">
-                      {c.location === 'local' ? (
-                        <IconBtn label="Save to server" onClick={() => onMove(c.id, 'local', 'server')}>
-                          <CloudUpload />
-                        </IconBtn>
-                      ) : (
-                        <IconBtn label="Move to this device" onClick={() => onMove(c.id, 'server', 'local')}>
-                          <HardDriveDownload />
-                        </IconBtn>
-                      )}
-                      <IconBtn label="Delete" danger onClick={() => onDelete(c.id, c.location)}>
-                        <Trash2 />
-                      </IconBtn>
-                    </div>
+                    {moving ? (
+                      <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                        <Loader2 className="size-3 animate-spin" />
+                        Moving…
+                      </span>
+                    ) : (
+                      <>
+                        <span className="shrink-0 text-[11px] text-muted-foreground group-hover:hidden">
+                          {relTime(c.updatedAt)}
+                        </span>
+                        <button
+                          onClick={() => setMenuFor(menuFor === c.id ? null : c.id)}
+                          aria-label="Chat actions"
+                          className="hidden size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground group-hover:grid [&_svg]:size-4"
+                        >
+                          <MoreHorizontal />
+                        </button>
+                      </>
+                    )}
+                    {menuFor === c.id && (
+                      <div
+                        ref={menuRef}
+                        className="animate-rise absolute right-1 top-full z-50 mt-1 w-44 rounded-lg border bg-card p-1 shadow-lg"
+                      >
+                        {c.location === 'local' ? (
+                          <RowMenuItem
+                            icon={<CloudUpload />}
+                            onClick={() => {
+                              setMenuFor(null)
+                              setMovingId(c.id)
+                              onMove(c.id, 'local', 'server')
+                            }}
+                          >
+                            Move to server
+                          </RowMenuItem>
+                        ) : (
+                          <RowMenuItem
+                            icon={<HardDriveDownload />}
+                            onClick={() => {
+                              setMenuFor(null)
+                              setMovingId(c.id)
+                              onMove(c.id, 'server', 'local')
+                            }}
+                          >
+                            Move to local
+                          </RowMenuItem>
+                        )}
+                        <RowMenuItem
+                          icon={<Trash2 />}
+                          danger
+                          onClick={() => {
+                            setMenuFor(null)
+                            onDelete(c.id, c.location)
+                          }}
+                        >
+                          Delete
+                        </RowMenuItem>
+                      </div>
+                    )}
                   </div>
                 </li>
               )
@@ -164,51 +234,63 @@ export function Sidebar({
         )}
       </nav>
 
+      {/* Storage legend (design doc frame 1v) */}
+      <div className="space-y-1 border-t px-4 py-2.5 text-[11px] text-muted-foreground">
+        <p className="flex items-center gap-1.5">
+          <Cloud className="size-3 shrink-0" /> On the server — synced to your account
+        </p>
+        <p className="flex items-center gap-1.5">
+          <HardDrive className="size-3 shrink-0" /> On this device only
+        </p>
+        <p className="flex items-center gap-1.5">
+          <CloudOff className="size-3 shrink-0" /> Not saved — gone when you close the tab
+        </p>
+      </div>
+
       <div className="border-t p-3">
         <p className="mb-1.5 px-0.5 text-xs font-medium text-muted-foreground">New chats are saved</p>
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1 text-xs">
+        <div className="grid grid-cols-3 gap-1 rounded-md bg-muted p-1 text-xs">
           {MODES.map((m) => (
             <button
               key={m.value}
               onClick={() => onSetMode(m.value)}
               className={cn(
-                'rounded-md px-2 py-1.5 font-medium transition-colors',
+                'rounded-[7px] px-2 py-[5px] font-bold transition-colors',
                 mode === m.value
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-card text-foreground shadow-[0_1px_3px_0_oklch(0_0_0/0.08)]'
+                  : 'font-medium text-muted-foreground hover:text-foreground',
               )}
             >
               {m.label}
             </button>
           ))}
         </div>
-        <p className="mt-1.5 px-0.5 text-xs text-muted-foreground">{MODE_HINT[mode]}</p>
+        <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground">{MODE_HINT[mode]}</p>
       </div>
     </aside>
   )
 }
 
-function IconBtn({
+function RowMenuItem({
   children,
-  label,
+  icon,
   onClick,
   danger,
 }: {
   children: React.ReactNode
-  label: string
+  icon: React.ReactNode
   onClick: () => void
   danger?: boolean
 }) {
   return (
     <button
       onClick={onClick}
-      aria-label={label}
-      title={label}
       className={cn(
-        'grid size-7 place-items-center rounded-md text-muted-foreground transition-colors [&_svg]:size-4',
-        danger ? 'hover:bg-red-500/10 hover:text-red-600' : 'hover:bg-background hover:text-foreground',
+        'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-colors [&_svg]:size-4 [&_svg]:text-muted-foreground',
+        danger ? 'text-destructive hover:bg-destructive/10 [&_svg]:text-destructive' : 'hover:bg-accent',
       )}
     >
+      {icon}
       {children}
     </button>
   )

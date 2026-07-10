@@ -314,18 +314,33 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b px-3 py-2">
-          <div className="flex items-center gap-2">
+        <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             {!sidebarOpen && (
               <>
                 <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
                   <PanelLeftOpen />
                 </Button>
-                <span className="text-sm font-semibold tracking-tight">silly-chat</span>
+                <span className="shrink-0 text-sm font-semibold tracking-tight">silly-chat</span>
               </>
             )}
+            {/* Per-chat title (design doc): quiet, truncating, next to the nav controls. */}
+            {(() => {
+              const t = conversations.find((c) => c.id === currentId)?.title
+              return t ? (
+                <span
+                  className={cn(
+                    'truncate text-[13.5px] font-semibold text-muted-foreground',
+                    !sidebarOpen && 'border-l pl-3',
+                  )}
+                  title={t}
+                >
+                  {t}
+                </span>
+              ) : null
+            })()}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <UserMenu
               me={me}
               onSettings={() => navigate('/settings')}
