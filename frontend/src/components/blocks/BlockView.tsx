@@ -6,6 +6,7 @@ import { GalleryBlockView } from './GalleryBlock'
 import { ChartBlockView } from './ChartBlock'
 import { CodeBlockView } from './CodeBlock'
 import { DiagramBlockView } from './DiagramBlock'
+import { SlidesBlockView } from './SlidesBlock'
 import { MapBlockView } from './MapBlock'
 import { SourcesBlockView } from './SourcesBlock'
 
@@ -24,6 +25,8 @@ export function BlockView({ block }: { block: Block }) {
       return <CodeBlockView block={block} />
     case 'diagram':
       return <DiagramBlockView block={block} />
+    case 'slides':
+      return <SlidesBlockView block={block} />
     case 'map':
       return <MapBlockView block={block} />
     case 'sources':
@@ -56,6 +59,8 @@ export function BlockSkeleton({ blockType }: { blockType: string }) {
       return <Skeleton className="h-[320px] w-full" />
     case 'diagram':
       return <Skeleton className="h-56 w-full" />
+    case 'slides':
+      return <Skeleton className="aspect-[16/9] w-full" />
     case 'code':
       return <Skeleton className="h-24 w-full" />
     default:

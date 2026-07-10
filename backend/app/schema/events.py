@@ -61,6 +61,11 @@ class AgentUpdateEvent(BaseModel):
 
 class DoneEvent(BaseModel):
     event: Literal["done"] = "done"
+    # Turn telemetry for the status line (None/empty when unknown, e.g. on errors).
+    input_tokens: int | None = None  # context consumed by the final model request
+    output_tokens: int | None = None  # tokens generated across the whole turn
+    context_window: int | None = None  # configured model context size
+    models: list[str] = Field(default_factory=list)  # models that worked this turn
 
 
 class ErrorEvent(BaseModel):

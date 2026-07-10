@@ -45,11 +45,21 @@ export type Type5 = "diagram";
  */
 export type Mermaid = string;
 export type Title1 = string | null;
-export type Type6 = "sources";
-export type Title2 = string;
+export type Type6 = "slides";
+export type Title2 = string | null;
+export type Title3 = string;
+/**
+ * Slide body as concise markdown — short bullets, not paragraphs.
+ */
+export type Markdown1 = string;
+export type Slides = Slide[];
+export type Type7 = "sources";
+export type Title4 = string;
 export type Url1 = string;
 export type Items = Source[];
-export type Blocks = (TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | DiagramBlock | SourcesBlock)[];
+export type Blocks = (
+  TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | DiagramBlock | SlidesBlock | SourcesBlock
+)[];
 export type Event =
   TextDeltaEvent | BlockStartEvent | BlockDataEvent | AgentStatusEvent | AgentUpdateEvent | DoneEvent | ErrorEvent;
 export type Event1 = "text_delta";
@@ -61,8 +71,8 @@ export type BlockType = string;
 export type Event3 = "block_data";
 export type BlockId2 = string;
 export type Block =
-  TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | DiagramBlock | MapBlock | SourcesBlock;
-export type Type7 = "map";
+  TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | DiagramBlock | SlidesBlock | MapBlock | SourcesBlock;
+export type Type8 = "map";
 export type Name1 = string;
 export type Lat = number;
 export type Lon = number;
@@ -79,7 +89,7 @@ export type Areas = MapArea[] | null;
 export type Name2 = string;
 export type Approximate = boolean;
 export type Polygons = number[][][];
-export type Title3 = string | null;
+export type Title5 = string | null;
 export type Event4 = "agent_status";
 export type Message = string;
 export type Event5 = "agent_update";
@@ -88,6 +98,10 @@ export type Label1 = string;
 export type Status = string;
 export type State = "running" | "done" | "error";
 export type Event6 = "done";
+export type InputTokens = number | null;
+export type OutputTokens = number | null;
+export type ContextWindow = number | null;
+export type Models = string[];
 export type Event7 = "error";
 export type Message1 = string;
 
@@ -159,15 +173,29 @@ export interface DiagramBlock {
   [k: string]: unknown;
 }
 /**
+ * A presentation (slide deck) authored by the model, viewed slide by slide.
+ */
+export interface SlidesBlock {
+  type?: Type6;
+  title?: Title2;
+  slides: Slides;
+  [k: string]: unknown;
+}
+export interface Slide {
+  title: Title3;
+  markdown?: Markdown1;
+  [k: string]: unknown;
+}
+/**
  * Citations — the proof behind a grounded answer.
  */
 export interface SourcesBlock {
-  type?: Type6;
+  type?: Type7;
   items: Items;
   [k: string]: unknown;
 }
 export interface Source {
-  title: Title2;
+  title: Title4;
   url: Url1;
   [k: string]: unknown;
 }
@@ -202,11 +230,11 @@ export interface BlockDataEvent {
  * coordinates and records this block, so positions can't be hallucinated.
  */
 export interface MapBlock {
-  type?: Type7;
+  type?: Type8;
   points: Points;
   route?: MapRoute | null;
   areas?: Areas;
-  title?: Title3;
+  title?: Title5;
   [k: string]: unknown;
 }
 export interface MapPoint {
@@ -266,6 +294,10 @@ export interface AgentUpdateEvent {
 }
 export interface DoneEvent {
   event?: Event6;
+  input_tokens?: InputTokens;
+  output_tokens?: OutputTokens;
+  context_window?: ContextWindow;
+  models?: Models;
   [k: string]: unknown;
 }
 export interface ErrorEvent {

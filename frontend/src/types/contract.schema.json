@@ -81,6 +81,7 @@
               "diagram": "#/$defs/DiagramBlock",
               "gallery": "#/$defs/GalleryBlock",
               "map": "#/$defs/MapBlock",
+              "slides": "#/$defs/SlidesBlock",
               "sources": "#/$defs/SourcesBlock",
               "table": "#/$defs/TableBlock",
               "text": "#/$defs/TextBlock"
@@ -105,6 +106,9 @@
             },
             {
               "$ref": "#/$defs/DiagramBlock"
+            },
+            {
+              "$ref": "#/$defs/SlidesBlock"
             },
             {
               "$ref": "#/$defs/MapBlock"
@@ -316,6 +320,49 @@
           "default": "done",
           "title": "Event",
           "type": "string"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Tokens"
+        },
+        "context_window": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context Window"
+        },
+        "models": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Models",
+          "type": "array"
         }
       },
       "title": "DoneEvent",
@@ -627,6 +674,7 @@
                 "code": "#/$defs/CodeBlock",
                 "diagram": "#/$defs/DiagramBlock",
                 "gallery": "#/$defs/GalleryBlock",
+                "slides": "#/$defs/SlidesBlock",
                 "sources": "#/$defs/SourcesBlock",
                 "table": "#/$defs/TableBlock",
                 "text": "#/$defs/TextBlock"
@@ -653,6 +701,9 @@
                 "$ref": "#/$defs/DiagramBlock"
               },
               {
+                "$ref": "#/$defs/SlidesBlock"
+              },
+              {
                 "$ref": "#/$defs/SourcesBlock"
               }
             ]
@@ -665,6 +716,60 @@
         "blocks"
       ],
       "title": "Reply",
+      "type": "object"
+    },
+    "Slide": {
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "markdown": {
+          "default": "",
+          "description": "Slide body as concise markdown \u2014 short bullets, not paragraphs.",
+          "title": "Markdown",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "Slide",
+      "type": "object"
+    },
+    "SlidesBlock": {
+      "description": "A presentation (slide deck) authored by the model, viewed slide by slide.",
+      "properties": {
+        "type": {
+          "const": "slides",
+          "default": "slides",
+          "title": "Type",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "slides": {
+          "items": {
+            "$ref": "#/$defs/Slide"
+          },
+          "title": "Slides",
+          "type": "array"
+        }
+      },
+      "required": [
+        "slides"
+      ],
+      "title": "SlidesBlock",
       "type": "object"
     },
     "Source": {

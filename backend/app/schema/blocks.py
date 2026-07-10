@@ -125,6 +125,22 @@ class DiagramBlock(BaseModel):
     title: str | None = None
 
 
+class Slide(BaseModel):
+    title: str
+    markdown: str = Field(
+        default="",
+        description="Slide body as concise markdown — short bullets, not paragraphs.",
+    )
+
+
+class SlidesBlock(BaseModel):
+    """A presentation (slide deck) authored by the model, viewed slide by slide."""
+
+    type: Literal["slides"] = "slides"
+    title: str | None = None
+    slides: list[Slide]
+
+
 class Source(BaseModel):
     title: str
     url: str
@@ -139,7 +155,8 @@ class SourcesBlock(BaseModel):
 
 Block = Annotated[
     Union[
-        TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, MapBlock, SourcesBlock
+        TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, SlidesBlock,
+        MapBlock, SourcesBlock
     ],
     Field(discriminator="type"),
 ]
@@ -150,7 +167,8 @@ Block = Annotated[
 # Diagrams ARE model-authored by design (Mermaid source, not real-world claims).
 ModelBlock = Annotated[
     Union[
-        TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, SourcesBlock
+        TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, SlidesBlock,
+        SourcesBlock
     ],
     Field(discriminator="type"),
 ]
