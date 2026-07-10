@@ -131,13 +131,17 @@ def genome() -> dict[str, str]:
 
 
 @router.get("")
-def meta_endpoint(_: ApprovedUser) -> dict:
+async def meta_endpoint(_: ApprovedUser) -> dict:
     from app import runtime
+    from app.agent.ollama import context_window
     from app.config import get_settings
 
-    # Meta (cached) + the live chat-behavior knobs the client needs.
+    # Meta (cached) + the live chat-behavior knobs the client needs. Models and the
+    # window let the status line render from the very first moment, before any turn.
     return {
         **get_meta().model_dump(),
         "compact_pct": runtime.compact_pct(),
         "compact_keep_recent": get_settings().limits.compact_keep_recent,
+        "models": runtime.current(),
+        "context_window": await context_window(runtime.model_for("orchestrator")),
     }

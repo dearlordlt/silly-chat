@@ -494,6 +494,14 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
   const lastUserIndex = turns.reduce((acc, t, i) => (t.role === 'user' ? i : acc), -1)
 
+  // Status line: always on. Before any turn reports usage, fall back to the
+  // current models + window from /api/meta; per-turn stats then update it.
+  const shownStats: TurnStats | null =
+    stats ??
+    (meta?.models?.orchestrator
+      ? { models: [meta.models.orchestrator], contextWindow: meta.context_window ?? undefined }
+      : null)
+
   return (
     <div className="flex h-dvh">
       {/* Mobile: the open sidebar floats as an overlay with a backdrop (frame 1u). */}
@@ -552,26 +560,29 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {/* Status line: model(s) + context used last turn (from the done event). */}
-            {stats && (
+            {shownStats && (
               <span
                 className="mr-1 hidden text-[11px] font-medium text-muted-foreground md:block"
                 title={
-                  stats.outputTokens != null
-                    ? `Context sent to the model last turn · ${fmtTok(stats.outputTokens)} tokens generated`
+                  shownStats.outputTokens != null
+                    ? `Context sent to the model last turn · ${fmtTok(shownStats.outputTokens)} tokens generated`
                     : 'Context sent to the model last turn'
                 }
               >
-                {stats.models.join(' + ')}
-                {stats.inputTokens != null &&
-                  (stats.contextWindow != null ? (
+                {shownStats.models.join(' + ')}
+                {shownStats.inputTokens != null ? (
+                  shownStats.contextWindow != null ? (
                     <>
                       {' · '}
-                      {fmtTok(stats.inputTokens)}/{fmtTok(stats.contextWindow)} (
-                      {Math.max(1, Math.round((stats.inputTokens / stats.contextWindow) * 100))}%)
+                      {fmtTok(shownStats.inputTokens)}/{fmtTok(shownStats.contextWindow)} (
+                      {Math.max(1, Math.round((shownStats.inputTokens / shownStats.contextWindow) * 100))}%)
                     </>
                   ) : (
-                    <> · {fmtTok(stats.inputTokens)} used</>
-                  ))}
+                    <> · {fmtTok(shownStats.inputTokens)} used</>
+                  )
+                ) : (
+                  shownStats.contextWindow != null && <> · {fmtTok(shownStats.contextWindow)} window</>
+                )}
               </span>
             )}
             <UserMenu

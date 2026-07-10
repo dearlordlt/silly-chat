@@ -44,6 +44,8 @@ export type AppMeta = {
   help: { title: string; body: string }[]
   compact_pct: number
   compact_keep_recent: number
+  models: Record<string, string>
+  context_window: number | null
 }
 
 export type ServerConvSummary = { id: string; title: string; updated_at: string }
