@@ -81,8 +81,9 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
                 </h3>
                 <ul className="space-y-1">
                   {v.notes.map((n, j) => (
-                    <li key={j} className={cn('flex gap-2', MD_CLASSES)}>
-                      <span className="mt-[7px] size-1 shrink-0 rounded-full bg-primary" />
+                    <li key={j} className={cn('flex gap-2', MD_CLASSES, '[&_p:first-child]:mt-0')}>
+                      {/* Dot centered on the first text line: (13.5px × 1.625 − 4px) / 2 ≈ 9px */}
+                      <span className="mt-[9px] size-1 shrink-0 rounded-full bg-primary" />
                       <span className="min-w-0">
                         <Markdown remarkPlugins={[remarkGfm]}>{n}</Markdown>
                       </span>
