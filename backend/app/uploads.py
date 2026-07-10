@@ -231,9 +231,11 @@ async def create_upload(
     if not (is_image or is_doc):
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "unsupported file type")
 
-    cap = (cfg.upload_max_mb if is_image else cfg.doc_max_mb) * 1024 * 1024
-    if len(raw) > cap:
-        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "file too large")
+    cap_mb = cfg.upload_max_mb if is_image else cfg.doc_max_mb
+    if len(raw) > cap_mb * 1024 * 1024:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE, f"That file is too large (max {cap_mb} MB)"
+        )
 
     if is_image:
         try:
@@ -248,7 +250,7 @@ async def create_upload(
         ext = name.rsplit(".", 1)[-1].lower() if "." in name else "txt"
 
     if _user_used(session, user.id) + len(data) > cfg.upload_user_quota_mb * 1024 * 1024:
-        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "you've reached your upload quota")
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "You've reached your upload quota")
     _evict_until_room(session, len(data), cfg.upload_global_quota_mb * 1024 * 1024)
 
     sha = hashlib.sha256(data).hexdigest()

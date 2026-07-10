@@ -11,6 +11,7 @@ import { Auth } from '@/components/Auth'
 import { Chat } from '@/components/Chat'
 import { SettingsPage } from '@/components/SettingsPage'
 import { AdminPage } from '@/components/AdminPage'
+import { Toaster } from '@/components/ui/toast'
 
 function NewChatRedirect() {
   const [id] = useState(newId)
@@ -49,6 +50,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <Toaster />
       <Routes>
         <Route path="/" element={<NewChatRedirect />} />
         <Route path="/c/:id" element={<Chat me={me} onLogout={logout} />} />

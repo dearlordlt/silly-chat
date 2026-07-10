@@ -22,6 +22,7 @@ import {
 } from '@/lib/history'
 import { Button } from '@/components/ui/button'
 import { AutoTextarea } from '@/components/ui/AutoTextarea'
+import { toast } from '@/components/ui/toast'
 import { Sidebar } from '@/components/Sidebar'
 import { UserMenu } from '@/components/UserMenu'
 import { AgentActivity } from '@/components/AgentActivity'
@@ -174,14 +175,20 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       setUploading((n) => n + 1)
       try {
         const r = await api.uploadFile(f)
-        setAttach((a) => [...a, { id: r.id, name: r.name, url: `/api/uploads/${r.id}`, kind: r.kind }])
-      } catch {
-        /* a failed upload just won't appear as a chip */
+        setAttach((a) => [
+          ...a,
+          { id: r.id, name: r.name, url: `/api/uploads/${r.id}`, kind: r.kind, size: f.size },
+        ])
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Upload failed')
       } finally {
         setUploading((n) => n - 1)
       }
     }
   }
+
+  const prettySize = (n?: number) =>
+    n == null ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`
 
   function send() {
     const message = input.trim()
@@ -328,7 +335,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           </div>
         </header>
 
-        <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col overflow-hidden">
+        <div className="mx-auto flex w-full min-w-0 max-w-[720px] flex-1 flex-col overflow-hidden">
           <div
             ref={scrollRef}
             onScroll={(e) => {
@@ -476,7 +483,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 addFiles(e.dataTransfer.files)
               }}
               className={cn(
-                'rounded-2xl border bg-card shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-ring',
+                'rounded-xl border bg-card shadow-[0_6px_24px_0_color-mix(in_oklch,var(--color-primary)_7%,transparent)] transition-shadow focus-within:ring-2 focus-within:ring-ring',
                 dragOver && 'ring-2 ring-primary',
               )}
             >
@@ -487,10 +494,15 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                       {a.kind === 'doc' ? (
                         <div
                           title={a.name}
-                          className="flex h-16 w-40 items-center gap-2 rounded-lg border bg-muted px-2.5 text-xs"
+                          className="flex h-16 w-44 items-center gap-2 rounded-lg border bg-muted px-2.5 text-xs"
                         >
                           <FileText className="size-5 shrink-0 text-muted-foreground" />
-                          <span className="truncate">{a.name}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{a.name}</span>
+                            {a.size != null && (
+                              <span className="block text-[11px] text-muted-foreground">{prettySize(a.size)}</span>
+                            )}
+                          </span>
                         </div>
                       ) : (
                         <img src={a.url} alt={a.name} className="size-16 rounded-lg border object-cover" />
