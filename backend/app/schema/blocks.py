@@ -66,6 +66,10 @@ class CodeBlock(BaseModel):
     filename: str | None = Field(
         default=None, description="Relative path/name when the code is a real file (enables download)."
     )
+    artifact_id: str | None = Field(
+        default=None,
+        description="Stable id of the code artifact this block is the latest version of.",
+    )
 
 
 class MapPoint(BaseModel):

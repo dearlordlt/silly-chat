@@ -69,5 +69,7 @@ class Conversation(SQLModel, table=True):
     # Rolling summary of compacted (older) messages + how many turns it covers.
     summary: str = ""
     summarized_upto: int = 0
+    # Code artifacts: [{id, name, language, content, updatedAt}] — latest version each.
+    artifacts: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)

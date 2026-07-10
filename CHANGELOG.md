@@ -20,6 +20,10 @@ from this file.
 - **Live code** — while the coding agent works, you watch the code being written
   line by line instead of staring at a spinner; the finished, downloadable code
   block replaces it when the turn completes.
+- **Code artifacts** — code is now a persistent object in the chat, edited in
+  place: "make the ball red" updates the same program instead of spawning a new
+  variant, the assistant sends the coder only the changes (the current code is
+  attached automatically), and old versions no longer bloat the context.
 - **Full chat memory with auto-compaction** — chats no longer forget beyond the
   last 20 messages: the whole history rides along, and when a chat approaches the
   model's context limit (admin-tunable %, default 90) older messages are folded

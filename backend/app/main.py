@@ -65,6 +65,13 @@ class HistoryMessage(BaseModel):
     content: str
 
 
+class ArtifactIn(BaseModel):
+    id: str
+    name: str = ""
+    language: str = "code"
+    content: str
+
+
 class ChatRequest(BaseModel):
     message: str
     mode: Mode = "search"
@@ -76,6 +83,8 @@ class ChatRequest(BaseModel):
     context: str | None = None
     # Rolling summary of this chat's compacted (older) messages, if any.
     summary: str | None = None
+    # The chat's current code artifacts (latest version of each).
+    artifacts: list[ArtifactIn] = []
 
 
 class SummarizeRequest(BaseModel):
@@ -113,10 +122,12 @@ async def chat(req: ChatRequest, user: ApprovedUser, session: SessionDep) -> Eve
         session, req.attachments, user.id, include_docs=req.mode == "chat"
     )
 
+    artifacts = {a.id: (a.name, a.language, a.content[:200_000]) for a in req.artifacts[:12]}
+
     async def event_generator():
         async for event in stream_chat(
             req.message, req.mode, history, req.timezone, images, doc_chunks,
-            req.context, req.summary,
+            req.context, req.summary, artifacts,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 

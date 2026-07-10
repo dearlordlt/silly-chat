@@ -5,7 +5,7 @@ import { api, type AppMeta, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
 import { effectiveTz } from '@/lib/prefs'
-import type { Attachment, Mode, Slot, Turn, TurnStats } from '@/lib/types'
+import type { Attachment, CodeArtifact, Mode, Slot, Turn, TurnStats } from '@/lib/types'
 import {
   type ConvSummary,
   type Location,
@@ -64,6 +64,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const summaryRef = useRef('')
   const summarizedUpTo = useRef(0)
   const compacting = useRef(false)
+  // Code artifacts (persisted with the chat): latest version of each, edited in place.
+  const artifactsRef = useRef<CodeArtifact[]>([])
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const createdAt = useRef<number | null>(null)
@@ -112,6 +114,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         createdAt.current = c.createdAt
         summaryRef.current = c.summary ?? ''
         summarizedUpTo.current = Math.min(c.summarizedUpTo ?? 0, c.turns.length)
+        artifactsRef.current = c.artifacts ?? []
         // Restore the status line from the newest turn that recorded stats.
         const last = [...c.turns].reverse().find((t) => t.role === 'assistant' && t.stats)
         setStats(last?.role === 'assistant' ? (last.stats ?? null) : null)
@@ -120,6 +123,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         setLinked([])
         summaryRef.current = ''
         summarizedUpTo.current = 0
+        artifactsRef.current = []
         createdAt.current = null
       }
     })
@@ -154,6 +158,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         linked: l,
         summary: summaryRef.current,
         summarizedUpTo: summarizedUpTo.current,
+        artifacts: artifactsRef.current,
         createdAt: made,
         updatedAt: Date.now(),
       },
@@ -276,7 +281,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       const flat = toHistory(c.turns)
         .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
         .join('\n')
-      parts.push(`### Linked chat: "${c.title || 'Untitled'}"\n${flat.slice(-8000)}`)
+      // The linked chat's code artifacts come along too (latest versions).
+      const code = (c.artifacts ?? [])
+        .map((a) => `Code "${a.name || a.id}" (${a.language}):\n\`\`\`${a.language}\n${a.content.slice(0, 8000)}\n\`\`\``)
+        .join('\n\n')
+      parts.push(`### Linked chat: "${c.title || 'Untitled'}"\n${flat.slice(-8000)}${code ? `\n\n${code}` : ''}`)
     }
     if (parts.length === 0) return undefined
     return (
@@ -381,10 +390,17 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     try {
       const ids = attachments.map((a) => a.id)
       const context = await linkedContext()
-      for await (const ev of chatStream(
-        message, mode, history, effectiveTz(), ids, context,
-        summaryRef.current || undefined, controller.signal,
-      )) {
+      for await (const ev of chatStream({
+        message,
+        mode,
+        history,
+        timezone: effectiveTz(),
+        attachments: ids,
+        context,
+        summary: summaryRef.current || undefined,
+        artifacts: artifactsRef.current.map(({ id, name, language, content }) => ({ id, name, language, content })),
+        signal: controller.signal,
+      })) {
         if (session.current !== mySession) return // navigated away mid-stream
         switch (ev.event) {
           case 'agent_status':
@@ -438,6 +454,21 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             })
             break
           case 'block_data': {
+            // Code blocks with an artifact id update the chat's artifact in place.
+            // (Empty content never overwrites — belt to the backend's sanitizing.)
+            if (ev.block.type === 'code' && ev.block.artifact_id && ev.block.content.trim()) {
+              const b = ev.block
+              const list = artifactsRef.current
+              const i = list.findIndex((a) => a.id === b.artifact_id)
+              const art: CodeArtifact = {
+                id: b.artifact_id!,
+                name: b.filename ?? (i >= 0 ? list[i].name : ''),
+                language: b.language,
+                content: b.content,
+                updatedAt: Date.now(),
+              }
+              artifactsRef.current = i >= 0 ? list.map((a, j) => (j === i ? art : a)) : [...list, art]
+            }
             const filled: Slot = { id: ev.block_id, kind: 'filled', block: ev.block }
             patchLast((t) => ({
               ...t,
@@ -1005,6 +1036,12 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
           case 'table':
             return [b.columns.join(' | '), ...b.rows.map((r) => r.join(' | '))].join('\n')
           case 'code':
+            // Artifact code: the CURRENT version rides separately once per request —
+            // a placeholder here keeps old versions from bloating the history.
+            if (b.artifact_id) {
+              const lines = b.content.split('\n').length
+              return `[code artifact ${b.artifact_id}${b.filename ? ` — ${b.filename}` : ''} (${b.language}, ${lines} lines); current version provided separately]`
+            }
             return '```' + b.language + '\n' + b.content + '\n```'
           case 'gallery':
             return `[images: ${b.images.map((i) => i.caption || i.url).join('; ')}]`

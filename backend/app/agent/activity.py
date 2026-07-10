@@ -21,9 +21,12 @@ agent_var: ContextVar[str | None] = ContextVar("agent", default=None)
 sources_var: ContextVar[list[Source] | None] = ContextVar("sources", default=None)
 # Accumulates research findings as (subtask, summary) — reused by the text fallback.
 findings_var: ContextVar[list[tuple[str, str]] | None] = ContextVar("findings", default=None)
-# Code artifacts written this turn as (language, content, filename) — appended as code
-# blocks. filename is None for an unnamed single snippet.
-code_var: ContextVar[list[tuple[str, str, str | None]] | None] = ContextVar("code", default=None)
+# Code written this turn as (language, content, filename, artifact_id) — appended as
+# code blocks. filename is None for an unnamed single snippet.
+code_var: ContextVar[list[tuple[str, str, str | None, str]] | None] = ContextVar("code", default=None)
+# The chat's current code artifacts as sent by the client: {id: (name, language, content)}.
+# write_code reads these to seed edits with the existing code.
+artifacts_var: ContextVar[dict[str, tuple[str, str, str]] | None] = ContextVar("artifacts", default=None)
 # Image attachments on the current turn as (media_type, bytes) — read by the vision `look` tool.
 attachments_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("attachments", default=None)
 # Document chunks attached this turn as (text, embedding_bytes) — read by `search_document`.
@@ -59,10 +62,10 @@ def record_findings(items: list[tuple[str, str]]) -> None:
         bucket.extend(items)
 
 
-def record_code(language: str, content: str, filename: str | None = None) -> None:
+def record_code(language: str, content: str, filename: str | None, artifact_id: str) -> None:
     bucket = code_var.get()
     if bucket is not None:
-        bucket.append((language, content, filename))
+        bucket.append((language, content, filename, artifact_id))
 
 
 def record_map(block: object) -> None:

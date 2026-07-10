@@ -54,6 +54,7 @@ export type ServerConv = ServerConvSummary & {
   linked?: string[]
   summary?: string
   summarized_upto?: number
+  artifacts?: unknown[]
 }
 
 export const api = {
@@ -81,7 +82,14 @@ export const api = {
   getServerConvo: (id: string) => req<ServerConv>('GET', `/api/conversations/${id}`),
   putServerConvo: (
     id: string,
-    body: { title: string; turns: unknown[]; linked?: string[]; summary?: string; summarized_upto?: number },
+    body: {
+      title: string
+      turns: unknown[]
+      linked?: string[]
+      summary?: string
+      summarized_upto?: number
+      artifacts?: unknown[]
+    },
   ) => req<ServerConvSummary>('PUT', `/api/conversations/${id}`, body),
 
   // Compaction: merge the prior summary + older messages into one rolling summary.

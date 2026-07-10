@@ -40,6 +40,9 @@ def _ensure_columns() -> None:
             conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN summary TEXT DEFAULT ''")
             conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN summarized_upto INTEGER DEFAULT 0")
             conn.commit()
+        if "artifacts" not in cols:
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN artifacts TEXT DEFAULT '[]'")
+            conn.commit()
 
 
 def get_session() -> Iterator[Session]:

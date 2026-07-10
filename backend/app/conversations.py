@@ -26,6 +26,7 @@ class ConvIn(BaseModel):
     linked: list[str] = []  # ids of @-linked conversations (context for this chat)
     summary: str = ""  # rolling summary of compacted older messages
     summarized_upto: int = 0  # turns[:this] are covered by the summary
+    artifacts: list[Any] = []  # code artifacts, latest version each
 
 
 class ConvSummary(BaseModel):
@@ -39,6 +40,7 @@ class ConvOut(ConvSummary):
     linked: list[str] = []
     summary: str = ""
     summarized_upto: int = 0
+    artifacts: list[Any] = []
 
 
 def _utc(dt: datetime) -> datetime:
@@ -70,7 +72,7 @@ def get_conversation(cid: str, user: ApprovedUser, session: SessionDep) -> ConvO
     return ConvOut(
         id=c.id, title=c.title, turns=c.turns, linked=c.linked or [],
         summary=c.summary or "", summarized_upto=c.summarized_upto or 0,
-        updated_at=_utc(c.updated_at),
+        artifacts=c.artifacts or [], updated_at=_utc(c.updated_at),
     )
 
 
@@ -88,11 +90,12 @@ def upsert_conversation(
         c.linked = body.linked
         c.summary = body.summary
         c.summarized_upto = body.summarized_upto
+        c.artifacts = body.artifacts
         c.updated_at = now
     else:
         c = Conversation(
             id=cid, user_id=user.id, title=body.title, turns=body.turns, linked=body.linked,
-            summary=body.summary, summarized_upto=body.summarized_upto,
+            summary=body.summary, summarized_upto=body.summarized_upto, artifacts=body.artifacts,
             created_at=now, updated_at=now,
         )
     session.add(c)

@@ -271,6 +271,19 @@
           "default": null,
           "description": "Relative path/name when the code is a real file (enables download).",
           "title": "Filename"
+        },
+        "artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Stable id of the code artifact this block is the latest version of.",
+          "title": "Artifact Id"
         }
       },
       "required": [

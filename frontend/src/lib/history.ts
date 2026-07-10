@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Turn } from '@/lib/types'
+import type { CodeArtifact, Turn } from '@/lib/types'
 import { api } from '@/lib/api'
 
 // Where a chat is kept. 'off' is a mode (don't save); a saved chat is local|server.
@@ -20,6 +20,7 @@ export interface FullConv {
   linked?: string[] // ids of @-linked conversations (context for this chat)
   summary?: string // rolling summary of compacted (older) messages
   summarizedUpTo?: number // turns[:this] are covered by the summary
+  artifacts?: CodeArtifact[] // code artifacts, latest version each
   createdAt: number
   updatedAt: number
 }
@@ -92,6 +93,7 @@ export async function loadAny(id: string): Promise<(FullConv & { location: Locat
       linked: c.linked ?? [],
       summary: c.summary ?? '',
       summarizedUpTo: c.summarized_upto ?? 0,
+      artifacts: (c.artifacts ?? []) as CodeArtifact[],
       createdAt: ts,
       updatedAt: ts,
       location: 'server',
@@ -111,6 +113,7 @@ export async function loadFull(id: string, location: Location): Promise<FullConv
     linked: c.linked ?? [],
     summary: c.summary ?? '',
     summarizedUpTo: c.summarized_upto ?? 0,
+    artifacts: (c.artifacts ?? []) as CodeArtifact[],
     createdAt: Date.parse(c.updated_at),
     updatedAt: Date.parse(c.updated_at),
   }
@@ -126,6 +129,7 @@ export async function save(conv: FullConv, location: Location): Promise<void> {
       linked: conv.linked ?? [],
       summary: conv.summary ?? '',
       summarized_upto: conv.summarizedUpTo ?? 0,
+      artifacts: conv.artifacts ?? [],
     })
   }
 }

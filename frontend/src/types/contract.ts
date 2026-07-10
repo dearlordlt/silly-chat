@@ -39,6 +39,10 @@ export type Content = string;
  * Relative path/name when the code is a real file (enables download).
  */
 export type Filename = string | null;
+/**
+ * Stable id of the code artifact this block is the latest version of.
+ */
+export type ArtifactId = string | null;
 export type Type5 = "diagram";
 /**
  * Valid Mermaid source, e.g. 'graph TD; A-->B'.
@@ -161,6 +165,7 @@ export interface CodeBlock {
   language: Language;
   content: Content;
   filename?: Filename;
+  artifact_id?: ArtifactId;
   [k: string]: unknown;
 }
 /**

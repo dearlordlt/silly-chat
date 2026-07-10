@@ -30,6 +30,7 @@ from pydantic_core import from_json
 from pydantic_ai import Agent
 
 from app.agent.activity import (
+    artifacts_var,
     attachments_var,
     code_tasks_var,
     code_var,
@@ -94,7 +95,7 @@ def _describe(messages) -> str:
     return " || ".join(out)
 
 
-_MAX_CONTEXT_CHARS = 24_000  # backstop on @-linked context riding in from the client
+_MAX_CONTEXT_CHARS = 100_000  # backstop on artifact + @-linked context riding in from the client
 _FALLBACK_WINDOW = 131_072  # assumed window when the endpoint doesn't report one
 
 
@@ -155,6 +156,7 @@ async def stream_chat(
     doc_chunks: list[tuple[str, bytes]] | None = None,
     context: str | None = None,
     summary: str | None = None,
+    artifacts: dict[str, tuple[str, str, str]] | None = None,  # id -> (name, language, content)
 ) -> AsyncIterator[StreamEvent]:
     attachments = attachments or []
     doc_chunks = doc_chunks or []
@@ -187,12 +189,33 @@ async def stream_chat(
                 f"then {ask}. Ignore the previous conversation; do NOT continue or repeat an "
                 f"earlier task unless the attachment itself asks for it.]"
             )
+    # Current code artifacts ride in once (latest version only) so the orchestrator
+    # can discuss the code — history carries placeholders instead of every version.
+    artifact_context = None
+    if artifacts:
+        chunks = []
+        used = 0
+        for art_id, (name, lang, content) in artifacts.items():
+            body = content[: max(0, 60_000 - used)]
+            used += len(body)
+            chunks.append(f"### Artifact {art_id} — {name or 'snippet'} ({lang}):\n```{lang}\n{body}\n```")
+        artifact_context = (
+            "[Current code artifacts in this chat — each is the LATEST version; to change "
+            "one, call write_code with its artifact_id (never paste this code yourself).]\n\n"
+            + "\n\n".join(chunks)
+        )
+
     agent = build_orchestrator(effective_mode, timezone)
-    message_history = _build_history(history or [], context, summary, await _history_budget_chars())
+    message_history = _build_history(
+        history or [],
+        "\n\n".join(x for x in (artifact_context, context) if x) or None,
+        summary,
+        await _history_budget_chars(),
+    )
     queue: asyncio.Queue = asyncio.Queue()
     sources: list[Source] = []
     findings: list[tuple[str, str]] = []
-    code: list[tuple[str, str, str | None]] = []
+    code: list[tuple[str, str, str | None, str]] = []  # (language, content, filename, artifact_id)
     built_maps: list = []
     stats: dict[str, int] = {}  # turn telemetry for the status line
 
@@ -279,6 +302,7 @@ async def stream_chat(
         tok_f = findings_var.set(findings)
         tok_c = code_var.set(code)
         tok_ct = code_tasks_var.set({})
+        tok_art = artifacts_var.set(artifacts or {})
         tok_m = maps_var.set(built_maps)
         tok_tz = tz_var.set(timezone)
         tok_a = attachments_var.set(attachments)
@@ -318,6 +342,7 @@ async def stream_chat(
             findings_var.reset(tok_f)
             code_var.reset(tok_c)
             code_tasks_var.reset(tok_ct)
+            artifacts_var.reset(tok_art)
             maps_var.reset(tok_m)
             tz_var.reset(tok_tz)
             attachments_var.reset(tok_a)
@@ -385,20 +410,34 @@ async def _text_fallback(message: str, findings: list[tuple[str, str]], history)
     return Reply(blocks=[TextBlock(markdown=str(result.output))])
 
 
-def _final_events(reply, code: list[tuple[str, str, str | None]], built_maps: list, sources: list[Source]):
+def _final_events(reply, code: list[tuple[str, str, str | None, str]], built_maps: list, sources: list[Source]):
     blocks = list(reply.blocks)
-    # Append code written by the coder agent (verbatim — never round-tripped through
-    # the orchestrator's output), unless the model already emitted it as a code block.
-    # Dedupe by (language, filename): when an output-validation retry makes the model
-    # call write_code again for the same artifact, only the last version ships
-    # (distinct files of a multi-file result are unaffected).
-    has_code_block = any(getattr(b, "type", None) == "code" for b in blocks)
-    if not has_code_block:
-        latest: dict[tuple[str, str | None], str] = {}
-        for language, content, filename in code:
-            latest[(language, filename)] = content
-        for (language, filename), content in latest.items():
-            blocks.append(CodeBlock(language=language, content=content, filename=filename))
+    # Code the coder wrote this turn, deduped by artifact id (last version wins).
+    latest: dict[str, tuple[str, str, str | None]] = {}
+    for language, content, filename, artifact_id in code:
+        latest[artifact_id] = (language, content, filename)
+    # The coder's output is authoritative. Models "reference" artifacts by emitting
+    # their own code block with the artifact_id and empty/abbreviated content (seen
+    # live — it clobbered the stored artifact with ""). Swap in the real content;
+    # strip artifact ids we didn't record so nothing can corrupt stored artifacts.
+    shown: set[str] = set()
+    for b in blocks:
+        if getattr(b, "type", None) == "code" and b.artifact_id:
+            if b.artifact_id in latest:
+                language, content, filename = latest[b.artifact_id]
+                b.language, b.content, b.filename = language, content, filename
+                shown.add(b.artifact_id)
+            else:
+                b.artifact_id = None
+    # Anything the coder wrote that the model didn't surface gets appended verbatim
+    # — unless the model pasted its own (id-less) code block instead.
+    has_plain_code = any(getattr(b, "type", None) == "code" and not b.artifact_id for b in blocks)
+    if not has_plain_code:
+        for artifact_id, (language, content, filename) in latest.items():
+            if artifact_id not in shown:
+                blocks.append(
+                    CodeBlock(language=language, content=content, filename=filename, artifact_id=artifact_id)
+                )
     # Maps built by show_map carry real geocoded coordinates — always appended verbatim.
     # (The Reply schema excludes map blocks, so the model cannot emit its own.)
     blocks.extend(built_maps)

@@ -16,6 +16,15 @@ export type Agent = {
 
 export type Attachment = { id: string; name: string; url: string; kind: 'image' | 'doc'; size?: number }
 
+// A persistent piece of code in this chat — edited in place across turns.
+export type CodeArtifact = {
+  id: string
+  name: string
+  language: string
+  content: string
+  updatedAt: number
+}
+
 // Telemetry from the DoneEvent — powers the context/model status line.
 export type TurnStats = {
   inputTokens?: number

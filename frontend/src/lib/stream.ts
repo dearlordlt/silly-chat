@@ -8,20 +8,24 @@ import type { Event as StreamEvent } from '@/types/contract'
  */
 export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
 
-export async function* chatStream(
-  message: string,
-  mode: 'search' | 'chat' | 'code',
-  history: HistoryMessage[],
-  timezone: string | undefined,
-  attachments: string[],
-  context: string | undefined,
-  summary: string | undefined,
-  signal?: AbortSignal,
-): AsyncGenerator<StreamEvent> {
+export type ChatParams = {
+  message: string
+  mode: 'search' | 'chat' | 'code'
+  history: HistoryMessage[]
+  timezone?: string
+  attachments: string[]
+  context?: string // flattened @-linked chats
+  summary?: string // rolling summary of this chat's compacted messages
+  artifacts?: { id: string; name: string; language: string; content: string }[]
+  signal?: AbortSignal
+}
+
+export async function* chatStream(params: ChatParams): AsyncGenerator<StreamEvent> {
+  const { signal, ...body } = params
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, mode, history, timezone, attachments, context, summary }),
+    body: JSON.stringify(body),
     credentials: 'include',
     signal,
   })

@@ -25,6 +25,7 @@ from app.agent.clock import now_str, tz_var
 from app.agent.activity import (
     agent_update,
     agent_var,
+    artifacts_var,
     attachments_var,
     code_tasks_var,
     docs_var,
@@ -200,20 +201,44 @@ def _split_files(output: str, fallback_language: str) -> list[tuple[str, str, st
     return files
 
 
-async def write_code(task: str, language: str = "code") -> str:
-    """Write code for the task using the dedicated coding model. The code is shown
-    to the user automatically — do not repeat it in your answer."""
+async def write_code(task: str, language: str = "code", artifact_id: str = "") -> str:
+    """Write or edit code using the dedicated coding model. Pass artifact_id to modify
+    an existing artifact — its current code is handed to the coder automatically. The
+    result is shown to the user automatically — do not repeat it in your answer."""
+    # Editing an existing artifact: seed the coder with its current content, so the
+    # orchestrator never has to (badly) reproduce the code inside the task.
+    artifacts = artifacts_var.get() or {}
+    editing = artifacts.get(artifact_id) if artifact_id else None
+    if artifact_id and editing is None:
+        known = ", ".join(f"{k} ({v[0]})" for k, v in artifacts.items()) or "none"
+        return f"(unknown artifact_id {artifact_id!r} — this chat's artifacts: {known})"
+    coder_task = task
+    if editing is not None:
+        name, lang0, content = editing
+        language = language if language != "code" else lang0
+        coder_task = (
+            f"You are EDITING the existing file below — apply the requested changes and "
+            f"return the COMPLETE updated file (same single-file structure).\n\n"
+            f"=== CURRENT CODE ({name or 'snippet'}, {lang0}) ===\n{content}\n"
+            f"=== END CURRENT CODE ===\n\nRequested changes:\n{task}"
+        )
     # Guardrails against runaway re-coding (seen live: a "fix it" turn produced three
     # different games). Exact duplicates are refused, and no turn runs the coder more
     # than twice — eager models otherwise hedge with rewrite after rewrite, since they
-    # can't verify the result themselves.
+    # can't verify the result themselves. Keyed on the CHANGES text, not the seeded code.
     seen = code_tasks_var.get()
-    key = " ".join(task.split())[:500]
+    key = f"{artifact_id}|" + " ".join(task.split())[:500]
     if seen is not None:
         if key in seen:
             return (
                 "(this exact artifact was already written by an earlier write_code call "
                 "this turn and is shown to the user — do not call write_code again)"
+            )
+        if editing is None and "create" in seen.values():
+            return (
+                "(REFUSED: an artifact was already created this turn and is shown to the "
+                "user — never produce a second version. To change it, call write_code "
+                "with its artifact_id; otherwise give your final answer now.)"
             )
         if len(seen) >= 2:
             return (
@@ -221,10 +246,12 @@ async def write_code(task: str, language: str = "code") -> str:
                 "version — the existing code is shown to the user. Give your final "
                 "answer now, describing what was built.)"
             )
-        seen[key] = "running"
+        seen[key] = "edit" if editing is not None else "create"
 
     aid = uuid.uuid4().hex[:8]
-    agent_update(aid, label=f"Coding: {task}", status="Writing code…", state="running")
+    # Label from the CHANGES text (truncated) — never the seeded code.
+    verb_label = "Editing" if editing is not None else "Coding"
+    agent_update(aid, label=f"{verb_label}: {task[:300]}", status="Writing code…", state="running")
     try:
         agent = Agent(
             coder_model(),
@@ -252,22 +279,30 @@ async def write_code(task: str, language: str = "code") -> str:
                         emit(BlockStartEvent(block_id=live_id, block_type="code"))
                     emit(TextDeltaEvent(block_id=live_id, text=text))
 
-        result = await agent.run(task, event_stream_handler=on_events)
+        result = await agent.run(coder_task, event_stream_handler=on_events)
         files = _split_files(str(result.output), language)
         if not files:
             return "(the coder returned nothing)"
-        for lang, content, fname in files:
-            record_code(lang, content, fname)
+        # Assign stable artifact ids: an edit keeps its id; a file whose name matches
+        # an existing artifact updates that artifact; anything else is a new one.
+        by_name = {v[0]: k for k, v in artifacts.items() if v[0]}
+        written: list[tuple[str, str | None, int]] = []  # (artifact_id, filename, lines)
+        for i, (lang, content, fname) in enumerate(files):
+            if editing is not None and i == 0 and len(files) == 1:
+                art = artifact_id
+            else:
+                art = by_name.get(fname or "") or uuid.uuid4().hex[:8]
+            record_code(lang, content, fname, art)
+            written.append((art, fname, content.count(chr(10)) + 1))
         agent_update(aid, status="Done", state="done")
-        if len(files) > 1:
-            return (
-                f"Wrote {len(files)} files: {', '.join(f or '(snippet)' for _, _, f in files)} — "
-                "already shown to the user. Do not call write_code again for this; give your final answer."
-            )
-        total = files[0][1].count(chr(10)) + 1
+        verb = "Updated" if editing is not None else "Wrote"
+        desc = ", ".join(
+            f"artifact {art}" + (f" ({fname}, {n} lines)" if fname else f" ({n} lines)")
+            for art, fname, n in written
+        )
         return (
-            f"Wrote {total} lines of {language or 'code'} — already shown to the user. "
-            "Do not call write_code again for this; give your final answer."
+            f"{verb} {desc} — already shown to the user. Do not call write_code again "
+            "unless the user asks for further changes; to modify later, pass its artifact_id."
         )
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
