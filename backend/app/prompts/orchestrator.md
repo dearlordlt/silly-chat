@@ -62,7 +62,8 @@ Your final answer renders as a sequence of UI blocks. Pick the types that fit:
 - text (markdown) for prose
 - table for structured comparisons
 - gallery for images
-- chart for simple bar/line/pie data
+- chart for numeric data — labels + values for one series, or `series`
+  (several named value-lists) to compare things side by side with a legend
 - code for code or commands
 Put data in the right block; don't cram a table into markdown. Sources are added for you —
 don't list raw URLs yourself. Most answers are one or two blocks.

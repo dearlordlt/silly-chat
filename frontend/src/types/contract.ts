@@ -21,7 +21,16 @@ export type Images = GalleryImage[];
 export type Type3 = "chart";
 export type Kind = "bar" | "line" | "pie";
 export type Labels = string[];
+/**
+ * Values for a single series (one per label).
+ */
 export type Values = number[];
+/**
+ * For comparisons: several named series (each one value per label); rendered with a legend.
+ */
+export type Series = ChartSeries[] | null;
+export type Name = string;
+export type Values1 = number[];
 export type Title = string | null;
 export type Type4 = "code";
 export type Language = string;
@@ -98,8 +107,14 @@ export interface ChartBlock {
   type?: Type3;
   kind: Kind;
   labels: Labels;
-  values: Values;
+  values?: Values;
+  series?: Series;
   title?: Title;
+  [k: string]: unknown;
+}
+export interface ChartSeries {
+  name: Name;
+  values: Values1;
   [k: string]: unknown;
 }
 export interface CodeBlock {

@@ -39,12 +39,23 @@ class GalleryBlock(BaseModel):
     images: list[GalleryImage]
 
 
+class ChartSeries(BaseModel):
+    name: str
+    values: list[float]
+
+
 class ChartBlock(BaseModel):
     type: Literal["chart"] = "chart"
     kind: Literal["bar", "line", "pie"]
-    # Simple label/value series; keep dumb so any cheap model can fill it.
+    # Simple label/value data; keep dumb so any cheap model can fill it.
     labels: list[str]
-    values: list[float]
+    values: list[float] = Field(
+        default_factory=list, description="Values for a single series (one per label)."
+    )
+    series: list[ChartSeries] | None = Field(
+        default=None,
+        description="For comparisons: several named series (each one value per label); rendered with a legend.",
+    )
     title: str | None = None
 
 

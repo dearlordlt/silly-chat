@@ -165,11 +165,28 @@
           "type": "array"
         },
         "values": {
+          "description": "Values for a single series (one per label).",
           "items": {
             "type": "number"
           },
           "title": "Values",
           "type": "array"
+        },
+        "series": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ChartSeries"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For comparisons: several named series (each one value per label); rendered with a legend.",
+          "title": "Series"
         },
         "title": {
           "anyOf": [
@@ -186,10 +203,30 @@
       },
       "required": [
         "kind",
-        "labels",
-        "values"
+        "labels"
       ],
       "title": "ChartBlock",
+      "type": "object"
+    },
+    "ChartSeries": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "values"
+      ],
+      "title": "ChartSeries",
       "type": "object"
     },
     "CodeBlock": {
