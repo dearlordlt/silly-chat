@@ -55,6 +55,17 @@ so register yourself immediately after deploying.
   Restore = untar into the volume (stop the stack first).
 - **Logs**: `./logs.sh [service]` — rotation is capped (10 MB × 3 per service).
 
+## Better search via a home SearXNG (optional)
+
+Search engines throttle datacenter IPs. If you run SearXNG at home (e.g. on a Pi)
+and both machines share a tailnet, prefer it with the bundled one as fallback:
+
+```env
+SEARCH__SEARXNG_URL=http://<home-tailnet-ip>:<port>,http://searxng:8080
+```
+
+First instance that returns results wins; a home outage just falls back.
+
 ## Sizing notes (8 GB box)
 
 Steady state ≈ 2 GB: backend + nginx + searxng + Caddy + the embed appliance

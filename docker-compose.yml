@@ -24,8 +24,10 @@ services:
       # Reach Ollama on the host by default; override in .env for cloud
       # (OLLAMA__BASE_URL=https://ollama.com/v1) or another host.
       OLLAMA__BASE_URL: ${OLLAMA__BASE_URL:-http://host.docker.internal:11434/v1}
-      # Reach the searxng service over the compose network.
-      SEARCH__SEARXNG_URL: http://searxng:8080
+      # Search endpoint(s) — comma-separated failover list. Default: the bundled
+      # container. Override in .env to prefer e.g. a home instance over Tailscale
+      # (residential IP → search engines don't block it) with the local one second.
+      SEARCH__SEARXNG_URL: ${SEARCH__SEARXNG_URL:-http://searxng:8080}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

@@ -31,11 +31,27 @@ class ImageResult:
 
 
 async def _query(params: dict) -> dict:
-    base = get_settings().search.searxng_url.rstrip("/")
+    """Query SearXNG. ``searxng_url`` may be a comma-separated failover list —
+    e.g. a home instance over Tailscale (residential IP = engines don't block it)
+    first, the local container second. First instance that yields results wins;
+    empty results also fall through (that's how engine suspensions look)."""
+    bases = [u.strip().rstrip("/") for u in get_settings().search.searxng_url.split(",") if u.strip()]
+    last: dict = {}
     async with httpx.AsyncClient(timeout=20.0) as client:
-        resp = await client.get(f"{base}/search", params={**params, "format": "json"})
-        resp.raise_for_status()
-        return resp.json()
+        for i, base in enumerate(bases):
+            try:
+                resp = await client.get(f"{base}/search", params={**params, "format": "json"})
+                resp.raise_for_status()
+                data = resp.json()
+            except httpx.HTTPError as exc:
+                log.warning("searxng %s failed: %s", base, exc)
+                continue
+            if data.get("results"):
+                if i > 0:
+                    log.info("searxng fallback #%d (%s) answered", i + 1, base)
+                return data
+            last = data
+    return last
 
 
 async def search_text(query: str, limit: int = 8) -> list[TextResult]:
