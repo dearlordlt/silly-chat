@@ -21,6 +21,8 @@ import { Button } from '@/components/ui/button'
 import { AboutDialog, HelpDialog } from '@/components/MetaDialogs'
 import { cn } from '@/lib/utils'
 
+const PAGE = 15 // chats shown per "Load more" step
+
 const MODES: { value: StorageMode; label: string }[] = [
   { value: 'off', label: 'Off' },
   { value: 'local', label: 'Local' },
@@ -105,6 +107,11 @@ export function Sidebar({
     return q ? conversations.filter((c) => c.title.toLowerCase().includes(q)) : conversations
   }, [conversations, query])
 
+  // Long histories: render a page at a time (search always scans the full list).
+  const [visible, setVisible] = useState(PAGE)
+  useEffect(() => setVisible(PAGE), [query])
+  const shown = filtered.slice(0, visible)
+
   let lastBucket = ''
 
   return (
@@ -147,7 +154,7 @@ export function Sidebar({
           </p>
         ) : (
           <ul className="space-y-0.5">
-            {filtered.map((c) => {
+            {shown.map((c) => {
               const b = bucket(c.updatedAt)
               const header = b !== lastBucket ? ((lastBucket = b), b) : null
               const active = c.id === currentId
@@ -242,6 +249,14 @@ export function Sidebar({
               )
             })}
           </ul>
+        )}
+        {filtered.length > visible && (
+          <button
+            onClick={() => setVisible((v) => v + PAGE)}
+            className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            Load more ({filtered.length - visible})
+          </button>
         )}
       </nav>
 
