@@ -372,7 +372,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     </div>
                   </div>
                 ) : (
-                  <div key={i} className="group flex items-center justify-end gap-2">
+                  <div key={i} className="group flex animate-rise items-center justify-end gap-2">
                     {i === lastUserIndex && !busy && (
                       <button
                         onClick={() => startEdit(i, turn.text)}
@@ -383,7 +383,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                         <Pencil />
                       </button>
                     )}
-                    <div className="flex max-w-[80%] flex-col items-end gap-1.5">
+                    <div className="flex max-w-[min(520px,80%)] flex-col items-end gap-1.5">
                       {turn.attachments?.length ? (
                         <div className="flex flex-wrap justify-end gap-1.5">
                           {turn.attachments.map((a) =>
@@ -412,7 +412,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                         </div>
                       ) : null}
                       {turn.text && (
-                        <div className="whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-sm">
+                        <div className="whitespace-pre-wrap rounded-xl rounded-br-[6px] bg-primary px-4 py-3 text-[14.5px] leading-[1.55] text-primary-foreground shadow-sm">
                           {turn.text}
                         </div>
                       )}
@@ -431,7 +431,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   )}
                   {turn.agents?.length > 0 && <AgentActivity agents={turn.agents} />}
                   {turn.slots.map((slot) => (
-                    <div key={slot.id}>
+                    <div key={slot.id} className="animate-rise">
                       {slot.kind === 'pending' ? (
                         <BlockSkeleton blockType={slot.blockType} />
                       ) : (
@@ -440,12 +440,18 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     </div>
                   ))}
                   {turn.error && (
-                    <div className="space-y-2">
-                      <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
-                        Something went wrong. {turn.error}
+                    <div className="animate-rise flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3.5">
+                      <div className="min-w-0 text-sm">
+                        <span className="font-semibold text-destructive">Something went wrong.</span>{' '}
+                        <span className="text-muted-foreground">{turn.error}</span>
                       </div>
                       {i === turns.length - 1 && !busy && (
-                        <Button variant="outline" size="sm" onClick={retry}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={retry}
+                          className="shrink-0 rounded-full"
+                        >
                           <RotateCw />
                           Retry
                         </Button>

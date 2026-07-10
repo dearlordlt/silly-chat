@@ -10,21 +10,33 @@ export function GalleryBlockView({ block }: { block: GalleryBlock }) {
               src={img.url}
               alt={img.caption ?? ''}
               loading="lazy"
-              className="aspect-square w-full rounded-lg object-cover"
+              className="aspect-square w-full rounded-lg border object-cover transition-transform duration-200 group-hover:scale-[1.015]"
             />
-            {img.caption && (
+            {(img.caption || img.source_url) && (
               <span className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                 {img.caption}
+                {img.source_url && (
+                  <span className="text-primary/80">
+                    {img.caption ? ' · ' : ''}
+                    {(() => {
+                      try {
+                        return new URL(img.source_url).hostname.replace(/^www\./, '')
+                      } catch {
+                        return ''
+                      }
+                    })()}
+                  </span>
+                )}
               </span>
             )}
           </>
         )
         return img.source_url ? (
-          <a key={i} href={img.source_url} target="_blank" rel="noreferrer" className="block">
+          <a key={i} href={img.source_url} target="_blank" rel="noreferrer" className="group block">
             {inner}
           </a>
         ) : (
-          <div key={i}>{inner}</div>
+          <div key={i} className="group">{inner}</div>
         )
       })}
     </div>

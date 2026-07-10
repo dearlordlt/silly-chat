@@ -69,9 +69,12 @@ export function CodeBlockView({ block }: { block: CodeBlock }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
+    <div className="overflow-hidden rounded-lg border bg-card">
       <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
-        <span className="truncate text-xs font-medium text-muted-foreground" title={block.filename || undefined}>
+        <span
+          className="truncate rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[12.5px] text-muted-foreground"
+          title={block.filename || undefined}
+        >
           {block.filename || block.language || 'code'}
         </span>
         <div className="flex items-center gap-1">

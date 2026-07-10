@@ -217,6 +217,33 @@ body {
 .dark .hljs-attr, .dark .hljs-attribute, .dark .hljs-variable, .dark .hljs-template-variable { color: #79c0ff; }
 .dark .hljs-tag { color: #7ee787; }
 
+/* ---- Motion (design doc): blocks rise in, skeletons shimmer ---- */
+@keyframes silly-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-rise {
+  animation: silly-rise 0.28s ease-out both;
+}
+@keyframes silly-shimmer-sweep {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+.silly-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in oklch, var(--color-foreground) 6%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: silly-shimmer-sweep 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise { animation: none; }
+  .silly-shimmer { animation: none; }
+}
+
 /* Quiet, modern scrollbars. */
 * {
   scrollbar-width: thin;
