@@ -11,7 +11,17 @@ import type { MapBlock } from '@/types/contract'
  * Tiles get a CSS filter in dark themes (see index.css .map-tiles rules).
  */
 
-const MODE_WORD: Record<string, string> = { car: 'by car', bike: 'by bike', foot: 'on foot' }
+const MODE_WORD: Record<string, string> = {
+  car: 'by car',
+  bike: 'by bike',
+  foot: 'on foot',
+  transit: 'by public transport',
+}
+
+function routeChip(route: NonNullable<MapBlock['route']>): string {
+  const dist = route.distance_km != null ? `${route.distance_km} km · ` : ''
+  return `${dist}~${Math.round(route.duration_min)} min ${MODE_WORD[route.mode ?? 'car']}`
+}
 
 function mountMap(el: HTMLElement, block: MapBlock): L.Map {
   const map = L.map(el, { scrollWheelZoom: false })
@@ -34,7 +44,23 @@ function mountMap(el: HTMLElement, block: MapBlock): L.Map {
   })
 
   let bounds = L.latLngBounds(pts)
-  if (block.route && block.route.geometry.length > 1) {
+  if (block.route?.legs?.length) {
+    // Multi-modal route: walks dashed + muted, vehicles solid + labeled.
+    const group = L.featureGroup()
+    for (const leg of block.route.legs) {
+      const walk = leg.mode === 'walk'
+      const line = L.polyline(leg.geometry as [number, number][], {
+        color: 'var(--color-primary)',
+        weight: walk ? 3 : 5,
+        opacity: walk ? 0.55 : 0.9,
+        dashArray: walk ? '2 7' : undefined,
+      })
+      if (leg.label) line.bindTooltip(leg.label, { sticky: true })
+      group.addLayer(line)
+    }
+    group.addTo(map)
+    bounds = group.getBounds()
+  } else if (block.route && block.route.geometry.length > 1) {
     const line = L.polyline(block.route.geometry as [number, number][], {
       color: 'var(--color-primary)',
       weight: 4,
@@ -78,12 +104,7 @@ export function MapBlockView({ block }: { block: MapBlock }) {
           {block.title || block.points.map((p) => p.name).join(' → ')}
         </span>
         <div className="flex shrink-0 items-center gap-2">
-          {block.route && (
-            <span className="text-[11px] text-muted-foreground">
-              {block.route.distance_km} km · ~{Math.round(block.route.duration_min)} min{' '}
-              {MODE_WORD[block.route.mode ?? 'car']}
-            </span>
-          )}
+          {block.route && <span className="text-[11px] text-muted-foreground">{routeChip(block.route)}</span>}
           <button
             onClick={() => setExpanded(true)}
             aria-label="Expand map"
@@ -112,8 +133,7 @@ export function MapBlockView({ block }: { block: MapBlock }) {
             </button>
             {block.route && (
               <span className="absolute bottom-3 left-3 z-[1000] rounded-full border bg-card px-3 py-1.5 text-xs font-semibold shadow-lg">
-                {block.route.distance_km} km · ~{Math.round(block.route.duration_min)} min{' '}
-                {MODE_WORD[block.route.mode ?? 'car']}
+                {routeChip(block.route)}
               </span>
             )}
           </div>

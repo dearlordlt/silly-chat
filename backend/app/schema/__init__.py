@@ -12,6 +12,7 @@ from app.schema.blocks import (
     GalleryBlock,
     GalleryImage,
     MapBlock,
+    MapLeg,
     MapPoint,
     MapRoute,
     Reply,

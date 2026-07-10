@@ -409,6 +409,43 @@
       "title": "MapBlock",
       "type": "object"
     },
+    "MapLeg": {
+      "description": "One leg of a multi-modal route (e.g. a walk, then Bus 3).",
+      "properties": {
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "geometry": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "Geometry",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "geometry"
+      ],
+      "title": "MapLeg",
+      "type": "object"
+    },
     "MapPoint": {
       "properties": {
         "name": {
@@ -435,8 +472,16 @@
     "MapRoute": {
       "properties": {
         "distance_km": {
-          "title": "Distance Km",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distance Km"
         },
         "duration_min": {
           "title": "Duration Min",
@@ -447,7 +492,8 @@
           "enum": [
             "car",
             "bike",
-            "foot"
+            "foot",
+            "transit"
           ],
           "title": "Mode",
           "type": "string"
@@ -461,10 +507,24 @@
           },
           "title": "Geometry",
           "type": "array"
+        },
+        "legs": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/MapLeg"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Legs"
         }
       },
       "required": [
-        "distance_km",
         "duration_min",
         "geometry"
       ],

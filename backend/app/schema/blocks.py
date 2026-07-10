@@ -74,12 +74,23 @@ class MapPoint(BaseModel):
     lon: float
 
 
+class MapLeg(BaseModel):
+    """One leg of a multi-modal route (e.g. a walk, then Bus 3)."""
+
+    mode: str  # walk | bus | tram | rail | ...
+    label: str | None = None  # e.g. "Bus 3"
+    geometry: list[list[float]]
+
+
 class MapRoute(BaseModel):
-    distance_km: float
+    distance_km: float | None = None
     duration_min: float
-    mode: Literal["car", "bike", "foot"] = "car"
+    mode: Literal["car", "bike", "foot", "transit"] = "car"
     # Route geometry as [lat, lon] pairs, ready for the map renderer.
     geometry: list[list[float]]
+    # Present for transit: per-leg geometry + labels so the renderer can draw
+    # walks dashed and vehicles solid.
+    legs: list[MapLeg] | None = None
 
 
 class MapBlock(BaseModel):

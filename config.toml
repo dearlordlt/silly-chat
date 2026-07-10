@@ -24,6 +24,8 @@ embed = "nomic-embed-text:v1.5"
 nominatim_url = "https://nominatim.openstreetmap.org"
 # {profile} = car | bike | foot (FOSSGIS OSRM). A plain OSRM base also works.
 osrm_url = "https://routing.openstreetmap.de/routed-{profile}"
+# Public transport routing (community-run MOTIS over open GTFS feeds).
+transitous_url = "https://api.transitous.org"
 
 [search]
 # SearXNG instance reachable by the backend (json format must be enabled).

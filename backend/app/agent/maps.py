@@ -13,7 +13,7 @@ import httpx
 
 from app.config import get_settings
 from app.logging_setup import get_logger
-from app.schema import MapPoint, MapRoute
+from app.schema import MapLeg, MapPoint, MapRoute
 
 log = get_logger("maps")
 
@@ -87,4 +87,82 @@ async def route(points: list[MapPoint], profile: str = "car") -> MapRoute | None
         )
     except Exception as exc:
         log.warning("routing failed: %s", exc)
+        return None
+
+
+def _decode_polyline(encoded: str, precision: int = 5) -> list[list[float]]:
+    """Decode a Google encoded polyline into [lat, lon] pairs."""
+    factor = 10**precision
+    coords: list[list[float]] = []
+    lat = lon = 0
+    i = 0
+    while i < len(encoded):
+        for which in (0, 1):
+            shift = result = 0
+            while True:
+                b = ord(encoded[i]) - 63
+                i += 1
+                result |= (b & 0x1F) << shift
+                shift += 5
+                if b < 0x20:
+                    break
+            delta = ~(result >> 1) if result & 1 else result >> 1
+            if which == 0:
+                lat += delta
+            else:
+                lon += delta
+        coords.append([lat / factor, lon / factor])
+    return coords
+
+
+def _leg_label(leg: dict) -> str | None:
+    mode = (leg.get("mode") or "").lower()
+    if mode == "walk":
+        return None
+    line = leg.get("routeShortName") or leg.get("displayName") or ""
+    return f"{mode.capitalize()} {line}".strip()
+
+
+async def transit(points: list[MapPoint]) -> MapRoute | None:
+    """Public-transport route (first → last point) via Transitous. None on failure."""
+    if len(points) < 2:
+        return None
+    a, b = points[0], points[-1]
+    try:
+        async with httpx.AsyncClient(timeout=25) as c:
+            r = await c.get(
+                f"{get_settings().maps.transitous_url.rstrip('/')}/api/v3/plan",
+                params={
+                    "fromPlace": f"{a.lat},{a.lon}",
+                    "toPlace": f"{b.lat},{b.lon}",
+                    "numItineraries": 1,
+                },
+                headers={"User-Agent": _UA},
+            )
+            r.raise_for_status()
+            data = r.json()
+        its = data.get("itineraries") or []
+        if not its:
+            return None
+        it = its[0]
+        legs: list[MapLeg] = []
+        for leg in it.get("legs", []):
+            geom = leg.get("legGeometry") or {}
+            pts = _decode_polyline(geom.get("points", ""), int(geom.get("precision", 5)))
+            if len(pts) < 2:
+                continue
+            legs.append(
+                MapLeg(mode=(leg.get("mode") or "walk").lower(), label=_leg_label(leg), geometry=pts)
+            )
+        if not legs:
+            return None
+        return MapRoute(
+            distance_km=None,
+            duration_min=round(it["duration"] / 60),
+            mode="transit",
+            geometry=[p for leg in legs for p in leg.geometry],
+            legs=legs,
+        )
+    except Exception as exc:
+        log.warning("transit routing failed: %s", exc)
         return None

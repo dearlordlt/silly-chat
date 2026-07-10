@@ -44,6 +44,8 @@ class MapsCfg(BaseModel):
     # {profile} is car|bike|foot (FOSSGIS demo instances). A plain OSRM base URL
     # without the placeholder also works (single-profile).
     osrm_url: str = "https://routing.openstreetmap.de/routed-{profile}"
+    # Community-run public-transport router (MOTIS over the world's open GTFS feeds).
+    transitous_url: str = "https://api.transitous.org"
 
 
 class LimitsCfg(BaseModel):

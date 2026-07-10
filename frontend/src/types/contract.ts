@@ -60,16 +60,20 @@ export type Name1 = string;
 export type Lat = number;
 export type Lon = number;
 export type Points = MapPoint[];
-export type DistanceKm = number;
+export type DistanceKm = number | null;
 export type DurationMin = number;
-export type Mode = "car" | "bike" | "foot";
+export type Mode = "car" | "bike" | "foot" | "transit";
 export type Geometry = number[][];
+export type Legs = MapLeg[] | null;
+export type Mode1 = string;
+export type Label = string | null;
+export type Geometry1 = number[][];
 export type Title2 = string | null;
 export type Event4 = "agent_status";
 export type Message = string;
 export type Event5 = "agent_update";
 export type Id = string;
-export type Label = string;
+export type Label1 = string;
 export type Status = string;
 export type State = "running" | "done" | "error";
 export type Event6 = "done";
@@ -191,10 +195,20 @@ export interface MapPoint {
   [k: string]: unknown;
 }
 export interface MapRoute {
-  distance_km: DistanceKm;
+  distance_km?: DistanceKm;
   duration_min: DurationMin;
   mode?: Mode;
   geometry: Geometry;
+  legs?: Legs;
+  [k: string]: unknown;
+}
+/**
+ * One leg of a multi-modal route (e.g. a walk, then Bus 3).
+ */
+export interface MapLeg {
+  mode: Mode1;
+  label?: Label;
+  geometry: Geometry1;
   [k: string]: unknown;
 }
 /**
@@ -214,7 +228,7 @@ export interface AgentStatusEvent {
 export interface AgentUpdateEvent {
   event?: Event5;
   id: Id;
-  label?: Label;
+  label?: Label1;
   status?: Status;
   state?: State;
   [k: string]: unknown;
