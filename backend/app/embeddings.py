@@ -15,23 +15,32 @@ from app.logging_setup import get_logger
 log = get_logger("embeddings")
 
 
+# Sub-batch size: keeps each HTTP call short on a CPU-only embedder (a 400-chunk
+# document becomes ~7 quick calls instead of one giant timeout-prone request, and
+# concurrent uploads interleave fairly).
+_BATCH = 64
+
+
 async def embed_texts(texts: list[str]) -> list[list[float]]:
-    """Embed a batch of texts. Returns one vector per input (order preserved)."""
+    """Embed texts in sub-batches. Returns one vector per input (order preserved)."""
     if not texts:
         return []
     from app import runtime
 
     s = get_settings()
-    base = s.ollama.base_url.rstrip("/")
+    base = (s.ollama.embed_base_url or s.ollama.base_url).rstrip("/")
+    model = runtime.model_for("embed")
+    out: list[list[float]] = []
     async with httpx.AsyncClient(timeout=60) as c:
-        r = await c.post(
-            f"{base}/embeddings",
-            headers={"Authorization": f"Bearer {s.ollama_api_key}"},
-            json={"model": runtime.model_for("embed"), "input": texts},
-        )
-        r.raise_for_status()
-        data = r.json()["data"]
-    return [item["embedding"] for item in data]
+        for i in range(0, len(texts), _BATCH):
+            r = await c.post(
+                f"{base}/embeddings",
+                headers={"Authorization": f"Bearer {s.ollama_api_key}"},
+                json={"model": model, "input": texts[i : i + _BATCH]},
+            )
+            r.raise_for_status()
+            out.extend(item["embedding"] for item in r.json()["data"])
+    return out
 
 
 def pack(vec: list[float]) -> bytes:

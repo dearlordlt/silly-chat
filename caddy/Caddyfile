@@ -1,0 +1,6 @@
+# HTTPS front door. DOMAIN comes from .env (start.sh enables this service only
+# when DOMAIN is set). Caddy obtains and renews Let's Encrypt certs automatically.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy frontend:80
+}

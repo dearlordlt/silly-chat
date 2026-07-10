@@ -40,12 +40,14 @@ class UserOut(BaseModel):
 
 
 def _set_session_cookie(response: Response, user_id: int) -> None:
+    auth = get_settings().auth
     response.set_cookie(
         COOKIE_NAME,
         make_session_token(user_id),
-        max_age=get_settings().auth.session_days * 86400,
+        max_age=auth.session_days * 86400,
         httponly=True,
         samesite="lax",
+        secure=auth.cookie_secure,  # true behind HTTPS (Caddy) via AUTH__COOKIE_SECURE
     )
 
 

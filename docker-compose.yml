@@ -1,8 +1,21 @@
 # Base stack: backend + frontend + searxng. Used as-is for prod (VPS).
 # `start.sh` runs this; `dev.sh` layers docker-compose.dev.yml on top.
+#
+# Profiles (activated automatically by start.sh from .env):
+#   public — Caddy on 80/443 with automatic HTTPS for $DOMAIN
+#   embed  — CPU Ollama appliance that serves ONLY the embedding model
+#            (Ollama Cloud has no embedding models)
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
 
 services:
   backend:
+    <<: *logging
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -25,6 +38,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    <<: *logging
     build:
       context: ./frontend
     ports:
@@ -34,10 +48,47 @@ services:
     restart: unless-stopped
 
   searxng:
+    <<: *logging
     image: searxng/searxng:latest
     volumes:
       - ./searxng:/etc/searxng:rw
     restart: unless-stopped
 
+  # --- profile: embed — embedding appliance (tiny model, CPU is plenty) ---
+  ollama:
+    <<: *logging
+    image: ollama/ollama:latest
+    profiles: ["embed"]
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1" # keep the embed model resident
+    volumes:
+      - ollama-models:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          cpus: "2" # a burst of embeddings can't starve the rest of the box
+    restart: unless-stopped
+
+  # --- profile: public — HTTPS front door ---
+  caddy:
+    <<: *logging
+    image: caddy:2-alpine
+    profiles: ["public"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
 volumes:
   silly-data: # backend SQLite DB + uploaded files (survives rebuilds/redeploys)
+  ollama-models: # pulled embedding model weights
+  caddy-data: # TLS certificates
+  caddy-config:

@@ -4,6 +4,15 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.2.0 — 2026-07-10
+
+- **One-command VPS deployment** — `./start.sh` now takes silly-chat to a public
+  domain: automatic HTTPS (Caddy + Let's Encrypt), a local CPU embedding appliance
+  (Ollama Cloud serves chat/vision/coding; embeddings run beside the app), an
+  auto-generated session secret, secure cookies, capped log sizes, and a
+  `backup.sh` for consistent snapshots of accounts, chats, and uploads.
+  See `DEPLOY.md` for the 10-minute runbook.
+
 ## v1.1.0 — 2026-07-10
 
 - **Diagrams** — the assistant can draw Mermaid diagrams: architectures, network

@@ -8,15 +8,20 @@
 base_url = "http://localhost:11434/v1"
 
 [models]
+# Defaults target direct Ollama Cloud (VPS): names have NO ":cloud" suffix there.
+# On a dev box using the local daemon, pick the ":cloud"-aliased (or local) models in
+# the Admin panel instead — admin overrides live in the DB and win over these.
 # Must be tool-capable. Orchestrator is where to spend on quality (routing/decomposition).
-orchestrator = "deepseek-v4-pro:cloud"
-# Cheap, narrow workers — local & free.
-worker = "qwen3.5:9b"
-# Must be vision-capable (deepseek-v4-pro has no vision).
-vision = "gemini-3-flash-preview:latest"
+orchestrator = "deepseek-v4-pro"
+# Cheap, fast model the parallel research workers run on.
+worker = "deepseek-v4-flash"
+# Must be vision-capable (gemma3/gemma4 are the multimodal family on Ollama Cloud).
+vision = "gemma4:31b"
 # Writes code when the user asks for it; pick a strong coding model.
-coder = "deepseek-v4-pro:cloud"
-# Embedding model for document RAG (must be an embedding model, not a chat model).
+coder = "glm-5.2"
+# Embedding model for document RAG. Ollama Cloud serves NO embedding models — this
+# runs on the local embed appliance (see [ollama].embed_base_url / compose `embed`
+# profile) or a dev box's own daemon.
 embed = "nomic-embed-text:v1.5"
 
 [maps]
@@ -53,7 +58,7 @@ preview_max_per_user = 20
 upload_max_mb = 10
 upload_image_max_dim = 1568
 upload_user_quota_mb = 200
-upload_global_quota_mb = 20000
+upload_global_quota_mb = 5000
 upload_ttl_days = 7
 # Documents (RAG): originals purged fast; extracted text chunks + embeddings live on.
 doc_max_mb = 25

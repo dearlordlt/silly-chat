@@ -24,6 +24,10 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class OllamaCfg(BaseModel):
     base_url: str = "http://localhost:11434/v1"
+    # Where embeddings run. None = same as base_url. On a VPS the chat roles go
+    # straight to Ollama Cloud (which serves no embedding models) while embeddings
+    # hit the local CPU appliance container (http://ollama:11434/v1).
+    embed_base_url: str | None = None
 
 
 class ModelsCfg(BaseModel):
@@ -87,6 +91,9 @@ class DbCfg(BaseModel):
 
 class AuthCfg(BaseModel):
     session_days: int = 30
+    # Set true when serving over HTTPS (behind Caddy) so session cookies are
+    # never sent over plain HTTP. Override via AUTH__COOKIE_SECURE=true in .env.
+    cookie_secure: bool = False
 
 
 class LoggingCfg(BaseModel):
