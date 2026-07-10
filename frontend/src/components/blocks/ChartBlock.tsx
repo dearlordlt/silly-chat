@@ -13,9 +13,15 @@ export function ChartBlockView({ block }: { block: ChartBlock }) {
       <div className="flex h-36 items-end gap-2">
         {block.labels.map((label, i) => {
           const ratio = block.values[i] / max
-          const pct = Math.round(35 + ratio * 65)
+          const pct = Math.round(35 + Math.max(ratio, 0) * 65)
           return (
-            <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1.5" title={`${label}: ${block.values[i]}`}>
+            // h-full + justify-end gives the bar a defined parent height, so its
+            // percentage height actually resolves (bars were invisible without it).
+            <div
+              key={i}
+              className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5"
+              title={`${label}: ${block.values[i]}`}
+            >
               <div
                 className="w-full max-w-12 rounded-md"
                 style={{
