@@ -4,6 +4,20 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.5.0 — 2026-07-10
+
+- **Presentations** — ask for "a presentation about X in 7 slides" and the assistant
+  builds a real slide deck: prev/next navigation, slide dots, and a fullscreen
+  present mode with arrow-key control. It researches first when the topic needs
+  facts, and picks slides on its own when they explain something better.
+- **Link chats as context** — type `@` in the message box to pick another chat
+  (arrow keys or click); its content becomes background context for the current
+  chat until you unlink it. Linked chats show as small chips above the input.
+- **Status line** — the header now shows which model(s) worked the last turn and
+  how much of the context window this chat is using (used/total and %).
+- **Message timestamps** — every message carries a subtle time (date shown when
+  it isn't from today).
+
 ## v1.4.0 — 2026-07-10
 
 - **Live answers** — the assistant's text now streams onto the screen as it is

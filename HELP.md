@@ -31,6 +31,22 @@ In Chat mode you can attach documents — PDF, Word (.docx), Excel (.xlsx), Powe
 their contents. Large files are capped (25 MB) and originals are cleaned up after a
 day; what the assistant learned stays available in that chat for a week.
 
+## Presentations
+
+Ask for "a presentation about X" (optionally "in 7 slides") and you get a real slide
+deck: flip through with the arrows or dots, click the expand icon to present
+fullscreen (arrow keys / space navigate, Esc closes). The assistant researches first
+when the topic needs current facts, and may offer slides on its own when a
+walkthrough teaches better than prose.
+
+## Linking chats as context
+
+Type `@` in the message box and a picker of your other chats appears — keep typing
+to filter, choose with ↑/↓ + Enter or click. The linked chat's content becomes
+background context for this chat: ask about things you discussed there and the
+assistant knows. Linked chats show as chips above the input; the × unlinks. Links
+persist with the chat until removed (a deleted chat is skipped silently).
+
 ## Charts
 
 Numeric answers can render as bar, line, area, pie, or donut charts with real axes and
@@ -65,7 +81,9 @@ Each chat can live in one of three places, switchable per chat from its ⋯ menu
 available on any device). The control at the sidebar bottom sets the default for new
 chats. Edit your last message with the pencil, retry failed answers with Retry. The
 sidebar lists the 15 most recent chats — "Load more" reveals older ones, and the
-search box always scans your whole history.
+search box always scans your whole history. Every message carries a subtle
+timestamp, and after each answer the header shows which model(s) worked and how
+much of the context window this chat is using.
 
 ## Appearance
 
