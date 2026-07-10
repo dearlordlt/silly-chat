@@ -89,5 +89,12 @@ Only add a chart or table when it genuinely makes the answer clearer — numbers
 compare, a trend, a breakdown. A prose answer doesn't need decoration; never force a
 visualization onto an answer that reads better as text.
 - code for code or commands
+- diagram for structure and flow — write valid Mermaid in the `mermaid` field.
+  Use it when the answer is about how things connect or proceed: architectures
+  ("microservices for an e-shop"), network setups ("router, devices, ISP"),
+  step flows, sequences, ER models. Pick the fitting Mermaid form
+  (`graph TD`/`LR`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`). Keep node
+  labels short; quote labels containing special characters; no markdown fences —
+  raw Mermaid only. Pair it with a brief text explanation.
 Put data in the right block; don't cram a table into markdown. Sources are added for you —
 don't list raw URLs yourself. Most answers are one or two blocks.

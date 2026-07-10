@@ -39,11 +39,17 @@ export type Content = string;
  * Relative path/name when the code is a real file (enables download).
  */
 export type Filename = string | null;
-export type Type5 = "sources";
-export type Title1 = string;
+export type Type5 = "diagram";
+/**
+ * Valid Mermaid source, e.g. 'graph TD; A-->B'.
+ */
+export type Mermaid = string;
+export type Title1 = string | null;
+export type Type6 = "sources";
+export type Title2 = string;
 export type Url1 = string;
 export type Items = Source[];
-export type Blocks = (TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | SourcesBlock)[];
+export type Blocks = (TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | DiagramBlock | SourcesBlock)[];
 export type Event =
   TextDeltaEvent | BlockStartEvent | BlockDataEvent | AgentStatusEvent | AgentUpdateEvent | DoneEvent | ErrorEvent;
 export type Event1 = "text_delta";
@@ -54,8 +60,9 @@ export type BlockId1 = string;
 export type BlockType = string;
 export type Event3 = "block_data";
 export type BlockId2 = string;
-export type Block = TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | MapBlock | SourcesBlock;
-export type Type6 = "map";
+export type Block =
+  TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | DiagramBlock | MapBlock | SourcesBlock;
+export type Type7 = "map";
 export type Name1 = string;
 export type Lat = number;
 export type Lon = number;
@@ -72,7 +79,7 @@ export type Areas = MapArea[] | null;
 export type Name2 = string;
 export type Approximate = boolean;
 export type Polygons = number[][][];
-export type Title2 = string | null;
+export type Title3 = string | null;
 export type Event4 = "agent_status";
 export type Message = string;
 export type Event5 = "agent_update";
@@ -143,15 +150,24 @@ export interface CodeBlock {
   [k: string]: unknown;
 }
 /**
+ * A Mermaid diagram authored by the model (flowcharts, sequences, ER, etc.).
+ */
+export interface DiagramBlock {
+  type?: Type5;
+  mermaid: Mermaid;
+  title?: Title1;
+  [k: string]: unknown;
+}
+/**
  * Citations — the proof behind a grounded answer.
  */
 export interface SourcesBlock {
-  type?: Type5;
+  type?: Type6;
   items: Items;
   [k: string]: unknown;
 }
 export interface Source {
-  title: Title1;
+  title: Title2;
   url: Url1;
   [k: string]: unknown;
 }
@@ -186,11 +202,11 @@ export interface BlockDataEvent {
  * coordinates and records this block, so positions can't be hallucinated.
  */
 export interface MapBlock {
-  type?: Type6;
+  type?: Type7;
   points: Points;
   route?: MapRoute | null;
   areas?: Areas;
-  title?: Title2;
+  title?: Title3;
   [k: string]: unknown;
 }
 export interface MapPoint {

@@ -4,6 +4,13 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.1.0 — 2026-07-10
+
+- **Diagrams** — the assistant can draw Mermaid diagrams: architectures, network
+  setups, flows, sequences, and entity relationships, themed to match your look.
+  Diagrams expand to fullscreen and the Mermaid source can be copied; if a diagram
+  fails to render, its source is shown instead.
+
 ## v1.0.0 — 2026-07-10
 
 The first complete release: an agentic, casual-friendly chat for friends & family.

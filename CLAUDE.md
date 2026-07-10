@@ -20,6 +20,10 @@ not bug-level fixes):
 
 A feature is not done until CHANGELOG.md and HELP.md reflect it.
 
+Dev gotcha: the dockerized dev backend bind-mounts CHANGELOG.md/HELP.md as single
+files — editors replace the inode, so the container keeps seeing the old content.
+After editing them, `docker compose restart backend` (prod bakes them into the image).
+
 ## Design
 
 `design/silly-chat-design.html` (26 frames) + `design/TOKENS.md` are canonical. New UI

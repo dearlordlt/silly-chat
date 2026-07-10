@@ -36,6 +36,13 @@ Numeric answers can render as bar, line, area, pie, or donut charts with real ax
 legends. Ask for a kind ("pie chart of…") or let the assistant pick; comparisons can
 carry several series.
 
+## Diagrams
+
+Ask for structure and the assistant draws it: "how do I set up my home network?",
+"diagram a microservice architecture for an e-shop", flows, sequences, ER models. Use
+the expand button for fullscreen and the copy button to grab the Mermaid source for
+your own docs.
+
 ## Maps & navigation
 
 Ask "where is X" or "how do I get from A to B" — you get an interactive map with

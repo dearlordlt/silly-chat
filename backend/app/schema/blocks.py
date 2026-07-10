@@ -117,6 +117,14 @@ class MapBlock(BaseModel):
     title: str | None = None
 
 
+class DiagramBlock(BaseModel):
+    """A Mermaid diagram authored by the model (flowcharts, sequences, ER, etc.)."""
+
+    type: Literal["diagram"] = "diagram"
+    mermaid: str = Field(description="Valid Mermaid source, e.g. 'graph TD; A-->B'.")
+    title: str | None = None
+
+
 class Source(BaseModel):
     title: str
     url: str
@@ -130,15 +138,20 @@ class SourcesBlock(BaseModel):
 
 
 Block = Annotated[
-    Union[TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, MapBlock, SourcesBlock],
+    Union[
+        TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, MapBlock, SourcesBlock
+    ],
     Field(discriminator="type"),
 ]
 
 # What the MODEL may emit: everything except maps — those carry geocoded coordinates
 # and are appended by the show_map tool, so the model can't hallucinate positions
 # (it tried: it would echo a made-up 2-point "route" and shadow the real one).
+# Diagrams ARE model-authored by design (Mermaid source, not real-world claims).
 ModelBlock = Annotated[
-    Union[TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, SourcesBlock],
+    Union[
+        TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, SourcesBlock
+    ],
     Field(discriminator="type"),
 ]
 

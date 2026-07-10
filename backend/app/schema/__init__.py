@@ -9,6 +9,7 @@ from app.schema.blocks import (
     Block,
     ChartBlock,
     CodeBlock,
+    DiagramBlock,
     GalleryBlock,
     GalleryImage,
     MapArea,
