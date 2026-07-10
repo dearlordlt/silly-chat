@@ -35,6 +35,7 @@ from app.agent.activity import (
     code_tasks_var,
     code_var,
     docs_var,
+    edits_var,
     emit_var,
     findings_var,
     looks_var,
@@ -218,6 +219,7 @@ async def stream_chat(
     findings: list[tuple[str, str]] = []
     code: list[tuple[str, str, str | None, str]] = []  # (language, content, filename, artifact_id)
     built_maps: list = []
+    edits: list = []  # EditsBlocks from targeted artifact edits
     stats: dict[str, int] = {}  # turn telemetry for the status line
 
     def emit(ev: object) -> None:
@@ -306,6 +308,7 @@ async def stream_chat(
         tok_lk = looks_var.set([])
         tok_art = artifacts_var.set(artifacts or {})
         tok_m = maps_var.set(built_maps)
+        tok_ed = edits_var.set(edits)
         tok_tz = tz_var.set(timezone)
         tok_a = attachments_var.set(attachments)
         tok_d = docs_var.set(doc_chunks)
@@ -347,6 +350,7 @@ async def stream_chat(
             looks_var.reset(tok_lk)
             artifacts_var.reset(tok_art)
             maps_var.reset(tok_m)
+            edits_var.reset(tok_ed)
             tz_var.reset(tok_tz)
             attachments_var.reset(tok_a)
             docs_var.reset(tok_d)
@@ -365,7 +369,7 @@ async def stream_chat(
                 if kind == "error":
                     yield ErrorEvent(message=str(payload))
                 else:
-                    for ev in _final_events(payload, code, built_maps, sources):
+                    for ev in _final_events(payload, code, built_maps, sources, edits):
                         yield ev
             else:
                 yield item  # AgentStatusEvent / AgentUpdateEvent / block streaming
@@ -413,8 +417,16 @@ async def _text_fallback(message: str, findings: list[tuple[str, str]], history)
     return Reply(blocks=[TextBlock(markdown=str(result.output))])
 
 
-def _final_events(reply, code: list[tuple[str, str, str | None, str]], built_maps: list, sources: list[Source]):
+def _final_events(
+    reply,
+    code: list[tuple[str, str, str | None, str]],
+    built_maps: list,
+    sources: list[Source],
+    edits: list | None = None,
+):
     blocks = list(reply.blocks)
+    # Targeted-edit records (what changed) come before the updated code (the result).
+    blocks.extend(edits or [])
     # Code the coder wrote this turn, deduped by artifact id (last version wins).
     latest: dict[str, tuple[str, str, str | None]] = {}
     for language, content, filename, artifact_id in code:

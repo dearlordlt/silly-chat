@@ -75,7 +75,9 @@ coding agent works you see the code being written live; the finished block repla
 HTML runs in a live Preview tab and can open in its own sandboxed browser tab; multi-file
 projects appear as separate files, each downloadable. Code is an *artifact*: ask for
 changes ("make the ball red", "fix the crash") and the same program is edited in place —
-each turn shows its latest version, and the newest one always wins.
+small changes apply as targeted patches you can watch stream in as red/green diffs
+(an "Edited — N changes" card stays in the chat), while big rewrites regenerate the
+whole file. The newest version always wins.
 
 ## Chat history & storage
 

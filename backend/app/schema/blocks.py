@@ -121,6 +121,27 @@ class MapBlock(BaseModel):
     title: str | None = None
 
 
+class EditChange(BaseModel):
+    """One applied search/replace hunk — enough to render a familiar diff."""
+
+    old: str
+    new: str
+
+
+class EditsBlock(BaseModel):
+    """The changes applied to a code artifact this turn (targeted edit).
+
+    Tool-authored only — produced when write_code patches an artifact in place,
+    so the transcript keeps a readable record of what changed and the canvas
+    shows the result.
+    """
+
+    type: Literal["edits"] = "edits"
+    artifact_id: str
+    name: str | None = None
+    changes: list[EditChange]
+
+
 class DiagramBlock(BaseModel):
     """A Mermaid diagram authored by the model (flowcharts, sequences, ER, etc.)."""
 
@@ -160,7 +181,7 @@ class SourcesBlock(BaseModel):
 Block = Annotated[
     Union[
         TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, SlidesBlock,
-        MapBlock, SourcesBlock
+        EditsBlock, MapBlock, SourcesBlock
     ],
     Field(discriminator="type"),
 ]

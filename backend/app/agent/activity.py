@@ -33,6 +33,8 @@ attachments_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("attach
 docs_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("docs", default=None)
 # Maps built this turn by the show_map tool — appended as map blocks.
 maps_var: ContextVar[list[object] | None] = ContextVar("maps", default=None)
+# Targeted-edit records (EditsBlock) this turn — shown before the updated code.
+edits_var: ContextVar[list[object] | None] = ContextVar("edits", default=None)
 # Coding tasks already dispatched this turn — write_code refuses exact duplicates
 # (models sometimes emit the same tool call twice, in parallel or on output retry).
 code_tasks_var: ContextVar[dict[str, str] | None] = ContextVar("code_tasks", default=None)
@@ -73,5 +75,11 @@ def record_code(language: str, content: str, filename: str | None, artifact_id: 
 
 def record_map(block: object) -> None:
     bucket = maps_var.get()
+    if bucket is not None:
+        bucket.append(block)
+
+
+def record_edits(block: object) -> None:
+    bucket = edits_var.get()
     if bucket is not None:
         bucket.append(block)

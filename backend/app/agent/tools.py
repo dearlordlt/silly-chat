@@ -32,6 +32,7 @@ from app.agent.activity import (
     emit_var,
     looks_var,
     record_code,
+    record_edits,
     record_findings,
     record_map,
     record_sources,
@@ -39,7 +40,7 @@ from app.agent.activity import (
 )
 from app.agent import maps as osm
 from app.embeddings import embed_texts, rank
-from app.schema import BlockStartEvent, MapArea, MapBlock, TextDeltaEvent
+from app.schema import BlockStartEvent, EditChange, EditsBlock, MapArea, MapBlock, TextDeltaEvent
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
 from app.agent.ollama import coder_model, vision_model, worker_model
 from app.config import get_settings
@@ -202,6 +203,71 @@ def _split_files(output: str, fallback_language: str) -> list[tuple[str, str, st
     return files
 
 
+# A targeted edit block the coder emits in edit mode (aider-style search/replace).
+_EDIT_RE = re.compile(
+    r"<{5,}\s*SEARCH\s*\n(.*?)\n?={5,}\s*\n(.*?)\n?>{5,}\s*REPLACE", re.DOTALL
+)
+
+
+def _locate(content: str, search: str) -> tuple[int, int] | None:
+    """Find the unique position of ``search`` in ``content``. Exact match first,
+    then a per-line match that forgives trailing whitespace. None if absent/ambiguous."""
+    idx = content.find(search)
+    if idx != -1:
+        return (idx, idx + len(search)) if content.find(search, idx + 1) == -1 else None
+    c_lines = content.split("\n")
+    s_lines = [l.rstrip() for l in search.split("\n")]
+    hits = [
+        i
+        for i in range(len(c_lines) - len(s_lines) + 1)
+        if all(c_lines[i + j].rstrip() == s_lines[j] for j in range(len(s_lines)))
+    ]
+    if len(hits) != 1:
+        return None
+    start = sum(len(l) + 1 for l in c_lines[: hits[0]])
+    end = start + sum(len(l) + 1 for l in c_lines[hits[0] : hits[0] + len(s_lines)]) - 1
+    return start, end
+
+
+def _apply_edits(content: str, pairs: list[tuple[str, str]]) -> str | None:
+    """Apply search/replace pairs in order; None as soon as one doesn't fit cleanly."""
+    for search, replace in pairs:
+        if not search.strip():
+            return None
+        loc = _locate(content, search)
+        if loc is None:
+            return None
+        content = content[: loc[0]] + replace + content[loc[1] :]
+    return content
+
+
+async def _run_coder(prompt_key: str, coder_task: str, live_id: str, live_type: str) -> str:
+    """One coder run, streaming its raw output into a live block of ``live_type``."""
+    agent = Agent(
+        coder_model(),
+        instructions=get_prompt(prompt_key, today=now_str(tz_var.get())),
+    )
+    emit = emit_var.get()
+    opened = False
+
+    async def on_events(ctx, event_stream) -> None:
+        nonlocal opened
+        async for ev in event_stream:
+            text = None
+            if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
+                text = ev.part.content or ""
+            elif isinstance(ev, PartDeltaEvent) and isinstance(ev.delta, TextPartDelta):
+                text = ev.delta.content_delta or ""
+            if text and emit is not None:
+                if not opened:
+                    opened = True
+                    emit(BlockStartEvent(block_id=live_id, block_type=live_type))
+                emit(TextDeltaEvent(block_id=live_id, text=text))
+
+    result = await agent.run(coder_task, event_stream_handler=on_events)
+    return str(result.output)
+
+
 async def write_code(task: str, language: str = "code", artifact_id: str = "") -> str:
     """Write or edit code using the dedicated coding model. Pass artifact_id to modify
     an existing artifact — its current code is handed to the coder automatically. The
@@ -218,8 +284,6 @@ async def write_code(task: str, language: str = "code", artifact_id: str = "") -
         name, lang0, content = editing
         language = language if language != "code" else lang0
         coder_task = (
-            f"You are EDITING the existing file below — apply the requested changes and "
-            f"return the COMPLETE updated file (same single-file structure).\n\n"
             f"=== CURRENT CODE ({name or 'snippet'}, {lang0}) ===\n{content}\n"
             f"=== END CURRENT CODE ===\n\nRequested changes:\n{task}"
         )
@@ -254,34 +318,47 @@ async def write_code(task: str, language: str = "code", artifact_id: str = "") -
     verb_label = "Editing" if editing is not None else "Coding"
     agent_update(aid, label=f"{verb_label}: {task[:300]}", status="Writing code…", state="running")
     try:
-        agent = Agent(
-            coder_model(),
-            instructions=get_prompt("subagents/coder", today=now_str(tz_var.get())),
-        )
+        # Edits go patch-first: the coder emits small search/replace blocks (streamed
+        # to the UI as live diff hunks) that we apply to the stored artifact. If a
+        # block doesn't fit — or the coder judged the change sweeping and returned a
+        # full file — we fall back to full-file mode. Creates go straight to full-file.
+        if editing is not None:
+            agent_update(aid, status="Making targeted changes…")
+            out = await _run_coder("subagents/coder_edit", coder_task, f"live-{aid}", "edit")
+            pairs = [(s, r) for s, r in _EDIT_RE.findall(out)]
+            if pairs:
+                patched = _apply_edits(content, pairs)
+                if patched is not None:
+                    record_edits(
+                        EditsBlock(
+                            artifact_id=artifact_id,
+                            name=name or None,
+                            changes=[EditChange(old=s, new=r) for s, r in pairs],
+                        )
+                    )
+                    record_code(lang0, patched, name or None, artifact_id)
+                    agent_update(aid, status="Done", state="done")
+                    return (
+                        f"Updated artifact {artifact_id} with {len(pairs)} targeted "
+                        "change(s) — the edit and the updated code are already shown to "
+                        "the user. Do not call write_code again unless the user asks for "
+                        "further changes."
+                    )
+                # A block didn't match the file — regenerate the whole thing instead.
+                log.info("edit patch failed for %s — falling back to full rewrite", artifact_id)
+                agent_update(aid, status="Rewriting the whole file…")
+                out = await _run_coder(
+                    "subagents/coder",
+                    coder_task
+                    + "\n\nReturn the COMPLETE updated file (same single-file structure), nothing else.",
+                    f"live-{aid}f",
+                    "code",
+                )
+            # No pairs: the coder returned a full file (sweeping change) — use it as-is.
+        else:
+            out = await _run_coder("subagents/coder", coder_task, f"live-{aid}", "code")
 
-        # Stream the coder's raw output into a live code slot so long builds show
-        # progress instead of a spinner. The slot is transient: the frontend drops
-        # it when the turn completes and the real (parsed, per-file) code blocks land.
-        emit = emit_var.get()
-        live_id = f"live-{aid}"
-        opened = False
-
-        async def on_events(ctx, event_stream) -> None:
-            nonlocal opened
-            async for ev in event_stream:
-                text = None
-                if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
-                    text = ev.part.content or ""
-                elif isinstance(ev, PartDeltaEvent) and isinstance(ev.delta, TextPartDelta):
-                    text = ev.delta.content_delta or ""
-                if text and emit is not None:
-                    if not opened:
-                        opened = True
-                        emit(BlockStartEvent(block_id=live_id, block_type="code"))
-                    emit(TextDeltaEvent(block_id=live_id, text=text))
-
-        result = await agent.run(coder_task, event_stream_handler=on_events)
-        files = _split_files(str(result.output), language)
+        files = _split_files(out, language)
         if not files:
             return "(the coder returned nothing)"
         # Assign stable artifact ids: an edit keeps its id; a file whose name matches

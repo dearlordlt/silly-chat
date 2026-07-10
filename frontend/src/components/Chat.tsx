@@ -29,6 +29,7 @@ import { AgentActivity } from '@/components/AgentActivity'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 import { StreamingCode } from '@/components/blocks/StreamingCode'
+import { StreamingEdit } from '@/components/blocks/StreamingEdit'
 import { Skeleton } from '@/components/ui/skeleton'
 
 type Assistant = Extract<Turn, { role: 'assistant' }>
@@ -750,6 +751,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                       ) : slot.kind === 'streaming' ? (
                         slot.blockType === 'code' ? (
                           <StreamingCode text={slot.text} />
+                        ) : slot.blockType === 'edit' ? (
+                          <StreamingEdit text={slot.text} />
                         ) : (
                           <BlockView block={{ type: 'text', markdown: slot.text }} />
                         )
@@ -1049,6 +1052,8 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
             return `[chart: ${b.title ?? ''}]`
           case 'slides':
             return `[presentation: ${b.title ?? ''} — slides: ${b.slides.map((s) => s.title).join('; ')}]`
+          case 'edits':
+            return `[edited artifact ${b.artifact_id}${b.name ? ` (${b.name})` : ''}: ${b.changes.length} targeted change(s)]`
           case 'sources':
             return 'Sources: ' + b.items.map((i) => i.title).join('; ')
         }

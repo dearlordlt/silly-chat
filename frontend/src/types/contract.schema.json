@@ -79,6 +79,7 @@
               "chart": "#/$defs/ChartBlock",
               "code": "#/$defs/CodeBlock",
               "diagram": "#/$defs/DiagramBlock",
+              "edits": "#/$defs/EditsBlock",
               "gallery": "#/$defs/GalleryBlock",
               "map": "#/$defs/MapBlock",
               "slides": "#/$defs/SlidesBlock",
@@ -109,6 +110,9 @@
             },
             {
               "$ref": "#/$defs/SlidesBlock"
+            },
+            {
+              "$ref": "#/$defs/EditsBlock"
             },
             {
               "$ref": "#/$defs/MapBlock"
@@ -379,6 +383,65 @@
         }
       },
       "title": "DoneEvent",
+      "type": "object"
+    },
+    "EditChange": {
+      "description": "One applied search/replace hunk \u2014 enough to render a familiar diff.",
+      "properties": {
+        "old": {
+          "title": "Old",
+          "type": "string"
+        },
+        "new": {
+          "title": "New",
+          "type": "string"
+        }
+      },
+      "required": [
+        "old",
+        "new"
+      ],
+      "title": "EditChange",
+      "type": "object"
+    },
+    "EditsBlock": {
+      "description": "The changes applied to a code artifact this turn (targeted edit).\n\nTool-authored only \u2014 produced when write_code patches an artifact in place,\nso the transcript keeps a readable record of what changed and the canvas\nshows the result.",
+      "properties": {
+        "type": {
+          "const": "edits",
+          "default": "edits",
+          "title": "Type",
+          "type": "string"
+        },
+        "artifact_id": {
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/EditChange"
+          },
+          "title": "Changes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "changes"
+      ],
+      "title": "EditsBlock",
       "type": "object"
     },
     "ErrorEvent": {

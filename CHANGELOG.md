@@ -24,6 +24,10 @@ from this file.
   place: "make the ball red" updates the same program instead of spawning a new
   variant, the assistant sends the coder only the changes (the current code is
   attached automatically), and old versions no longer bloat the context.
+- **Targeted edits with diffs** — small changes no longer rewrite the whole file:
+  the coder patches just the affected lines, you watch the changes stream in as
+  red/green diffs, and an "Edited — N changes" card stays in the chat next to the
+  updated code. Sweeping changes still regenerate the full file automatically.
 - **Full chat memory with auto-compaction** — chats no longer forget beyond the
   last 20 messages: the whole history rides along, and when a chat approaches the
   model's context limit (admin-tunable %, default 90) older messages are folded

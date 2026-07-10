@@ -75,9 +75,24 @@ export type BlockType = string;
 export type Event3 = "block_data";
 export type BlockId2 = string;
 export type Block =
-  TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | DiagramBlock | SlidesBlock | MapBlock | SourcesBlock;
-export type Type8 = "map";
-export type Name1 = string;
+  | TextBlock
+  | TableBlock
+  | GalleryBlock
+  | ChartBlock
+  | CodeBlock
+  | DiagramBlock
+  | SlidesBlock
+  | EditsBlock
+  | MapBlock
+  | SourcesBlock;
+export type Type8 = "edits";
+export type ArtifactId1 = string;
+export type Name1 = string | null;
+export type Old = string;
+export type New = string;
+export type Changes = EditChange[];
+export type Type9 = "map";
+export type Name2 = string;
 export type Lat = number;
 export type Lon = number;
 export type Points = MapPoint[];
@@ -90,7 +105,7 @@ export type Mode1 = string;
 export type Label = string | null;
 export type Geometry1 = number[][];
 export type Areas = MapArea[] | null;
-export type Name2 = string;
+export type Name3 = string;
 export type Approximate = boolean;
 export type Polygons = number[][][];
 export type Title5 = string | null;
@@ -229,13 +244,35 @@ export interface BlockDataEvent {
   [k: string]: unknown;
 }
 /**
+ * The changes applied to a code artifact this turn (targeted edit).
+ *
+ * Tool-authored only — produced when write_code patches an artifact in place,
+ * so the transcript keeps a readable record of what changed and the canvas
+ * shows the result.
+ */
+export interface EditsBlock {
+  type?: Type8;
+  artifact_id: ArtifactId1;
+  name?: Name1;
+  changes: Changes;
+  [k: string]: unknown;
+}
+/**
+ * One applied search/replace hunk — enough to render a familiar diff.
+ */
+export interface EditChange {
+  old: Old;
+  new: New;
+  [k: string]: unknown;
+}
+/**
  * A map with resolved locations (and optionally a route between them).
  *
  * Never authored by the model directly — the ``show_map`` tool geocodes real
  * coordinates and records this block, so positions can't be hallucinated.
  */
 export interface MapBlock {
-  type?: Type8;
+  type?: Type9;
   points: Points;
   route?: MapRoute | null;
   areas?: Areas;
@@ -243,7 +280,7 @@ export interface MapBlock {
   [k: string]: unknown;
 }
 export interface MapPoint {
-  name: Name1;
+  name: Name2;
   lat: Lat;
   lon: Lon;
   [k: string]: unknown;
@@ -270,7 +307,7 @@ export interface MapLeg {
  * approximation (drawn dashed + labeled approximate).
  */
 export interface MapArea {
-  name: Name2;
+  name: Name3;
   approximate?: Approximate;
   polygons: Polygons;
   [k: string]: unknown;
