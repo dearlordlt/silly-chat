@@ -8,6 +8,7 @@ import {
   Loader2,
   MoreHorizontal,
   PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Search,
   Trash2,
@@ -267,6 +268,33 @@ export function Sidebar({
         </div>
         <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground">{MODE_HINT[mode]}</p>
       </div>
+    </aside>
+  )
+}
+
+/** Collapsed rail (design doc frame 1e): a slim icon column — logo, expand, new chat. */
+export function SidebarRail({ onExpand, onNew }: { onExpand: () => void; onNew: () => void }) {
+  return (
+    <aside className="hidden h-dvh w-[52px] shrink-0 flex-col items-center gap-2 border-r bg-sidebar py-3 sm:flex">
+      <span className="grid size-7 place-items-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
+        s
+      </span>
+      <button
+        onClick={onExpand}
+        aria-label="Open sidebar"
+        title="Open sidebar"
+        className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+      >
+        <PanelLeftOpen />
+      </button>
+      <button
+        onClick={onNew}
+        aria-label="New chat"
+        title="New chat"
+        className="grid size-8 place-items-center rounded-md border bg-card text-muted-foreground shadow-[0_1px_3px_0_oklch(0_0_0/0.05)] transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+      >
+        <Plus />
+      </button>
     </aside>
   )
 }

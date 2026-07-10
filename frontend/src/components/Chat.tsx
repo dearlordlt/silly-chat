@@ -23,11 +23,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { toast } from '@/components/ui/toast'
-import { Sidebar } from '@/components/Sidebar'
+import { Sidebar, SidebarRail } from '@/components/Sidebar'
 import { UserMenu } from '@/components/UserMenu'
 import { AgentActivity } from '@/components/AgentActivity'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type Assistant = Extract<Turn, { role: 'assistant' }>
 
@@ -38,7 +39,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [input, setInput] = useState('')
   const [mode, setSearchMode] = useState<Mode>('search')
   const [busy, setBusy] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  // Open on desktop; start closed on phones so the overlay doesn't cover the chat.
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => window.matchMedia('(min-width: 640px)').matches,
+  )
   // Storage mode is a server-synced per-user setting (falls back to local cache).
   const initialMode = ((me.settings?.storageMode as StorageMode) ?? getMode())
   const [storageMode, setStorageMode] = useState<StorageMode>(initialMode)
@@ -299,30 +303,41 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
   return (
     <div className="flex h-dvh">
+      {/* Mobile: the open sidebar floats as an overlay with a backdrop (frame 1u). */}
       {sidebarOpen && (
-        <Sidebar
-          mode={storageMode}
-          onSetMode={changeStorageMode}
-          conversations={conversations}
-          currentId={currentId}
-          onNew={newChat}
-          onOpen={openConversation}
-          onDelete={(id, location) => setPendingDelete({ id, location })}
-          onMove={moveConversation}
-          onCollapse={() => setSidebarOpen(false)}
+        <div
+          className="fixed inset-0 z-40 bg-foreground/40 backdrop-blur-sm sm:hidden"
+          onClick={() => setSidebarOpen(false)}
         />
+      )}
+      {sidebarOpen ? (
+        <div className="fixed inset-y-0 left-0 z-50 sm:static sm:z-auto">
+          <Sidebar
+            mode={storageMode}
+            onSetMode={changeStorageMode}
+            conversations={conversations}
+            currentId={currentId}
+            onNew={newChat}
+            onOpen={openConversation}
+            onDelete={(id, location) => setPendingDelete({ id, location })}
+            onMove={moveConversation}
+            onCollapse={() => setSidebarOpen(false)}
+          />
+        </div>
+      ) : (
+        <SidebarRail onExpand={() => setSidebarOpen(true)} onNew={newChat} />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {!sidebarOpen && (
-              <>
+              <span className="flex items-center gap-2 sm:hidden">
                 <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
                   <PanelLeftOpen />
                 </Button>
                 <span className="shrink-0 text-sm font-semibold tracking-tight">silly-chat</span>
-              </>
+              </span>
             )}
             {/* Per-chat title (design doc): quiet, truncating, next to the nav controls. */}
             {(() => {
@@ -449,6 +464,15 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                         <Dot /> <Dot delay="150ms" /> <Dot delay="300ms" />
                       </span>
                       {turn.status}
+                    </div>
+                  )}
+                  {/* While composing with nothing rendered yet, hint the incoming answer
+                      with shimmering paragraph lines (design doc frame 1g). */}
+                  {turn.status && turn.slots.length === 0 && (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-11/12" />
+                      <Skeleton className="h-4 w-4/6" />
                     </div>
                   )}
                   {turn.agents?.length > 0 && <AgentActivity agents={turn.agents} />}

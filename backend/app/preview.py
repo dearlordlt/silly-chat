@@ -95,6 +95,17 @@ def create_preview(body: PreviewIn, user: ApprovedUser) -> dict:
     return {"id": pid}
 
 
+def _ensure_title(html: str) -> str:
+    """Give untitled pages a friendly browser-tab title (design doc frame 1z)."""
+    if "<title" in html.lower():
+        return html
+    lower = html.lower()
+    if "<head>" in lower:
+        i = lower.index("<head>") + len("<head>")
+        return html[:i] + "<title>silly-chat preview</title>" + html[i:]
+    return "<title>silly-chat preview</title>" + html
+
+
 @router.get("/{pid}")
 def serve_preview(pid: str, user: ApprovedUser) -> HTMLResponse:
     entry = _previews.get(pid)
@@ -103,4 +114,4 @@ def serve_preview(pid: str, user: ApprovedUser) -> HTMLResponse:
         if entry is not None and entry.expires_at <= time.monotonic():
             del _previews[pid]
         raise HTTPException(status.HTTP_404_NOT_FOUND, "preview not found")
-    return HTMLResponse(entry.html, headers=_HEADERS)
+    return HTMLResponse(_ensure_title(entry.html), headers=_HEADERS)

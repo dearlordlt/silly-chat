@@ -1,5 +1,8 @@
-import { Button } from '@/components/ui/button'
+import { createPortal } from 'react-dom'
 
+/** Confirm dialog (design doc frames 1r/1w): centered card, bold title, muted body,
+ * pill buttons — destructive action filled red. Portaled so animated ancestors
+ * can't trap the fixed overlay. */
 export function ConfirmDialog({
   title,
   message,
@@ -15,26 +18,37 @@ export function ConfirmDialog({
   onConfirm: () => void
   onCancel: () => void
 }) {
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-sm rounded-xl border bg-card p-5 shadow-xl"
+        className="animate-rise w-full max-w-sm rounded-xl border bg-card p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-base font-semibold">{title}</h2>
-        {message && <p className="mt-1 text-sm text-muted-foreground">{message}</p>}
+        <h2 className="text-base font-bold">{title}</h2>
+        {message && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{message}</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>
+          <button
+            onClick={onCancel}
+            className="h-[38px] rounded-[10px] border bg-card px-4 text-[13px] font-bold transition-colors hover:bg-accent"
+          >
             Cancel
-          </Button>
-          <Button variant={destructive ? 'destructive' : 'default'} size="sm" onClick={onConfirm}>
+          </button>
+          <button
+            onClick={onConfirm}
+            className={
+              destructive
+                ? 'h-[38px] rounded-[10px] bg-destructive px-4 text-[13px] font-bold text-white transition-opacity hover:opacity-90'
+                : 'h-[38px] rounded-[10px] bg-primary px-4 text-[13px] font-bold text-primary-foreground transition-opacity hover:opacity-90'
+            }
+          >
             {confirmLabel}
-          </Button>
+          </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
