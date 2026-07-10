@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Check, CircleUser, Frame, Globe, Palette, Sparkles, Type } from 'lucide-react'
+import { ArrowLeft, Check } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { FONTS, type FontId, getFont, setFont } from '@/lib/fonts'
 import { getThemeId, setTheme, THEMES, type Theme, type ThemeCategory } from '@/lib/theme'
@@ -19,13 +19,14 @@ import { Button } from '@/components/ui/button'
 
 type Section = 'theme' | 'background' | 'font' | 'borders' | 'privacy' | 'account'
 
-const NAV: { key: Section; label: string; icon: typeof Palette }[] = [
-  { key: 'theme', label: 'Theme', icon: Palette },
-  { key: 'background', label: 'Background', icon: Sparkles },
-  { key: 'font', label: 'Font', icon: Type },
-  { key: 'borders', label: 'Borders', icon: Frame },
-  { key: 'privacy', label: 'Privacy', icon: Globe },
-  { key: 'account', label: 'Account', icon: CircleUser },
+// Text-only nav, per the design doc (frames 1j–1o).
+const NAV: { key: Section; label: string }[] = [
+  { key: 'theme', label: 'Theme' },
+  { key: 'background', label: 'Background' },
+  { key: 'font', label: 'Font' },
+  { key: 'borders', label: 'Borders' },
+  { key: 'privacy', label: 'Privacy' },
+  { key: 'account', label: 'Account' },
 ]
 
 // Static approximations of each background for the picker tiles.
@@ -62,8 +63,8 @@ const BG_PREVIEW: Record<BgId, React.CSSProperties> = {
 }
 
 const GROUPS: { key: ThemeCategory; label: string }[] = [
-  { key: 'light', label: 'Light' },
-  { key: 'dark', label: 'Dark' },
+  { key: 'light', label: 'Light — Goddesses' },
+  { key: 'dark', label: 'Dark — Gods' },
   { key: 'mixed', label: 'Mixed' },
 ]
 
@@ -86,13 +87,11 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
     setTzManualState(tz)
     api.updateSettings({ tzManual: tz }).catch(() => {})
   }
-
   function chooseBg(id: BgId) {
     setBg(id)
     setBgState(id)
     api.updateSettings({ background: id }).catch(() => {})
   }
-
   function chooseFont(id: FontId) {
     setFont(id)
     setFontState(id)
@@ -110,216 +109,225 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
   }
 
   return (
-    <div className="flex h-dvh flex-col">
-      <header className="flex items-center gap-2 border-b px-3 py-2">
-        <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to chat">
-          <ArrowLeft />
-        </Button>
-        <span className="text-sm font-semibold tracking-tight">Settings</span>
-      </header>
+    // Transparent page — the theme background/effect shows around the floating card.
+    <div className="min-h-dvh overflow-y-auto px-4 py-8 sm:px-8">
+      <div className="animate-rise mx-auto w-full max-w-[1240px] rounded-2xl border bg-card p-6 shadow-[0_10px_40px_0_color-mix(in_oklch,var(--color-primary)_8%,transparent)] sm:p-7">
+        <div className="mb-6 flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to chat">
+            <ArrowLeft />
+          </Button>
+          <h1 className="text-lg font-bold tracking-tight">Settings</h1>
+        </div>
 
-      <div className="mx-auto flex w-full max-w-3xl flex-1 gap-6 overflow-hidden p-4">
-        <nav className="w-40 shrink-0 space-y-1">
-          {NAV.map((n) => {
-            const Icon = n.icon
-            return (
+        <div className="flex flex-col gap-6 sm:flex-row">
+          <nav className="w-full shrink-0 space-y-1 sm:w-44">
+            {NAV.map((n) => (
               <button
                 key={n.key}
                 onClick={() => setSection(n.key)}
                 className={cn(
-                  'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors [&_svg]:size-4',
-                  section === n.key ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/60',
+                  'block w-full rounded-md px-3 py-[9px] text-left text-[13.5px] transition-colors',
+                  section === n.key
+                    ? 'border bg-card font-bold shadow-[0_2px_6px_0_oklch(0_0_0/0.04)]'
+                    : 'font-medium text-muted-foreground hover:text-foreground',
                 )}
               >
-                <Icon />
                 {n.label}
               </button>
-            )
-          })}
-        </nav>
+            ))}
+          </nav>
 
-        <main className="min-w-0 flex-1 overflow-y-auto">
-          {section === 'theme' && (
-            <div className="space-y-5">
-              {GROUPS.map((g) => (
-                <div key={g.key}>
-                  <h3 className="mb-2 text-xs font-medium text-muted-foreground">{g.label}</h3>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {THEMES.filter((t) => t.category === g.key).map((t) => (
-                      <ThemeSwatch key={t.id} theme={t} active={t.id === theme} onClick={() => chooseTheme(t.id)} />
-                    ))}
+          <main className="min-w-0 flex-1">
+            {section === 'theme' && (
+              <div className="space-y-6">
+                {GROUPS.map((g) => (
+                  <div key={g.key}>
+                    <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                      {g.label}
+                    </h3>
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-2.5">
+                      {THEMES.filter((t) => t.category === g.key).map((t) => (
+                        <ThemeSwatch key={t.id} theme={t} active={t.id === theme} onClick={() => chooseTheme(t.id)} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {section === 'background' && (
-            <div>
-              <p className="mb-3 text-sm text-muted-foreground">
-                A separate effect, tinted from your theme. Some are animated.
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {BACKGROUNDS.map((b) => (
-                  <button
-                    key={b.id}
-                    onClick={() => chooseBg(b.id)}
-                    className={cn(
-                      'rounded-xl border p-1.5 text-left transition-colors',
-                      bg === b.id ? 'border-primary ring-1 ring-primary' : 'hover:border-border',
-                    )}
-                  >
-                    <span className="block h-16 w-full rounded-lg border" style={BG_PREVIEW[b.id]} />
-                    <span className="mt-1.5 flex items-center justify-between px-0.5">
-                      <span className="text-xs font-medium">{b.label}</span>
-                      {b.animated && <Sparkles className="size-3 text-muted-foreground" />}
-                    </span>
-                  </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {section === 'font' && (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {FONTS.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => chooseFont(f.id)}
-                  style={{ fontFamily: f.stack }}
-                  className={cn(
-                    'flex flex-col items-start gap-1 rounded-xl border bg-card p-3 text-left transition-colors',
-                    font === f.id ? 'border-primary ring-1 ring-primary' : 'hover:bg-accent',
-                  )}
-                >
-                  <span className="flex w-full items-center justify-between text-sm font-medium">
-                    {f.label}
-                    {font === f.id && <Check className="size-4 text-primary" />}
-                  </span>
-                  <span className="text-xl">Aa Bb Cc 123</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {section === 'borders' && (
-            <div>
-              <p className="mb-3 text-sm text-muted-foreground">Corner roundness across the app.</p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {RADII.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => chooseRadius(r.id)}
-                    className={cn(
-                      'flex flex-col items-center gap-2 rounded-xl border bg-card p-3 transition-colors',
-                      radius === r.id ? 'border-primary ring-1 ring-primary' : 'hover:bg-accent',
-                    )}
-                  >
-                    <span
-                      className="h-10 w-full border-2 border-primary/60 bg-primary/10"
-                      style={{ borderRadius: r.value }}
-                    />
-                    <span className="text-xs font-medium">{r.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {section === 'privacy' && (
-            <div>
-              <h2 className="mb-1 text-base font-semibold">Timezone</h2>
-              <p className="mb-3 text-sm text-muted-foreground">
-                Which clock answers use for dates and times.
-              </p>
-              <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1 text-xs">
-                {(
-                  [
-                    { value: 'off', label: 'Off' },
-                    { value: 'auto', label: 'Automatic' },
-                    { value: 'manual', label: 'Manual' },
-                  ] as { value: TzMode; label: string }[]
-                ).map((m) => (
-                  <button
-                    key={m.value}
-                    onClick={() => chooseTzMode(m.value)}
-                    className={cn(
-                      'rounded-md px-2 py-1.5 font-medium transition-colors',
-                      tzMode === m.value
-                        ? 'bg-card text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {tzMode === 'off' && "Uses the server's clock — nothing about you is sent."}
-                {tzMode === 'auto' && `Detected from your browser: ${browserTz() ?? 'unknown'}.`}
-                {tzMode === 'manual' && 'Pick a timezone below.'}
-              </p>
-              {tzMode === 'manual' && (
-                <select
-                  value={tzManual}
-                  onChange={(e) => chooseTzManual(e.target.value)}
-                  className="mt-2 h-9 w-full max-w-sm rounded-lg border border-input bg-card px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {allTimezones().map((tz) => (
-                    <option key={tz} value={tz}>
-                      {tz}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {section === 'account' && (
-            <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
+            {section === 'background' && (
               <div>
-                <p className="text-sm font-medium">{me.username}</p>
-                <p className="text-xs capitalize text-muted-foreground">{me.role}</p>
+                <p className="mb-3 text-[13px] text-muted-foreground">
+                  A quiet layer behind everything. Works with any theme.
+                </p>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+                  {BACKGROUNDS.map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => chooseBg(b.id)}
+                      className={cn(
+                        'rounded-lg border p-1.5 text-left transition-all',
+                        bg === b.id ? 'ring-2 ring-primary' : 'hover:border-muted-foreground/40',
+                      )}
+                    >
+                      <span className="block h-24 w-full rounded-md border" style={BG_PREVIEW[b.id]} />
+                      <span
+                        className={cn(
+                          'mt-1.5 block text-center text-xs font-semibold',
+                          bg === b.id ? 'text-primary' : 'text-foreground',
+                        )}
+                      >
+                        {b.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Aurora and Mesh drift gently. Starfield twinkles.
+                </p>
               </div>
-              <Button variant="outline" size="sm" onClick={onLogout}>
-                Log out
-              </Button>
-            </div>
-          )}
-        </main>
+            )}
+
+            {section === 'font' && (
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {FONTS.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => chooseFont(f.id)}
+                    style={{ fontFamily: f.stack }}
+                    className={cn(
+                      'flex flex-col items-start gap-1 rounded-lg border bg-card p-3.5 text-left transition-all',
+                      font === f.id ? 'ring-2 ring-primary' : 'hover:border-muted-foreground/40',
+                    )}
+                  >
+                    <span className="flex w-full items-center justify-between text-[13px] font-semibold">
+                      {f.label}
+                      {font === f.id && <Check className="size-4 text-primary" />}
+                    </span>
+                    <span className="text-xl">Aa Bb Cc 123</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {section === 'borders' && (
+              <div>
+                <p className="mb-3 text-[13px] text-muted-foreground">Corner roundness across the app.</p>
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  {RADII.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => chooseRadius(r.id)}
+                      className={cn(
+                        'flex flex-col items-center gap-2 rounded-lg border bg-card p-3.5 transition-all',
+                        radius === r.id ? 'ring-2 ring-primary' : 'hover:border-muted-foreground/40',
+                      )}
+                    >
+                      <span
+                        className="h-10 w-full border-2 border-primary/60 bg-primary/10"
+                        style={{ borderRadius: r.value }}
+                      />
+                      <span
+                        className={cn(
+                          'text-xs font-semibold',
+                          radius === r.id ? 'text-primary' : 'text-foreground',
+                        )}
+                      >
+                        {r.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {section === 'privacy' && (
+              <div>
+                <h2 className="mb-1 text-[15px] font-bold">Timezone</h2>
+                <p className="mb-3 text-[13px] text-muted-foreground">
+                  Which clock answers use for dates and times.
+                </p>
+                <div className="grid w-full max-w-sm grid-cols-3 gap-1 rounded-lg bg-muted p-1 text-xs">
+                  {(
+                    [
+                      { value: 'off', label: 'Off' },
+                      { value: 'auto', label: 'Automatic' },
+                      { value: 'manual', label: 'Manual' },
+                    ] as { value: TzMode; label: string }[]
+                  ).map((m) => (
+                    <button
+                      key={m.value}
+                      onClick={() => chooseTzMode(m.value)}
+                      className={cn(
+                        'rounded-md px-2 py-1.5 font-semibold transition-colors',
+                        tzMode === m.value
+                          ? 'bg-card text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {tzMode === 'off' && "Uses the server's clock — nothing about you is sent."}
+                  {tzMode === 'auto' && `Detected from your browser: ${browserTz() ?? 'unknown'}.`}
+                  {tzMode === 'manual' && 'Pick a timezone below.'}
+                </p>
+                {tzMode === 'manual' && (
+                  <select
+                    value={tzManual}
+                    onChange={(e) => chooseTzManual(e.target.value)}
+                    className="mt-2 h-9 w-full max-w-sm rounded-md border border-input bg-card px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {allTimezones().map((tz) => (
+                      <option key={tz} value={tz}>
+                        {tz}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {section === 'account' && (
+              <div className="flex max-w-md items-center justify-between rounded-lg border bg-card px-4 py-3.5">
+                <div>
+                  <p className="text-sm font-semibold">{me.username}</p>
+                  <p className="text-xs capitalize text-muted-foreground">{me.role}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={onLogout}>
+                  Log out
+                </Button>
+              </div>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   )
 }
 
+// Gradient swatch card (design doc): a 135° sweep from the theme's background into
+// its primary, on a small card; selected = primary ring + tinted label + check.
 function ThemeSwatch({ theme, active, onClick }: { theme: Theme; active: boolean; onClick: () => void }) {
   const v = theme.vars
   return (
     <button
       onClick={onClick}
       className={cn(
-        'rounded-xl border p-1.5 text-left transition-colors',
-        active ? 'border-primary ring-1 ring-primary' : 'hover:border-border',
+        'rounded-lg border bg-card p-[7px] text-left transition-all',
+        active ? 'ring-2 ring-primary' : 'hover:border-muted-foreground/40',
       )}
     >
       <div
-        className="flex h-16 flex-col justify-between rounded-lg border p-2.5"
-        style={{ background: v.background, borderColor: v.border }}
-      >
-        <div className="flex items-center gap-1.5">
-          <span className="size-4 rounded-full" style={{ background: v.primary }} />
-          <span className="size-3 rounded-full" style={{ background: v.accent }} />
-          <span className="ml-auto text-xs font-medium" style={{ color: v.foreground }}>
-            Aa
-          </span>
-        </div>
-        <div className="flex gap-1">
-          <span className="h-2 flex-1 rounded-full" style={{ background: v.muted }} />
-          <span className="h-2 w-5 rounded-full" style={{ background: v.primary }} />
-        </div>
-      </div>
+        className="h-[42px] w-full rounded-md"
+        style={{ background: `linear-gradient(135deg, ${v.background} 45%, ${v.primary})` }}
+      />
       <div className="mt-1.5 flex items-center justify-between px-0.5">
-        <span className="text-xs font-medium">{theme.name}</span>
+        <span className={cn('text-xs font-semibold', active ? 'text-primary' : 'text-foreground')}>
+          {theme.name}
+        </span>
         {active && <Check className="size-3.5 shrink-0 text-primary" />}
       </div>
     </button>
