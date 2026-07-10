@@ -4,6 +4,17 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.4.0 — 2026-07-10
+
+- **Live answers** — the assistant's text now streams onto the screen as it is
+  written, instead of appearing all at once at the end.
+- **Stop button** — a running answer can be stopped mid-flight; whatever has
+  already arrived stays in the chat, and the work is cancelled server-side too.
+- **Auto theme** — a new "Auto" option (now the default) follows your device:
+  light mode gets Frigg, dark mode gets Bifröst, switching live when the OS does.
+- **Chat list paging** — the sidebar shows the 15 most recent chats and a
+  "Load more" button, so a long history stays fast; search still scans everything.
+
 ## v1.3.0 — 2026-07-10
 
 - **Install as an app (PWA)** — silly-chat can be added to your phone's home screen

@@ -8,7 +8,8 @@ Every section below describes one feature. This file powers the in-app Help wind
 Type anything into the box. For factual or current questions the assistant searches the
 web itself, breaks big questions into parallel research agents, and cites its sources
 under the answer. You can watch the agents work in the "Working…" panel — click any row
-to read its full task.
+to read its full task. The answer streams in live as it's written; the send button turns
+into a **Stop** button while it works — stopping keeps whatever has already arrived.
 
 ## Chat modes
 
@@ -62,12 +63,15 @@ projects appear as separate files, each downloadable.
 Each chat can live in one of three places, switchable per chat from its ⋯ menu: **Off**
 (nothing kept), **Local** (this browser only), or **Server** (synced to your account,
 available on any device). The control at the sidebar bottom sets the default for new
-chats. Edit your last message with the pencil, retry failed answers with Retry.
+chats. Edit your last message with the pencil, retry failed answers with Retry. The
+sidebar lists the 15 most recent chats — "Load more" reveals older ones, and the
+search box always scans your whole history.
 
 ## Appearance
 
-Settings → Theme offers 17 Norse-named themes (7 light goddesses, 7 dark gods, 3
-mixed), plus separate background effects (glow, gradient, aurora, mesh, starfield,
+Settings → Theme offers **Auto** (the default — follows your device's light/dark
+setting, switching live) and 17 Norse-named themes (7 light goddesses, 7 dark gods,
+3 mixed), plus separate background effects (glow, gradient, aurora, mesh, starfield,
 grid), your choice of font, and border roundness. Everything syncs to your account.
 
 ## Privacy & timezone
