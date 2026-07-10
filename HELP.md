@@ -82,6 +82,13 @@ New registrations wait for an admin's approval. Admins manage users (approve, pr
 demote, delete) and choose which Ollama models power each role — main, research
 agents, vision, coding, and embeddings — from the Admin panel, applied instantly.
 
+## Install as an app
+
+silly-chat works as an app on your phone or desktop. On Android/Chrome pick
+"Install app" from the browser menu (or the install prompt); on iPhone/iPad open it
+in Safari and use Share → Add to Home Screen. It gets its own icon and opens in a
+clean window without browser chrome.
+
 ## Version & what's new
 
 The version chip at the bottom of the sidebar opens About — your current version, its

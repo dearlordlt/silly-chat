@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.3.0 — 2026-07-10
+
+- **Install as an app (PWA)** — silly-chat can be added to your phone's home screen
+  (or desktop) and opens in its own window like a native app: Android/Chrome offer
+  "Install app", iOS Safari uses Share → Add to Home Screen.
+
 ## v1.2.0 — 2026-07-10
 
 - **One-command VPS deployment** — `./start.sh` now takes silly-chat to a public
