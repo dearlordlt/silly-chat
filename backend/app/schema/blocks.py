@@ -77,6 +77,7 @@ class MapPoint(BaseModel):
 class MapRoute(BaseModel):
     distance_km: float
     duration_min: float
+    mode: Literal["car", "bike", "foot"] = "car"
     # Route geometry as [lat, lon] pairs, ready for the map renderer.
     geometry: list[list[float]]
 
@@ -111,8 +112,16 @@ Block = Annotated[
     Field(discriminator="type"),
 ]
 
+# What the MODEL may emit: everything except maps — those carry geocoded coordinates
+# and are appended by the show_map tool, so the model can't hallucinate positions
+# (it tried: it would echo a made-up 2-point "route" and shadow the real one).
+ModelBlock = Annotated[
+    Union[TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, SourcesBlock],
+    Field(discriminator="type"),
+]
+
 
 class Reply(BaseModel):
     """The orchestrator's final structured answer."""
 
-    blocks: list[Block]
+    blocks: list[ModelBlock]

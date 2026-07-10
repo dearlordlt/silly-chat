@@ -56,15 +56,19 @@ async def geocode(query: str) -> MapPoint | None:
         return point
 
 
-async def route(points: list[MapPoint]) -> MapRoute | None:
-    """Route through the given points via OSRM (driving profile). None on failure."""
+async def route(points: list[MapPoint], profile: str = "car") -> MapRoute | None:
+    """Route through the given points via OSRM. profile: car | bike | foot."""
     if len(points) < 2:
         return None
+    if profile not in ("car", "bike", "foot"):
+        profile = "car"
+    base = get_settings().maps.osrm_url.rstrip("/")
+    base = base.format(profile=profile) if "{profile}" in base else base
     coords = ";".join(f"{p.lon},{p.lat}" for p in points)
     try:
         async with httpx.AsyncClient(timeout=20) as c:
             r = await c.get(
-                f"{get_settings().maps.osrm_url.rstrip('/')}/route/v1/driving/{coords}",
+                f"{base}/route/v1/driving/{coords}",  # path profile is vestigial in OSRM
                 params={"overview": "full", "geometries": "geojson"},
                 headers={"User-Agent": _UA},
             )
@@ -78,6 +82,7 @@ async def route(points: list[MapPoint]) -> MapRoute | None:
         return MapRoute(
             distance_km=round(best["distance"] / 1000, 1),
             duration_min=round(best["duration"] / 60),
+            mode=profile,  # type: ignore[arg-type]
             geometry=geometry,
         )
     except Exception as exc:

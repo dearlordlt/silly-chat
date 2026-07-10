@@ -11,6 +11,8 @@ import type { MapBlock } from '@/types/contract'
  * Tiles get a CSS filter in dark themes (see index.css .map-tiles rules).
  */
 
+const MODE_WORD: Record<string, string> = { car: 'by car', bike: 'by bike', foot: 'on foot' }
+
 function mountMap(el: HTMLElement, block: MapBlock): L.Map {
   const map = L.map(el, { scrollWheelZoom: false })
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -78,7 +80,8 @@ export function MapBlockView({ block }: { block: MapBlock }) {
         <div className="flex shrink-0 items-center gap-2">
           {block.route && (
             <span className="text-[11px] text-muted-foreground">
-              {block.route.distance_km} km · ~{Math.round(block.route.duration_min)} min
+              {block.route.distance_km} km · ~{Math.round(block.route.duration_min)} min{' '}
+              {MODE_WORD[block.route.mode ?? 'car']}
             </span>
           )}
           <button
@@ -109,7 +112,8 @@ export function MapBlockView({ block }: { block: MapBlock }) {
             </button>
             {block.route && (
               <span className="absolute bottom-3 left-3 z-[1000] rounded-full border bg-card px-3 py-1.5 text-xs font-semibold shadow-lg">
-                {block.route.distance_km} km · ~{Math.round(block.route.duration_min)} min by car
+                {block.route.distance_km} km · ~{Math.round(block.route.duration_min)} min{' '}
+                {MODE_WORD[block.route.mode ?? 'car']}
               </span>
             )}
           </div>

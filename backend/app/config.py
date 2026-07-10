@@ -41,7 +41,9 @@ class SearchCfg(BaseModel):
 class MapsCfg(BaseModel):
     # Free OSM ecosystem endpoints (no keys). Self-hostable — just point these elsewhere.
     nominatim_url: str = "https://nominatim.openstreetmap.org"
-    osrm_url: str = "https://router.project-osrm.org"
+    # {profile} is car|bike|foot (FOSSGIS demo instances). A plain OSRM base URL
+    # without the placeholder also works (single-profile).
+    osrm_url: str = "https://routing.openstreetmap.de/routed-{profile}"
 
 
 class LimitsCfg(BaseModel):

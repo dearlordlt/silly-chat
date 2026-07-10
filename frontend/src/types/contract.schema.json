@@ -442,6 +442,16 @@
           "title": "Duration Min",
           "type": "number"
         },
+        "mode": {
+          "default": "car",
+          "enum": [
+            "car",
+            "bike",
+            "foot"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "geometry": {
           "items": {
             "items": {
@@ -471,7 +481,6 @@
                 "chart": "#/$defs/ChartBlock",
                 "code": "#/$defs/CodeBlock",
                 "gallery": "#/$defs/GalleryBlock",
-                "map": "#/$defs/MapBlock",
                 "sources": "#/$defs/SourcesBlock",
                 "table": "#/$defs/TableBlock",
                 "text": "#/$defs/TextBlock"
@@ -493,9 +502,6 @@
               },
               {
                 "$ref": "#/$defs/CodeBlock"
-              },
-              {
-                "$ref": "#/$defs/MapBlock"
               },
               {
                 "$ref": "#/$defs/SourcesBlock"

@@ -22,7 +22,8 @@ embed = "nomic-embed-text:v1.5"
 [maps]
 # Free OpenStreetMap ecosystem (no API keys). Swap for self-hosted instances anytime.
 nominatim_url = "https://nominatim.openstreetmap.org"
-osrm_url = "https://router.project-osrm.org"
+# {profile} = car | bike | foot (FOSSGIS OSRM). A plain OSRM base also works.
+osrm_url = "https://routing.openstreetmap.de/routed-{profile}"
 
 [search]
 # SearXNG instance reachable by the backend (json format must be enabled).

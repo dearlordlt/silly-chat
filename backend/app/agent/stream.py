@@ -221,10 +221,9 @@ def _final_events(reply, code: list[tuple[str, str, str | None]], built_maps: li
     if not has_code_block:
         for language, content, filename in code:
             blocks.append(CodeBlock(language=language, content=content, filename=filename))
-    # Maps built by show_map carry real geocoded coordinates — always appended verbatim
-    # (the model can't emit map blocks itself, so there's nothing to dedupe against).
-    if not any(getattr(b, "type", None) == "map" for b in blocks):
-        blocks.extend(built_maps)
+    # Maps built by show_map carry real geocoded coordinates — always appended verbatim.
+    # (The Reply schema excludes map blocks, so the model cannot emit its own.)
+    blocks.extend(built_maps)
     seen: set[str] = set()
     unique: list[Source] = []
     for s in sources:

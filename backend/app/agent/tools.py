@@ -270,7 +270,7 @@ async def search_document(query: str) -> str:
         return f"(could not search the document: {exc})"
 
 
-async def show_map(places: list[str], route: bool = False, title: str = "") -> str:
+async def show_map(places: list[str], route: bool = False, mode: str = "car", title: str = "") -> str:
     """Geocode places and show them on a map (optionally routed in order)."""
     aid = uuid.uuid4().hex[:8]
     agent_update(aid, label=f"Mapping: {', '.join(places)[:80]}", status="Finding places…", state="running")
@@ -286,12 +286,13 @@ async def show_map(places: list[str], route: bool = False, title: str = "") -> s
         r = None
         if route and len(points) >= 2:
             agent_update(aid, status="Routing…")
-            r = await osm.route(points)
+            r = await osm.route(points, profile=mode)
         record_map(MapBlock(points=points, route=r, title=title or None))
         agent_update(aid, status="Done", state="done")
+        mode_word = {"car": "by car", "bike": "by bike", "foot": "on foot"}.get(r.mode if r else "", "")
         parts = [f"Map shown with {len(points)} place(s): {', '.join(p.name for p in points)}."]
         if r:
-            parts.append(f"Route: {r.distance_km} km, about {r.duration_min:.0f} min by car.")
+            parts.append(f"Route: {r.distance_km} km, about {r.duration_min:.0f} min {mode_word}.")
         if misses:
             parts.append(f"Could not find: {', '.join(misses)} (try a simpler/local name).")
         return " ".join(parts)
