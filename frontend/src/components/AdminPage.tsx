@@ -318,6 +318,66 @@ function ModelsSection() {
           </span>
         )}
       </div>
+
+      <CompactionSection />
+    </div>
+  )
+}
+
+// Chat-behavior knob: at what share of the model's context window a chat
+// auto-compacts (older messages summarized, recent ones kept verbatim).
+function CompactionSection() {
+  const [pct, setPct] = useState<number | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api.getChatCfg().then((c) => setPct(c.compact_pct)).catch(() => {})
+  }, [])
+
+  async function save() {
+    if (pct == null) return
+    try {
+      const r = await api.setChatCfg({ compact_pct: pct })
+      setPct(r.compact_pct)
+      setSaved(true)
+    } catch (e) {
+      toast.error(String((e as Error).message ?? e))
+    }
+  }
+
+  return (
+    <div className="mt-8">
+      <div className="mb-4">
+        <h2 className="text-[15px] font-bold">Chat memory</h2>
+        <p className="text-[13px] text-muted-foreground">
+          When a chat fills this much of the model's context window, older messages are
+          summarized automatically (the recent ones stay verbatim).
+        </p>
+      </div>
+      <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
+        <span className="text-sm font-semibold">Compact at</span>
+        <input
+          type="number"
+          min={10}
+          max={100}
+          value={pct ?? ''}
+          onChange={(e) => {
+            setSaved(false)
+            setPct(Number(e.target.value))
+          }}
+          className="h-9 w-20 rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <span className="text-sm text-muted-foreground">% of the context window</span>
+        <Button size="sm" onClick={save} disabled={pct == null}>
+          Save
+        </Button>
+        {saved && (
+          <span className="flex items-center gap-1 text-sm text-success">
+            <Check className="size-4" />
+            Saved
+          </span>
+        )}
+      </div>
     </div>
   )
 }

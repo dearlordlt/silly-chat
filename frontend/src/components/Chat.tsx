@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowUp, FileText, Link2, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, Square, X } from 'lucide-react'
-import { api, type Me } from '@/lib/api'
+import { api, type AppMeta, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
 import { effectiveTz } from '@/lib/prefs'
@@ -59,6 +59,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   // @-mention typeahead: start = index of the '@' in the input, sel = highlighted row.
   const [mention, setMention] = useState<{ start: number; query: string; sel: number } | null>(null)
   const [stats, setStats] = useState<TurnStats | null>(null) // last turn's telemetry
+  const [meta, setMeta] = useState<AppMeta | null>(null) // compaction knobs ride on /api/meta
+  // Rolling compaction state (persisted with the chat): summary of turns[:upTo].
+  const summaryRef = useRef('')
+  const summarizedUpTo = useRef(0)
+  const compacting = useRef(false)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const createdAt = useRef<number | null>(null)
@@ -74,6 +79,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
   useEffect(() => {
     refreshList()
+    api.getMeta().then(setMeta).catch(() => {})
   }, [refreshList])
 
   // Stick to the bottom as content streams, unless the user scrolled up to read.
@@ -104,12 +110,16 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         setLinked(c.linked ?? [])
         setCurrentMode(c.location)
         createdAt.current = c.createdAt
+        summaryRef.current = c.summary ?? ''
+        summarizedUpTo.current = Math.min(c.summarizedUpTo ?? 0, c.turns.length)
         // Restore the status line from the newest turn that recorded stats.
         const last = [...c.turns].reverse().find((t) => t.role === 'assistant' && t.stats)
         setStats(last?.role === 'assistant' ? (last.stats ?? null) : null)
       } else {
         setTurns([])
         setLinked([])
+        summaryRef.current = ''
+        summarizedUpTo.current = 0
         createdAt.current = null
       }
     })
@@ -128,26 +138,67 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       return
     }
     dirty.current = false
-    const made = createdAt.current ?? Date.now()
-    createdAt.current = made
-    save(
-      { id: currentId, title: titleFrom(turns), turns, linked, createdAt: made, updatedAt: Date.now() },
-      currentMode === 'server' ? 'server' : 'local',
-    ).then(refreshList)
+    persistNow(turns, linked).then(refreshList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turns, busy])
+
+  // Write the conversation (with its linked ids + compaction state) where it lives.
+  function persistNow(t: Turn[], l: string[]): Promise<void> {
+    const made = createdAt.current ?? Date.now()
+    createdAt.current = made
+    return save(
+      {
+        id: currentId,
+        title: titleFrom(t),
+        turns: t,
+        linked: l,
+        summary: summaryRef.current,
+        summarizedUpTo: summarizedUpTo.current,
+        createdAt: made,
+        updatedAt: Date.now(),
+      },
+      currentMode === 'server' ? 'server' : 'local',
+    ).catch(() => {})
+  }
 
   // Link/unlink another chat as context. Persists immediately when this chat is
   // already saved; an empty/unsaved chat just keeps it in state until first save.
   function changeLinked(next: string[]) {
     setLinked(next)
     if (currentMode === 'off' || turns.length === 0) return
-    const made = createdAt.current ?? Date.now()
-    save(
-      { id: currentId, title: titleFrom(turns), turns, linked: next, createdAt: made, updatedAt: Date.now() },
-      currentMode === 'server' ? 'server' : 'local',
-    ).catch(() => {})
+    persistNow(turns, next)
   }
+
+  // Auto-compaction: when the last turn's context use crossed the admin-set share
+  // of the model's window, fold everything but the recent tail into the rolling
+  // summary (cheap server-side summarizer) and persist it with the chat.
+  useEffect(() => {
+    if (busy || compacting.current || !meta || currentMode === 'off') return
+    if (!stats?.inputTokens || !stats.contextWindow) return
+    if (stats.inputTokens / stats.contextWindow < meta.compact_pct / 100) return
+    const cut = turns.length - meta.compact_keep_recent
+    if (cut <= summarizedUpTo.current) return
+    const messages = toHistory(turns.slice(summarizedUpTo.current, cut))
+    if (messages.length === 0) {
+      summarizedUpTo.current = cut
+      return
+    }
+    const mySession = session.current
+    compacting.current = true
+    api
+      .summarize(summaryRef.current, messages)
+      .then(({ summary }) => {
+        if (session.current !== mySession || !summary.trim()) return
+        summaryRef.current = summary
+        summarizedUpTo.current = cut
+        persistNow(turns, linked)
+      })
+      .catch(() => {})
+      .finally(() => {
+        compacting.current = false
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, stats, meta])
 
   function newChat() {
     setCurrentMode(storageMode)
@@ -307,7 +358,14 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   // Run one turn: append the user message to `base` and stream the reply, with
   // `base` (the prior conversation) as the model's context.
   async function runTurn(message: string, base: Turn[], attachments: Attachment[] = []) {
-    const history = toHistory(base)
+    // Editing/retrying a message inside the summarized region invalidates the
+    // summary — drop it and send the full remaining history instead.
+    if (base.length < summarizedUpTo.current) {
+      summaryRef.current = ''
+      summarizedUpTo.current = 0
+    }
+    // Turns covered by the rolling summary don't ride again; the summary does.
+    const history = toHistory(base.slice(summarizedUpTo.current))
     const mySession = session.current
     const controller = new AbortController()
     abort.current = controller
@@ -323,7 +381,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     try {
       const ids = attachments.map((a) => a.id)
       const context = await linkedContext()
-      for await (const ev of chatStream(message, mode, history, effectiveTz(), ids, context, controller.signal)) {
+      for await (const ev of chatStream(
+        message, mode, history, effectiveTz(), ids, context,
+        summaryRef.current || undefined, controller.signal,
+      )) {
         if (session.current !== mySession) return // navigated away mid-stream
         switch (ev.event) {
           case 'agent_status':

@@ -84,7 +84,10 @@ chats. Edit your last message with the pencil, retry failed answers with Retry. 
 sidebar lists the 15 most recent chats — "Load more" reveals older ones, and the
 search box always scans your whole history. Every message carries a subtle
 timestamp, and after each answer the header shows which model(s) worked and how
-much of the context window this chat is using.
+much of the context window this chat is using. The assistant remembers the whole
+chat: if a very long conversation nears the model's context limit, older messages
+are summarized automatically (admins tune the threshold) while recent ones stay
+word-for-word.
 
 ## Appearance
 

@@ -60,6 +60,11 @@ class LimitsCfg(BaseModel):
     # so a worker can't loop dozens of searches and stall the turn.
     worker_request_limit: int = 8
     user_requests_per_minute: int = 20
+    # When a chat's context use crosses this % of the model's window, the client
+    # compacts: older messages get summarized (admin-overridable at runtime).
+    compact_threshold_pct: int = 90
+    # How many recent messages stay verbatim when a chat is compacted.
+    compact_keep_recent: int = 8
     # Retries for tool calls + structured-output validation (the "repair pass").
     output_retries: int = 4
     # Code-preview hosting (open-in-new-tab). Kept deliberately tight: previews are

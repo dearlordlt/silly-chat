@@ -18,6 +18,8 @@ export interface FullConv {
   title: string
   turns: Turn[]
   linked?: string[] // ids of @-linked conversations (context for this chat)
+  summary?: string // rolling summary of compacted (older) messages
+  summarizedUpTo?: number // turns[:this] are covered by the summary
   createdAt: number
   updatedAt: number
 }
@@ -88,6 +90,8 @@ export async function loadAny(id: string): Promise<(FullConv & { location: Locat
       title: c.title,
       turns: c.turns as Turn[],
       linked: c.linked ?? [],
+      summary: c.summary ?? '',
+      summarizedUpTo: c.summarized_upto ?? 0,
       createdAt: ts,
       updatedAt: ts,
       location: 'server',
@@ -105,6 +109,8 @@ export async function loadFull(id: string, location: Location): Promise<FullConv
     title: c.title,
     turns: c.turns as Turn[],
     linked: c.linked ?? [],
+    summary: c.summary ?? '',
+    summarizedUpTo: c.summarized_upto ?? 0,
     createdAt: Date.parse(c.updated_at),
     updatedAt: Date.parse(c.updated_at),
   }
@@ -118,6 +124,8 @@ export async function save(conv: FullConv, location: Location): Promise<void> {
       title: conv.title,
       turns: conv.turns,
       linked: conv.linked ?? [],
+      summary: conv.summary ?? '',
+      summarized_upto: conv.summarizedUpTo ?? 0,
     })
   }
 }

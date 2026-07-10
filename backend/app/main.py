@@ -74,6 +74,13 @@ class ChatRequest(BaseModel):
     # Flattened content of @-linked conversations, prepended as background context
     # (kept outside the recent-history trim so long chats don't push it out).
     context: str | None = None
+    # Rolling summary of this chat's compacted (older) messages, if any.
+    summary: str | None = None
+
+
+class SummarizeRequest(BaseModel):
+    summary: str = ""  # prior rolling summary (merged into the new one)
+    messages: list[HistoryMessage] = []
 
 
 @app.get("/api/health")
@@ -108,8 +115,36 @@ async def chat(req: ChatRequest, user: ApprovedUser, session: SessionDep) -> Eve
 
     async def event_generator():
         async for event in stream_chat(
-            req.message, req.mode, history, req.timezone, images, doc_chunks, req.context
+            req.message, req.mode, history, req.timezone, images, doc_chunks,
+            req.context, req.summary,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 
     return EventSourceResponse(event_generator())
+
+
+@app.post("/api/summarize")
+async def summarize(req: SummarizeRequest, user: ApprovedUser) -> dict:
+    """Compact chat history: merge the prior summary + older messages into one
+    rolling summary (cheap worker model). Called by the client when a chat
+    crosses the compaction threshold."""
+    if not ratelimit.allow(f"user:{user.id}", get_settings().limits.user_requests_per_minute):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "slow down a moment")
+    if not req.messages:
+        return {"summary": req.summary}
+
+    from pydantic_ai import Agent
+
+    from app.agent.ollama import worker_model
+    from app.prompts.registry import get_prompt
+
+    transcript = "\n\n".join(
+        f"{'User' if m.role == 'user' else 'Assistant'}: {m.content}" for m in req.messages
+    )
+    parts = []
+    if req.summary.strip():
+        parts.append(f"Earlier summary:\n{req.summary}")
+    parts.append(f"Messages to fold in:\n{transcript[:60_000]}")
+    agent = Agent(worker_model(), instructions=get_prompt("subagents/summarizer"))
+    result = await agent.run("\n\n---\n\n".join(parts))
+    return {"summary": str(result.output).strip()}

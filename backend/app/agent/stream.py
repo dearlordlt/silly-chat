@@ -76,7 +76,7 @@ _TOOL_PREP = {
     "search_document": "Checking your document…",
     "look": "Opening your image…",
 }
-_MAX_HISTORY = 20  # messages of prior context fed to the model
+_MIN_HISTORY = 4  # newest messages always kept, whatever their size
 
 
 def _describe(messages) -> str:
@@ -95,18 +95,50 @@ def _describe(messages) -> str:
 
 
 _MAX_CONTEXT_CHARS = 24_000  # backstop on @-linked context riding in from the client
+_FALLBACK_WINDOW = 131_072  # assumed window when the endpoint doesn't report one
 
 
-def _build_history(history: list[tuple[str, str]], context: str | None = None):
+async def _history_budget_chars() -> int:
+    """History backstop in characters: the compaction threshold share of the model's
+    window (the client compacts at the same threshold — this only catches clients
+    that didn't). ~4 chars/token heuristic."""
+    from app import runtime
+    from app.agent.ollama import context_window
+
+    window = await context_window(runtime.model_for("orchestrator")) or _FALLBACK_WINDOW
+    return int(window * (runtime.compact_pct() / 100) * 4)
+
+
+def _build_history(
+    history: list[tuple[str, str]],
+    context: str | None = None,
+    summary: str | None = None,
+    budget_chars: int = _FALLBACK_WINDOW * 3,
+):
     messages = []
+    # Background blocks sit BEFORE the recent-history window, each paired with an
+    # ack so the transcript keeps user/assistant alternation.
+    if summary and summary.strip():
+        messages.append(ModelRequest(parts=[UserPromptPart(
+            content="[Summary of this conversation's earlier messages — treat as things "
+            f"you both said and remember.]\n\n{summary[:_MAX_CONTEXT_CHARS]}"
+        )]))
+        messages.append(ModelResponse(parts=[TextPart(content="Got it — I remember all of that.")]))
     if context and context.strip():
-        # Linked-chat context sits BEFORE the recent-history window, paired with an
-        # ack so the transcript keeps user/assistant alternation.
         messages.append(ModelRequest(parts=[UserPromptPart(content=context[:_MAX_CONTEXT_CHARS])]))
         messages.append(ModelResponse(parts=[TextPart(content="Noted — I'll use that as background context.")]))
-    for role, content in history[-_MAX_HISTORY:]:
+    # Newest messages first until the budget runs out (oldest get dropped), then
+    # restore chronological order. The newest _MIN_HISTORY always make it.
+    kept: list[tuple[str, str]] = []
+    used = 0
+    for i, (role, content) in enumerate(reversed(history)):
         if not content.strip():
             continue
+        if i >= _MIN_HISTORY and used + len(content) > budget_chars:
+            break
+        used += len(content)
+        kept.append((role, content))
+    for role, content in reversed(kept):
         if role == "user":
             messages.append(ModelRequest(parts=[UserPromptPart(content=content)]))
         else:
@@ -122,6 +154,7 @@ async def stream_chat(
     attachments: list[tuple[str, bytes]] | None = None,
     doc_chunks: list[tuple[str, bytes]] | None = None,
     context: str | None = None,
+    summary: str | None = None,
 ) -> AsyncIterator[StreamEvent]:
     attachments = attachments or []
     doc_chunks = doc_chunks or []
@@ -155,7 +188,7 @@ async def stream_chat(
                 f"earlier task unless the attachment itself asks for it.]"
             )
     agent = build_orchestrator(effective_mode, timezone)
-    message_history = _build_history(history or [], context)
+    message_history = _build_history(history or [], context, summary, await _history_budget_chars())
     queue: asyncio.Queue = asyncio.Queue()
     sources: list[Source] = []
     findings: list[tuple[str, str]] = []

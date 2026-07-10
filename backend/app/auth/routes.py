@@ -186,3 +186,17 @@ def set_models(body: dict[str, str], _: AdminUser) -> dict[str, str]:
     from app import runtime
 
     return runtime.set_overrides(body)
+
+
+@admin_router.get("/chat")
+def get_chat_cfg(_: AdminUser) -> dict[str, int]:
+    from app import runtime
+
+    return {"compact_pct": runtime.compact_pct()}
+
+
+@admin_router.put("/chat")
+def set_chat_cfg(body: dict[str, int], _: AdminUser) -> dict[str, int]:
+    from app import runtime
+
+    return runtime.set_chat(body)

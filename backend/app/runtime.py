@@ -12,6 +12,7 @@ from app.config import get_settings
 ROLES = ("orchestrator", "worker", "vision", "coder", "embed")
 
 _overrides: dict[str, str] = {}
+_chat: dict[str, int] = {}  # runtime chat-behavior overrides (e.g. compact_pct)
 
 
 def load_overrides() -> None:
@@ -22,9 +23,34 @@ def load_overrides() -> None:
 
     with Session(engine) as session:
         row = session.get(AppSetting, "models")
+        chat_row = session.get(AppSetting, "chat")
     _overrides.clear()
     if row:
         _overrides.update({k: v for k, v in row.value.items() if k in ROLES and v})
+    _chat.clear()
+    if chat_row:
+        _chat.update({k: int(v) for k, v in chat_row.value.items() if isinstance(v, (int, float))})
+
+
+def compact_pct() -> int:
+    return _chat.get("compact_pct") or get_settings().limits.compact_threshold_pct
+
+
+def set_chat(values: dict[str, int]) -> dict[str, int]:
+    from sqlmodel import Session
+
+    from app.db import engine
+    from app.models import AppSetting
+
+    clean = {"compact_pct": max(1, min(100, int(values.get("compact_pct", 0) or 0)))} if values.get("compact_pct") else {}
+    with Session(engine) as session:
+        row = session.get(AppSetting, "chat") or AppSetting(key="chat", value={})
+        row.value = clean
+        session.add(row)
+        session.commit()
+    _chat.clear()
+    _chat.update(clean)
+    return {"compact_pct": compact_pct()}
 
 
 def model_for(role: str) -> str:

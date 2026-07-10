@@ -36,6 +36,10 @@ def _ensure_columns() -> None:
         if "linked" not in cols:
             conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN linked TEXT DEFAULT '[]'")
             conn.commit()
+        if "summary" not in cols:
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN summary TEXT DEFAULT ''")
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN summarized_upto INTEGER DEFAULT 0")
+            conn.commit()
 
 
 def get_session() -> Iterator[Session]:

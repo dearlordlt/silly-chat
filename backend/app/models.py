@@ -66,5 +66,8 @@ class Conversation(SQLModel, table=True):
     turns: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
     # Ids of other conversations @-linked into this one's context.
     linked: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    # Rolling summary of compacted (older) messages + how many turns it covers.
+    summary: str = ""
+    summarized_upto: int = 0
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)

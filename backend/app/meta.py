@@ -131,5 +131,13 @@ def genome() -> dict[str, str]:
 
 
 @router.get("")
-def meta_endpoint(_: ApprovedUser) -> Meta:
-    return get_meta()
+def meta_endpoint(_: ApprovedUser) -> dict:
+    from app import runtime
+    from app.config import get_settings
+
+    # Meta (cached) + the live chat-behavior knobs the client needs.
+    return {
+        **get_meta().model_dump(),
+        "compact_pct": runtime.compact_pct(),
+        "compact_keep_recent": get_settings().limits.compact_keep_recent,
+    }

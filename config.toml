@@ -50,6 +50,11 @@ max_agents = 4
 worker_request_limit = 8
 # Per-user guardrails (Phase 4).
 user_requests_per_minute = 20
+# Compaction: when a chat crosses this % of the model's context window, older
+# messages are summarized (keeping compact_keep_recent verbatim). Admins can
+# override the % at runtime from the Admin panel.
+compact_threshold_pct = 90
+compact_keep_recent = 8
 # Retries for tool calls + structured-output validation (the repair pass).
 output_retries = 4
 # Code-preview hosting (open-in-new-tab): owner-only, temporary, capped.

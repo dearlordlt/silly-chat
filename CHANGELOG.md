@@ -20,6 +20,10 @@ from this file.
 - **Live code** — while the coding agent works, you watch the code being written
   line by line instead of staring at a spinner; the finished, downloadable code
   block replaces it when the turn completes.
+- **Full chat memory with auto-compaction** — chats no longer forget beyond the
+  last 20 messages: the whole history rides along, and when a chat approaches the
+  model's context limit (admin-tunable %, default 90) older messages are folded
+  into a rolling summary automatically — recent messages stay verbatim.
 
 ## v1.4.0 — 2026-07-10
 

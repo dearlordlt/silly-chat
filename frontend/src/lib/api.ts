@@ -42,10 +42,17 @@ export type AppMeta = {
   version: string
   versions: { version: string; date: string | null; notes: string[] }[]
   help: { title: string; body: string }[]
+  compact_pct: number
+  compact_keep_recent: number
 }
 
 export type ServerConvSummary = { id: string; title: string; updated_at: string }
-export type ServerConv = ServerConvSummary & { turns: unknown[]; linked?: string[] }
+export type ServerConv = ServerConvSummary & {
+  turns: unknown[]
+  linked?: string[]
+  summary?: string
+  summarized_upto?: number
+}
 
 export const api = {
   me: () => req<Me | null>('GET', '/api/auth/me'),
@@ -70,8 +77,17 @@ export const api = {
   // Server-side conversation store ("save to server" mode).
   listServerConvos: () => req<ServerConvSummary[]>('GET', '/api/conversations'),
   getServerConvo: (id: string) => req<ServerConv>('GET', `/api/conversations/${id}`),
-  putServerConvo: (id: string, body: { title: string; turns: unknown[]; linked?: string[] }) =>
-    req<ServerConvSummary>('PUT', `/api/conversations/${id}`, body),
+  putServerConvo: (
+    id: string,
+    body: { title: string; turns: unknown[]; linked?: string[]; summary?: string; summarized_upto?: number },
+  ) => req<ServerConvSummary>('PUT', `/api/conversations/${id}`, body),
+
+  // Compaction: merge the prior summary + older messages into one rolling summary.
+  summarize: (summary: string, messages: { role: string; content: string }[]) =>
+    req<{ summary: string }>('POST', '/api/summarize', { summary, messages }),
+  getChatCfg: () => req<{ compact_pct: number }>('GET', '/api/admin/chat'),
+  setChatCfg: (cfg: { compact_pct: number }) =>
+    req<{ compact_pct: number }>('PUT', '/api/admin/chat', cfg),
   deleteServerConvo: (id: string) => req<{ ok: boolean }>('DELETE', `/api/conversations/${id}`),
 
   // Attachment uploads (images + documents). Returns the id used to attach to a message.
