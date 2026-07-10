@@ -1061,9 +1061,10 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
 }
 
 // "14:32" today, "Jul 9 · 14:32" otherwise — subtle per-message timestamps.
+// Always a 24-hour clock ("h23": midnight is 00:32, never 24:32 or meridians).
 function fmtTime(ts: number): string {
   const d = new Date(ts)
-  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
   if (d.toDateString() === new Date().toDateString()) return time
   return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${time}`
 }
