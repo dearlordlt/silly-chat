@@ -120,6 +120,57 @@ def approve_user(user_id: int, _: AdminUser, session: SessionDep) -> UserOut:
     return UserOut(**user.model_dump())
 
 
+class RoleIn(BaseModel):
+    role: str  # "admin" | "user"
+
+
+@admin_router.put("/users/{user_id}/role")
+def set_role(user_id: int, body: RoleIn, admin: AdminUser, session: SessionDep) -> UserOut:
+    if body.role not in ("admin", "user"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "role must be admin or user")
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such user")
+    if user.id == admin.id and body.role != "admin":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "you can't demote yourself")
+    if user.role == "admin" and body.role == "user":
+        admins = session.exec(select(func.count()).select_from(User).where(User.role == "admin")).one()
+        if admins <= 1:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "there must be at least one admin")
+    user.role = body.role
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return UserOut(**user.model_dump())
+
+
+@admin_router.delete("/users/{user_id}")
+def delete_user(user_id: int, admin: AdminUser, session: SessionDep) -> dict:
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such user")
+    if user.id == admin.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "you can't delete yourself")
+    if user.role == "admin":
+        admins = session.exec(select(func.count()).select_from(User).where(User.role == "admin")).one()
+        if admins <= 1:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "there must be at least one admin")
+    # Take the user's data with them (conversations, uploads + doc chunks).
+    from app.models import Conversation, DocChunk, Upload
+    from app.uploads import _gc_orphan_files
+
+    for conv in session.exec(select(Conversation).where(Conversation.user_id == user.id)).all():
+        session.delete(conv)
+    for up in session.exec(select(Upload).where(Upload.user_id == user.id)).all():
+        for ch in session.exec(select(DocChunk).where(DocChunk.upload_id == up.id)).all():
+            session.delete(ch)
+        session.delete(up)
+    session.delete(user)
+    session.commit()
+    _gc_orphan_files(session)
+    return {"ok": True}
+
+
 @admin_router.get("/models")
 async def get_models(_: AdminUser) -> dict[str, Any]:
     from app import runtime

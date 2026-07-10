@@ -52,6 +52,9 @@ export const api = {
     req<Record<string, unknown>>('PUT', '/api/auth/settings', settings),
   listUsers: () => req<Me[]>('GET', '/api/admin/users'),
   approve: (id: number) => req<Me>('POST', `/api/admin/users/${id}/approve`),
+  setRole: (id: number, role: 'admin' | 'user') =>
+    req<Me>('PUT', `/api/admin/users/${id}/role`, { role }),
+  deleteUser: (id: number) => req<{ ok: boolean }>('DELETE', `/api/admin/users/${id}`),
   getModels: () =>
     req<{ current: Record<string, string>; available: string[] }>('GET', '/api/admin/models'),
   setModels: (models: Record<string, string>) =>
