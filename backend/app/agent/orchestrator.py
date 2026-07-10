@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic_ai import Agent, ToolOutput
+from pydantic_ai import Agent, PromptedOutput
 
 from app.agent.clock import now_str
 from app.agent.ollama import orchestrator_model
@@ -34,9 +34,11 @@ def build_orchestrator(mode: Mode = "search", timezone: str | None = None) -> Ag
     )
     return Agent(
         orchestrator_model(),
-        # ToolOutput: the model returns the Reply via a tool call (reliable for
-        # tool-capable models) rather than emitting raw JSON text to be parsed.
-        output_type=ToolOutput(Reply),
+        # PromptedOutput: the model writes the Reply as JSON text. Chosen over
+        # ToolOutput because Ollama delivers tool calls only as complete units —
+        # text is the only channel that streams, and live answers need deltas.
+        # (NativeOutput's constrained decoding breaks tool calling entirely.)
+        output_type=PromptedOutput(Reply),
         instructions=instructions,
         tools=build_tools(),
         retries=limits.output_retries,

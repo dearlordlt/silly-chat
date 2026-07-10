@@ -13,15 +13,19 @@ from collections.abc import AsyncIterator
 
 from pydantic_ai import RunContext, capture_run_messages
 from pydantic_ai.messages import (
+    FinalResultEvent,
     FunctionToolCallEvent,
     FunctionToolResultEvent,
     ModelRequest,
     ModelResponse,
+    PartDeltaEvent,
     PartStartEvent,
     TextPart,
+    TextPartDelta,
     ToolCallPart,
     UserPromptPart,
 )
+from pydantic_core import from_json
 
 from pydantic_ai import Agent
 
@@ -40,6 +44,7 @@ from app.schema import (
     Source,
     SourcesBlock,
     StreamEvent,
+    TextDeltaEvent,
 )
 
 log = get_logger("chat")
@@ -142,18 +147,78 @@ async def stream_chat(
     def emit(ev: object) -> None:
         queue.put_nowait(ev)
 
+    # Live answer streaming: the model writes its Reply as JSON *text* (see
+    # orchestrator.py — text is the only channel Ollama streams). We accumulate the
+    # final text part, partial-parse it, and forward the text blocks' markdown as
+    # text_delta events so the answer appears as it is written. Ids are positional
+    # (b0, b1, …) — the same scheme _final_events uses, so the final validated
+    # block_data lands in the slot that streamed.
+    out_state = {"index": None, "buf": "", "started": set(), "sent": {}}
+
+    def _stream_partial() -> None:
+        raw = out_state["buf"].lstrip()
+        if raw.startswith("```"):  # some models fence their JSON
+            nl = raw.find("\n")
+            if nl == -1:
+                return  # fence line still streaming
+            raw = raw[nl + 1 :]
+        raw = raw.rstrip().rstrip("`")
+        try:
+            parsed = from_json(raw, allow_partial="trailing-strings")
+        except ValueError:
+            return
+        blocks = parsed.get("blocks") if isinstance(parsed, dict) else None
+        if not isinstance(blocks, list):
+            return
+        for i, blk in enumerate(blocks):
+            if not isinstance(blk, dict):
+                continue
+            # A block's "type" string is only certainly complete once another key
+            # follows it (or a later block exists) — don't skeleton a half-word.
+            if i not in out_state["started"] and (i < len(blocks) - 1 or len(blk) >= 2):
+                bt = blk.get("type")
+                if isinstance(bt, str) and bt:
+                    out_state["started"].add(i)
+                    emit(BlockStartEvent(block_id=f"b{i}", block_type=bt))
+            if blk.get("type") == "text" and isinstance(blk.get("markdown"), str):
+                done = out_state["sent"].get(i, 0)
+                fresh = blk["markdown"][done:]
+                if fresh and i in out_state["started"]:
+                    out_state["sent"][i] = done + len(fresh)
+                    emit(TextDeltaEvent(block_id=f"b{i}", text=fresh))
+
+    # Text parts of the CURRENT model response, by part index. FinalResultEvent
+    # marks the response that carries the Reply — from then on, deltas stream out.
+    text_bufs: dict[int, str] = {}
+
     async def on_events(ctx: RunContext, event_stream) -> None:
         async for event in event_stream:
             if isinstance(event, PartStartEvent) and isinstance(event.part, ToolCallPart):
                 msg = _TOOL_PREP.get(event.part.tool_name or "")
                 if msg:
                     emit(AgentStatusEvent(message=msg))
+            elif isinstance(event, PartStartEvent) and isinstance(event.part, TextPart):
+                text_bufs[event.index] = event.part.content or ""
+            elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
+                text_bufs[event.index] = text_bufs.get(event.index, "") + (event.delta.content_delta or "")
+                if event.index == out_state["index"]:
+                    out_state["buf"] = text_bufs[event.index]
+                    _stream_partial()
+            elif isinstance(event, FinalResultEvent) and event.tool_name is None:
+                # The text part that just started IS the Reply — stream it.
+                if text_bufs:
+                    out_state["index"] = max(text_bufs)
+                    out_state["buf"] = text_bufs[out_state["index"]]
+                    _stream_partial()
             elif isinstance(event, FunctionToolCallEvent):
                 msg = _TOOL_STATUS.get(event.part.tool_name)
                 if msg:
                     emit(AgentStatusEvent(message=msg))
             elif isinstance(event, FunctionToolResultEvent):
-                # Tool finished; the model is now composing the answer.
+                # Tool finished; the model is now composing the answer. A new model
+                # response follows — its part indexes restart, so drop the old ones.
+                text_bufs.clear()
+                out_state["index"] = None
                 emit(AgentStatusEvent(message="Writing the answer…"))
 
     async def run() -> None:
@@ -197,24 +262,34 @@ async def stream_chat(
             queue.put_nowait(_DONE)
 
     task = asyncio.create_task(run())
-    yield AgentStatusEvent(message="Thinking…")
+    try:
+        yield AgentStatusEvent(message="Thinking…")
 
-    while True:
-        item = await queue.get()
-        if item is _DONE:
-            break
-        if isinstance(item, tuple):
-            kind, payload = item
-            if kind == "error":
-                yield ErrorEvent(message=str(payload))
+        while True:
+            item = await queue.get()
+            if item is _DONE:
+                break
+            if isinstance(item, tuple):
+                kind, payload = item
+                if kind == "error":
+                    yield ErrorEvent(message=str(payload))
+                else:
+                    for ev in _final_events(payload, code, built_maps, sources):
+                        yield ev
             else:
-                for ev in _final_events(payload, code, built_maps, sources):
-                    yield ev
-        else:
-            yield item  # AgentStatusEvent / AgentUpdateEvent
+                yield item  # AgentStatusEvent / AgentUpdateEvent / block streaming
 
-    yield DoneEvent()
-    await task
+        yield DoneEvent()
+    finally:
+        # Client gone (stop button / closed tab) or normal end: make sure the agent
+        # task dies with the stream so an abandoned turn stops burning tokens.
+        if not task.done():
+            log.info("turn cancelled by client")
+            task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001 — run() logs its own errors
+            pass
 
 
 async def _text_fallback(message: str, findings: list[tuple[str, str]], history) -> Reply:

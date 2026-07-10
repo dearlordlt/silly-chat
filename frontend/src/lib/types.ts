@@ -4,6 +4,7 @@ export type Mode = 'search' | 'chat' | 'code'
 
 export type Slot =
   | { id: string; kind: 'pending'; blockType: string }
+  | { id: string; kind: 'streaming'; text: string } // a text block arriving as deltas
   | { id: string; kind: 'filled'; block: Block }
 
 export type Agent = {
@@ -17,4 +18,4 @@ export type Attachment = { id: string; name: string; url: string; kind: 'image' 
 
 export type Turn =
   | { role: 'user'; text: string; attachments?: Attachment[] }
-  | { role: 'assistant'; status: string | null; agents: Agent[]; slots: Slot[]; error?: string }
+  | { role: 'assistant'; status: string | null; agents: Agent[]; slots: Slot[]; error?: string; stopped?: boolean }

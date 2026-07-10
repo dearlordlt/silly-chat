@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowUp, FileText, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, X } from 'lucide-react'
+import { ArrowUp, FileText, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, Square, X } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
@@ -266,11 +266,29 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             })
             break
           case 'block_start':
+            // Upsert: streaming already opened this slot when the final answer
+            // re-announces its blocks — don't duplicate it.
             patchLast((t) => ({
               ...t,
               status: null,
-              slots: [...t.slots, { id: ev.block_id, kind: 'pending', blockType: ev.block_type }],
+              slots: t.slots.some((s) => s.id === ev.block_id)
+                ? t.slots
+                : [...t.slots, { id: ev.block_id, kind: 'pending', blockType: ev.block_type }],
             }))
+            break
+          case 'text_delta':
+            // The answer text as it's being written — append to (or open) its slot.
+            patchLast((t) => {
+              const i = t.slots.findIndex((s) => s.id === ev.block_id)
+              if (i >= 0 && t.slots[i].kind === 'filled') return t // already final
+              const prev = i >= 0 && t.slots[i].kind === 'streaming' ? (t.slots[i] as { text: string }).text : ''
+              const slot: Slot = { id: ev.block_id, kind: 'streaming', text: prev + ev.text }
+              return {
+                ...t,
+                status: null,
+                slots: i >= 0 ? t.slots.map((s, j) => (j === i ? slot : s)) : [...t.slots, slot],
+              }
+            })
             break
           case 'block_data': {
             const filled: Slot = { id: ev.block_id, kind: 'filled', block: ev.block }
@@ -292,11 +310,22 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       }
     } catch (e) {
       if (session.current === mySession) {
-        patchLast((t) => ({ ...t, status: null, error: String(e) }))
+        if (controller.signal.aborted) {
+          // The user hit Stop — keep whatever already streamed, no error box.
+          patchLast((t) => ({ ...t, status: null, stopped: true }))
+        } else {
+          patchLast((t) => ({ ...t, status: null, error: String(e) }))
+        }
       }
     } finally {
       if (session.current === mySession) setBusy(false)
     }
+  }
+
+  // Stop the in-flight turn: aborting the fetch closes the SSE stream, which makes
+  // the backend cancel the agent run (no tokens keep burning server-side).
+  function stopTurn() {
+    abort.current?.abort()
   }
 
   const lastUserIndex = turns.reduce((acc, t, i) => (t.role === 'user' ? i : acc), -1)
@@ -483,11 +512,16 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     <div key={slot.id} className="animate-rise">
                       {slot.kind === 'pending' ? (
                         <BlockSkeleton blockType={slot.blockType} />
+                      ) : slot.kind === 'streaming' ? (
+                        <BlockView block={{ type: 'text', markdown: slot.text }} />
                       ) : (
                         <BlockView block={slot.block} />
                       )}
                     </div>
                   ))}
+                  {turn.stopped && (
+                    <p className="text-xs font-medium text-muted-foreground">Stopped.</p>
+                  )}
                   {turn.error && (
                     <div className="animate-rise flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3.5">
                       <div className="min-w-0 text-sm">
@@ -629,15 +663,28 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     </button>
                   ))}
                 </div>
-                <Button
-                  size="icon"
-                  className="size-8 rounded-full"
-                  onClick={send}
-                  disabled={busy || uploading > 0 || (!input.trim() && attach.length === 0)}
-                  aria-label="Send"
-                >
-                  <ArrowUp />
-                </Button>
+                {busy ? (
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="size-8 rounded-full"
+                    onClick={stopTurn}
+                    aria-label="Stop"
+                    title="Stop"
+                  >
+                    <Square className="fill-current [&&]:size-3" />
+                  </Button>
+                ) : (
+                  <Button
+                    size="icon"
+                    className="size-8 rounded-full"
+                    onClick={send}
+                    disabled={uploading > 0 || (!input.trim() && attach.length === 0)}
+                    aria-label="Send"
+                  >
+                    <ArrowUp />
+                  </Button>
+                )}
               </div>
             </div>
           </div>
