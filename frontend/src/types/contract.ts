@@ -19,7 +19,7 @@ export type Caption = string | null;
 export type SourceUrl = string | null;
 export type Images = GalleryImage[];
 export type Type3 = "chart";
-export type Kind = "bar" | "line" | "pie";
+export type Kind = "bar" | "line" | "area" | "pie" | "donut";
 export type Labels = string[];
 /**
  * Values for a single series (one per label).

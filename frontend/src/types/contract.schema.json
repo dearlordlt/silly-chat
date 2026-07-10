@@ -152,7 +152,9 @@
           "enum": [
             "bar",
             "line",
-            "pie"
+            "area",
+            "pie",
+            "donut"
           ],
           "title": "Kind",
           "type": "string"

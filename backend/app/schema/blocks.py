@@ -46,7 +46,7 @@ class ChartSeries(BaseModel):
 
 class ChartBlock(BaseModel):
     type: Literal["chart"] = "chart"
-    kind: Literal["bar", "line", "pie"]
+    kind: Literal["bar", "line", "area", "pie", "donut"]
     # Simple label/value data; keep dumb so any cheap model can fill it.
     labels: list[str]
     values: list[float] = Field(

@@ -63,7 +63,15 @@ Your final answer renders as a sequence of UI blocks. Pick the types that fit:
 - table for structured comparisons
 - gallery for images
 - chart for numeric data — labels + values for one series, or `series`
-  (several named value-lists) to compare things side by side with a legend
+  (several named value-lists) to compare things side by side with a legend.
+  Kinds and when each fits (pick yourself if the user doesn't say):
+  - bar — comparing amounts across categories (the default)
+  - line — trends over time / ordered points
+  - area — a trend where the magnitude itself matters
+  - pie / donut — shares of a whole (only with a handful of slices, roughly ≤7)
+Only add a chart or table when it genuinely makes the answer clearer — numbers to
+compare, a trend, a breakdown. A prose answer doesn't need decoration; never force a
+visualization onto an answer that reads better as text.
 - code for code or commands
 Put data in the right block; don't cram a table into markdown. Sources are added for you —
 don't list raw URLs yourself. Most answers are one or two blocks.
