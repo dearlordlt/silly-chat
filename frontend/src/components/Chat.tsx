@@ -104,6 +104,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         setLinked(c.linked ?? [])
         setCurrentMode(c.location)
         createdAt.current = c.createdAt
+        // Restore the status line from the newest turn that recorded stats.
+        const last = [...c.turns].reverse().find((t) => t.role === 'assistant' && t.stats)
+        setStats(last?.role === 'assistant' ? (last.stats ?? null) : null)
       } else {
         setTurns([])
         setLinked([])
@@ -386,22 +389,26 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           case 'error':
             patchLast((t) => ({ ...t, status: null, error: ev.message }))
             break
-          case 'done':
-            // Transitional slots (live code stream, unfilled skeletons) end with the
-            // turn — every real block got its block_data by now.
-            patchLast((t) => ({
-              ...t,
-              status: null,
-              ts: Date.now(),
-              slots: t.slots.filter((s) => s.kind === 'filled'),
-            }))
-            setStats({
+          case 'done': {
+            const turnStats: TurnStats = {
               inputTokens: ev.input_tokens ?? undefined,
               outputTokens: ev.output_tokens ?? undefined,
               contextWindow: ev.context_window ?? undefined,
               models: ev.models ?? [],
-            })
+            }
+            // Transitional slots (live code stream, unfilled skeletons) end with the
+            // turn — every real block got its block_data by now. Stats ride on the
+            // turn so the status line survives reloads and chat switches.
+            patchLast((t) => ({
+              ...t,
+              status: null,
+              ts: Date.now(),
+              stats: turnStats,
+              slots: t.slots.filter((s) => s.kind === 'filled'),
+            }))
+            setStats(turnStats)
             break
+          }
         }
       }
     } catch (e) {
@@ -470,7 +477,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               return t ? (
                 <span
                   className={cn(
-                    'truncate text-[13.5px] font-semibold text-muted-foreground',
+                    // min-w-0: without it this flex child refuses to shrink and the
+                    // text gets hard-clipped instead of ellipsized.
+                    'min-w-0 truncate text-[13.5px] font-semibold text-muted-foreground',
                     !sidebarOpen && 'border-l pl-3',
                   )}
                   title={t}
@@ -947,9 +956,11 @@ function fmtTime(ts: number): string {
   return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${time}`
 }
 
-// 131072 → "131.1k" — compact token counts for the status line.
+// 6200 → "6.2k", 1000000 → "1M" — compact token counts for the status line.
 function fmtTok(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
+  if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1000) return `${+(n / 1000).toFixed(1)}k`
+  return String(n)
 }
 
 function Dot({ delay = '0ms' }: { delay?: string }) {

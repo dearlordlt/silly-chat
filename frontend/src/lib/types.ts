@@ -34,4 +34,5 @@ export type Turn =
       error?: string
       stopped?: boolean
       ts?: number
+      stats?: TurnStats // persisted with the chat — restores the status line on load
     }
