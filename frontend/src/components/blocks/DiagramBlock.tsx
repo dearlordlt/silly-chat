@@ -153,7 +153,8 @@ export function DiagramBlockView({ block }: { block: DiagramBlock }) {
           <div className="fixed inset-0 z-50 bg-foreground/40 p-3 backdrop-blur-sm sm:p-6">
             <div className="animate-rise relative flex h-full w-full items-center justify-center overflow-auto rounded-xl border bg-card shadow-2xl">
               <div
-                className="p-6 [&_svg]:h-auto [&_svg]:max-h-[85vh] [&_svg]:w-auto [&_svg]:max-w-full"
+                // Full-box SVG: viewBox + preserveAspectRatio scale the drawing to fit.
+                className="h-full w-full p-6 [&_svg]:!max-w-none [&_svg]:h-full [&_svg]:w-full"
                 dangerouslySetInnerHTML={svg ? { __html: svg } : undefined}
               />
               <button
