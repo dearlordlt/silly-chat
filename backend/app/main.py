@@ -75,7 +75,20 @@ class ChatRequest(BaseModel):
 
 @app.get("/api/health")
 async def health() -> dict:
-    return {"status": "ok"}
+    """Liveness for uptime monitors: 200 only when the app AND its database work.
+
+    Unauthenticated by design; exposes nothing beyond status + version.
+    """
+    from sqlalchemy import text
+    from app.db import engine
+    from app.meta import get_meta
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"db: {exc}")
+    return {"status": "ok", "version": get_meta().version}
 
 
 @app.post("/api/chat")
