@@ -4,7 +4,7 @@ export type Mode = 'search' | 'chat' | 'code'
 
 export type Slot =
   | { id: string; kind: 'pending'; blockType: string }
-  | { id: string; kind: 'streaming'; text: string } // a text block arriving as deltas
+  | { id: string; kind: 'streaming'; blockType: string; text: string } // a block arriving as deltas
   | { id: string; kind: 'filled'; block: Block }
 
 export type Agent = {

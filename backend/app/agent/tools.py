@@ -17,6 +17,7 @@ import uuid
 from pydantic import BaseModel
 from pydantic_ai import Agent, BinaryContent, Tool
 from pydantic_ai.exceptions import UsageLimitExceeded
+from pydantic_ai.messages import PartDeltaEvent, PartStartEvent, TextPart, TextPartDelta
 from pydantic_ai.usage import UsageLimits
 
 from app.agent import search
@@ -25,7 +26,9 @@ from app.agent.activity import (
     agent_update,
     agent_var,
     attachments_var,
+    code_tasks_var,
     docs_var,
+    emit_var,
     record_code,
     record_findings,
     record_map,
@@ -34,7 +37,7 @@ from app.agent.activity import (
 )
 from app.agent import maps as osm
 from app.embeddings import embed_texts, rank
-from app.schema import MapArea, MapBlock
+from app.schema import BlockStartEvent, MapArea, MapBlock, TextDeltaEvent
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
 from app.agent.ollama import coder_model, vision_model, worker_model
 from app.config import get_settings
@@ -200,6 +203,19 @@ def _split_files(output: str, fallback_language: str) -> list[tuple[str, str, st
 async def write_code(task: str, language: str = "code") -> str:
     """Write code for the task using the dedicated coding model. The code is shown
     to the user automatically — do not repeat it in your answer."""
+    # Refuse an exact duplicate of a task already dispatched this turn — models
+    # sometimes emit the same call twice (parallel tool calls / output retries),
+    # which used to burn a second full coder run and show duplicate agent rows.
+    seen = code_tasks_var.get()
+    key = " ".join(task.split())[:500]
+    if seen is not None:
+        if key in seen:
+            return (
+                "(this exact artifact was already written by an earlier write_code call "
+                "this turn and is shown to the user — do not call write_code again)"
+            )
+        seen[key] = "running"
+
     aid = uuid.uuid4().hex[:8]
     agent_update(aid, label=f"Coding: {task}", status="Writing code…", state="running")
     try:
@@ -207,7 +223,29 @@ async def write_code(task: str, language: str = "code") -> str:
             coder_model(),
             instructions=get_prompt("subagents/coder", today=now_str(tz_var.get())),
         )
-        result = await agent.run(task)
+
+        # Stream the coder's raw output into a live code slot so long builds show
+        # progress instead of a spinner. The slot is transient: the frontend drops
+        # it when the turn completes and the real (parsed, per-file) code blocks land.
+        emit = emit_var.get()
+        live_id = f"live-{aid}"
+        opened = False
+
+        async def on_events(ctx, event_stream) -> None:
+            nonlocal opened
+            async for ev in event_stream:
+                text = None
+                if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
+                    text = ev.part.content or ""
+                elif isinstance(ev, PartDeltaEvent) and isinstance(ev.delta, TextPartDelta):
+                    text = ev.delta.content_delta or ""
+                if text and emit is not None:
+                    if not opened:
+                        opened = True
+                        emit(BlockStartEvent(block_id=live_id, block_type="code"))
+                    emit(TextDeltaEvent(block_id=live_id, text=text))
+
+        result = await agent.run(task, event_stream_handler=on_events)
         files = _split_files(str(result.output), language)
         if not files:
             return "(the coder returned nothing)"

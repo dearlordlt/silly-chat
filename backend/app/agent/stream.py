@@ -29,7 +29,16 @@ from pydantic_core import from_json
 
 from pydantic_ai import Agent
 
-from app.agent.activity import attachments_var, code_var, docs_var, emit_var, findings_var, maps_var, sources_var
+from app.agent.activity import (
+    attachments_var,
+    code_tasks_var,
+    code_var,
+    docs_var,
+    emit_var,
+    findings_var,
+    maps_var,
+    sources_var,
+)
 from app.agent.clock import tz_var
 from app.agent.ollama import orchestrator_model
 from app.agent.orchestrator import Mode, build_orchestrator
@@ -236,6 +245,7 @@ async def stream_chat(
         tok_s = sources_var.set(sources)
         tok_f = findings_var.set(findings)
         tok_c = code_var.set(code)
+        tok_ct = code_tasks_var.set({})
         tok_m = maps_var.set(built_maps)
         tok_tz = tz_var.set(timezone)
         tok_a = attachments_var.set(attachments)
@@ -274,6 +284,7 @@ async def stream_chat(
             sources_var.reset(tok_s)
             findings_var.reset(tok_f)
             code_var.reset(tok_c)
+            code_tasks_var.reset(tok_ct)
             maps_var.reset(tok_m)
             tz_var.reset(tok_tz)
             attachments_var.reset(tok_a)
@@ -344,9 +355,15 @@ def _final_events(reply, code: list[tuple[str, str, str | None]], built_maps: li
     blocks = list(reply.blocks)
     # Append code written by the coder agent (verbatim — never round-tripped through
     # the orchestrator's output), unless the model already emitted it as a code block.
+    # Dedupe by (language, filename): when an output-validation retry makes the model
+    # call write_code again for the same artifact, only the last version ships
+    # (distinct files of a multi-file result are unaffected).
     has_code_block = any(getattr(b, "type", None) == "code" for b in blocks)
     if not has_code_block:
+        latest: dict[tuple[str, str | None], str] = {}
         for language, content, filename in code:
+            latest[(language, filename)] = content
+        for (language, filename), content in latest.items():
             blocks.append(CodeBlock(language=language, content=content, filename=filename))
     # Maps built by show_map carry real geocoded coordinates — always appended verbatim.
     # (The Reply schema excludes map blocks, so the model cannot emit its own.)

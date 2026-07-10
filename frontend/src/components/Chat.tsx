@@ -28,6 +28,7 @@ import { UserMenu } from '@/components/UserMenu'
 import { AgentActivity } from '@/components/AgentActivity'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
+import { StreamingCode } from '@/components/blocks/StreamingCode'
 import { Skeleton } from '@/components/ui/skeleton'
 
 type Assistant = Extract<Turn, { role: 'assistant' }>
@@ -353,12 +354,18 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             }))
             break
           case 'text_delta':
-            // The answer text as it's being written — append to (or open) its slot.
+            // A block arriving as it's written — append to (or open) its slot,
+            // keeping the block type the preceding block_start announced.
             patchLast((t) => {
               const i = t.slots.findIndex((s) => s.id === ev.block_id)
-              if (i >= 0 && t.slots[i].kind === 'filled') return t // already final
-              const prev = i >= 0 && t.slots[i].kind === 'streaming' ? (t.slots[i] as { text: string }).text : ''
-              const slot: Slot = { id: ev.block_id, kind: 'streaming', text: prev + ev.text }
+              const at = i >= 0 ? t.slots[i] : null
+              if (at?.kind === 'filled') return t // already final
+              const slot: Slot = {
+                id: ev.block_id,
+                kind: 'streaming',
+                blockType: at?.kind === 'streaming' || at?.kind === 'pending' ? at.blockType : 'text',
+                text: (at?.kind === 'streaming' ? at.text : '') + ev.text,
+              }
               return {
                 ...t,
                 status: null,
@@ -380,7 +387,14 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             patchLast((t) => ({ ...t, status: null, error: ev.message }))
             break
           case 'done':
-            patchLast((t) => ({ ...t, status: null, ts: Date.now() }))
+            // Transitional slots (live code stream, unfilled skeletons) end with the
+            // turn — every real block got its block_data by now.
+            patchLast((t) => ({
+              ...t,
+              status: null,
+              ts: Date.now(),
+              slots: t.slots.filter((s) => s.kind === 'filled'),
+            }))
             setStats({
               inputTokens: ev.input_tokens ?? undefined,
               outputTokens: ev.output_tokens ?? undefined,
@@ -440,7 +454,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
+        <header className="flex items-center justify-between gap-2 px-3 py-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {!sidebarOpen && (
               <span className="flex items-center gap-2 sm:hidden">
@@ -495,6 +509,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             />
           </div>
         </header>
+        {/* Divider that breathes with the theme: strongest at center, gone at the
+            edges — a plain full-width border read as a harsh gray bar on warm themes. */}
+        <div aria-hidden className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
         <div className="mx-auto flex w-full min-w-0 max-w-[720px] flex-1 flex-col overflow-hidden">
           <div
@@ -616,7 +633,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                       {slot.kind === 'pending' ? (
                         <BlockSkeleton blockType={slot.blockType} />
                       ) : slot.kind === 'streaming' ? (
-                        <BlockView block={{ type: 'text', markdown: slot.text }} />
+                        slot.blockType === 'code' ? (
+                          <StreamingCode text={slot.text} />
+                        ) : (
+                          <BlockView block={{ type: 'text', markdown: slot.text }} />
+                        )
                       ) : (
                         <BlockView block={slot.block} />
                       )}

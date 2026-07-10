@@ -30,6 +30,9 @@ attachments_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("attach
 docs_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("docs", default=None)
 # Maps built this turn by the show_map tool — appended as map blocks.
 maps_var: ContextVar[list[object] | None] = ContextVar("maps", default=None)
+# Coding tasks already dispatched this turn — write_code refuses exact duplicates
+# (models sometimes emit the same tool call twice, in parallel or on output retry).
+code_tasks_var: ContextVar[dict[str, str] | None] = ContextVar("code_tasks", default=None)
 
 
 def agent_update(id: str, *, label: str = "", status: str = "", state: str = "running") -> None:
