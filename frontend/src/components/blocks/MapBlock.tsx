@@ -44,6 +44,20 @@ function mountMap(el: HTMLElement, block: MapBlock): L.Map {
   })
 
   let bounds = L.latLngBounds(pts)
+  // Shaded regions: real OSM boundaries solid, LLM sketches dashed + "approximate".
+  for (const area of block.areas ?? []) {
+    const poly = L.polygon(area.polygons as [number, number][][], {
+      color: 'var(--color-primary)',
+      weight: 2.5,
+      opacity: area.approximate ? 0.75 : 0.9,
+      dashArray: area.approximate ? '8 6' : undefined,
+      fillColor: 'var(--color-primary)',
+      fillOpacity: 0.12,
+    })
+      .addTo(map)
+      .bindTooltip(area.approximate ? `${area.name} (approximate)` : area.name, { sticky: true })
+    bounds = bounds.isValid() ? bounds.extend(poly.getBounds()) : poly.getBounds()
+  }
   if (block.route?.legs?.length) {
     // Multi-modal route: walks dashed + muted, vehicles solid + labeled.
     const group = L.featureGroup()
@@ -68,7 +82,7 @@ function mountMap(el: HTMLElement, block: MapBlock): L.Map {
     }).addTo(map)
     bounds = line.getBounds()
   }
-  map.fitBounds(bounds.pad(0.25), { maxZoom: 15 })
+  map.fitBounds(bounds.pad(0.2), { maxZoom: 15 })
   return map
 }
 
@@ -101,7 +115,9 @@ export function MapBlockView({ block }: { block: MapBlock }) {
     <div className="overflow-hidden rounded-lg border bg-card">
       <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-3 py-1.5">
         <span className="truncate text-xs font-semibold">
-          {block.title || block.points.map((p) => p.name).join(' → ')}
+          {block.title ||
+            block.points.map((p) => p.name).join(' → ') ||
+            (block.areas ?? []).map((a) => a.name).join(', ')}
         </span>
         <div className="flex shrink-0 items-center gap-2">
           {block.route && <span className="text-[11px] text-muted-foreground">{routeChip(block.route)}</span>}

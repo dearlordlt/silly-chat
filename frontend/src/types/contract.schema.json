@@ -363,6 +363,39 @@
       "title": "GalleryImage",
       "type": "object"
     },
+    "MapArea": {
+      "description": "A shaded region on the map: a real OSM boundary, or an LLM-sketched\napproximation (drawn dashed + labeled approximate).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "approximate": {
+          "default": false,
+          "title": "Approximate",
+          "type": "boolean"
+        },
+        "polygons": {
+          "items": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "title": "Polygons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "polygons"
+      ],
+      "title": "MapArea",
+      "type": "object"
+    },
     "MapBlock": {
       "description": "A map with resolved locations (and optionally a route between them).\n\nNever authored by the model directly \u2014 the ``show_map`` tool geocodes real\ncoordinates and records this block, so positions can't be hallucinated.",
       "properties": {
@@ -389,6 +422,21 @@
             }
           ],
           "default": null
+        },
+        "areas": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/MapArea"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Areas"
         },
         "title": {
           "anyOf": [

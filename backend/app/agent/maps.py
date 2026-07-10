@@ -13,7 +13,7 @@ import httpx
 
 from app.config import get_settings
 from app.logging_setup import get_logger
-from app.schema import MapLeg, MapPoint, MapRoute
+from app.schema import MapArea, MapLeg, MapPoint, MapRoute
 
 log = get_logger("maps")
 
@@ -54,6 +54,60 @@ async def geocode(query: str) -> MapPoint | None:
         _geocache[key] = point
         await asyncio.sleep(1)  # be a polite Nominatim citizen
         return point
+
+
+def _rings_from_geojson(g: dict) -> list[list[list[float]]]:
+    """Outer rings of a (Multi)Polygon as [lat, lon] lists."""
+    t = g.get("type")
+    polys = [g["coordinates"]] if t == "Polygon" else g.get("coordinates", []) if t == "MultiPolygon" else []
+    return [[[lat, lon] for lon, lat in poly[0]] for poly in polys if poly]
+
+
+def _thin(rings: list[list[list[float]]], max_pts: int = 1800) -> list[list[list[float]]]:
+    total = sum(len(r) for r in rings)
+    if total <= max_pts:
+        return rings
+    stride = -(-total // max_pts)  # ceil
+    return [r[::stride] + [r[-1]] for r in rings if len(r) > 3]
+
+
+async def outline(query: str) -> MapArea | None:
+    """Fetch a real boundary polygon from OSM (admin areas, districts, countries…).
+
+    Picks the first polygon-typed hit (place *nodes* often rank first — e.g.
+    'Senamiestis' the suburb node vs 'Senamiesčio seniūnija' the boundary).
+    """
+    async with _geocode_lock:  # same politeness budget as geocoding
+        try:
+            async with httpx.AsyncClient(timeout=25) as c:
+                r = await c.get(
+                    f"{get_settings().maps.nominatim_url.rstrip('/')}/search",
+                    params={
+                        "q": query,
+                        "format": "json",
+                        "limit": 5,
+                        "polygon_geojson": 1,
+                        # Fine tolerance so small districts keep their shape; huge
+                        # boundaries (countries) get downsampled by _thin() after.
+                        "polygon_threshold": 0.0002,
+                    },
+                    headers={"User-Agent": _UA},
+                )
+                r.raise_for_status()
+                hits = r.json()
+        except Exception as exc:
+            log.warning("outline failed for %r: %s", query, exc)
+            return None
+        finally:
+            await asyncio.sleep(1)
+    for h in hits:
+        rings = _rings_from_geojson(h.get("geojson") or {})
+        if rings:
+            return MapArea(
+                name=(h.get("display_name") or query).split(",")[0] or query,
+                polygons=_thin(rings),
+            )
+    return None
 
 
 async def route(points: list[MapPoint], profile: str = "car") -> MapRoute | None:

@@ -11,6 +11,7 @@ from app.schema.blocks import (
     CodeBlock,
     GalleryBlock,
     GalleryImage,
+    MapArea,
     MapBlock,
     MapLeg,
     MapPoint,

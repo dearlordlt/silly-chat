@@ -34,7 +34,7 @@ from app.agent.activity import (
 )
 from app.agent import maps as osm
 from app.embeddings import embed_texts, rank
-from app.schema import MapBlock
+from app.schema import MapArea, MapBlock
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
 from app.agent.ollama import coder_model, vision_model, worker_model
 from app.config import get_settings
@@ -270,26 +270,64 @@ async def search_document(query: str) -> str:
         return f"(could not search the document: {exc})"
 
 
-async def show_map(places: list[str], route: bool = False, mode: str = "car", title: str = "") -> str:
-    """Geocode places and show them on a map (optionally routed in order)."""
+class SketchArea(BaseModel):
+    """An LLM-drawn approximate region: a label + polygon vertices as [lat, lon]."""
+
+    label: str
+    points: list[list[float]]
+
+
+async def show_map(
+    places: list[str],
+    route: bool = False,
+    mode: str = "car",
+    outline: list[str] | None = None,
+    sketch: list[SketchArea] | None = None,
+    title: str = "",
+) -> str:
+    """Geocode places / boundaries and show them on a map (optionally routed)."""
     aid = uuid.uuid4().hex[:8]
-    agent_update(aid, label=f"Mapping: {', '.join(places)[:80]}", status="Finding places…", state="running")
+    what = ", ".join([*places, *(outline or []), *[s.label for s in sketch or []]])[:80]
+    agent_update(aid, label=f"Mapping: {what}", status="Finding places…", state="running")
     try:
         points = []
         misses = []
         for q in places:
             p = await osm.geocode(q)
             (points.append(p) if p else misses.append(q))
-        if not points:
+        areas: list[MapArea] = []
+        area_misses: list[str] = []
+        for q in outline or []:
+            agent_update(aid, status=f"Outlining {q}…")
+            a = await osm.outline(q)
+            (areas.append(a) if a else area_misses.append(q))
+        for s in sketch or []:
+            pts = [p for p in s.points if len(p) == 2]
+            if len(pts) >= 3:
+                areas.append(MapArea(name=s.label, approximate=True, polygons=[pts]))
+        if not points and not areas:
             agent_update(aid, status="Failed", state="error")
-            return f"(could not find any of: {', '.join(misses)} — try simpler or more local names)"
+            missed = ", ".join([*misses, *area_misses]) or "anything"
+            return (
+                f"(could not find {missed} — for outlines try the official administrative "
+                f"name, e.g. 'Senamiesčio seniūnija, Vilnius' instead of 'Old Town')"
+            )
         r = None
         if route and len(points) >= 2:
             agent_update(aid, status="Routing…")
             r = await (osm.transit(points) if mode == "transit" else osm.route(points, profile=mode))
-        record_map(MapBlock(points=points, route=r, title=title or None))
+        record_map(MapBlock(points=points, route=r, areas=areas or None, title=title or None))
         agent_update(aid, status="Done", state="done")
-        parts = [f"Map shown with {len(points)} place(s): {', '.join(p.name for p in points)}."]
+        parts = []
+        if points:
+            parts.append(f"Map shown with {len(points)} place(s): {', '.join(p.name for p in points)}.")
+        if areas:
+            real = [a.name for a in areas if not a.approximate]
+            approx = [a.name for a in areas if a.approximate]
+            if real:
+                parts.append(f"Outlined (real OSM boundaries): {', '.join(real)}.")
+            if approx:
+                parts.append(f"Sketched (approximate, drawn dashed): {', '.join(approx)}.")
         if r and r.mode == "transit":
             steps = " → ".join(l.label or "walk" for l in (r.legs or []))
             parts.append(f"Public transport route: about {r.duration_min:.0f} min ({steps}).")
@@ -300,6 +338,11 @@ async def show_map(places: list[str], route: bool = False, mode: str = "car", ti
             parts.append("(no route found for that mode — markers only)")
         if misses:
             parts.append(f"Could not find: {', '.join(misses)} (try a simpler/local name).")
+        if area_misses:
+            parts.append(
+                f"No boundary found for: {', '.join(area_misses)} — try the official "
+                f"administrative name, or sketch it instead."
+            )
         return " ".join(parts)
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")

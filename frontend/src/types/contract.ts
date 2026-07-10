@@ -68,6 +68,10 @@ export type Legs = MapLeg[] | null;
 export type Mode1 = string;
 export type Label = string | null;
 export type Geometry1 = number[][];
+export type Areas = MapArea[] | null;
+export type Name2 = string;
+export type Approximate = boolean;
+export type Polygons = number[][][];
 export type Title2 = string | null;
 export type Event4 = "agent_status";
 export type Message = string;
@@ -185,6 +189,7 @@ export interface MapBlock {
   type?: Type6;
   points: Points;
   route?: MapRoute | null;
+  areas?: Areas;
   title?: Title2;
   [k: string]: unknown;
 }
@@ -209,6 +214,16 @@ export interface MapLeg {
   mode: Mode1;
   label?: Label;
   geometry: Geometry1;
+  [k: string]: unknown;
+}
+/**
+ * A shaded region on the map: a real OSM boundary, or an LLM-sketched
+ * approximation (drawn dashed + labeled approximate).
+ */
+export interface MapArea {
+  name: Name2;
+  approximate?: Approximate;
+  polygons: Polygons;
   [k: string]: unknown;
 }
 /**

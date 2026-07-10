@@ -93,6 +93,16 @@ class MapRoute(BaseModel):
     legs: list[MapLeg] | None = None
 
 
+class MapArea(BaseModel):
+    """A shaded region on the map: a real OSM boundary, or an LLM-sketched
+    approximation (drawn dashed + labeled approximate)."""
+
+    name: str
+    approximate: bool = False
+    # One or more outer rings, each a list of [lat, lon] pairs.
+    polygons: list[list[list[float]]]
+
+
 class MapBlock(BaseModel):
     """A map with resolved locations (and optionally a route between them).
 
@@ -103,6 +113,7 @@ class MapBlock(BaseModel):
     type: Literal["map"] = "map"
     points: list[MapPoint]
     route: MapRoute | None = None
+    areas: list[MapArea] | None = None
     title: str | None = None
 
 
