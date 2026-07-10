@@ -26,5 +26,8 @@
 **/.vscode/
 **/.idea/
 
-# Docs / plans not needed at build time
+# Docs / plans not needed at build time — EXCEPT the two the backend image copies
+# (they feed /api/meta and the assistant's self-knowledge).
 *.md
+!CHANGELOG.md
+!HELP.md

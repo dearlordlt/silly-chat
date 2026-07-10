@@ -173,7 +173,6 @@ function AxisChart({ kind, labels, series }: { kind: string; labels: string[]; s
 function PieChart({ labels, values, donut }: { labels: string[]; values: number[]; donut: boolean }) {
   const total = values.reduce((a, b) => a + Math.max(b, 0), 0) || 1
   const R = 42 // circle radius in a 140×140 viewBox
-  const C = 2 * Math.PI * R
   const stroke = donut ? 26 : R // stroke = radius fills to the center (a disc)
   const r = donut ? R : R / 2
   const circ = 2 * Math.PI * r

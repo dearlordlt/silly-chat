@@ -42,7 +42,11 @@ services:
     build:
       context: ./frontend
     ports:
-      - "8080:80"
+      # Loopback by default: docker's iptables BYPASS ufw, so 0.0.0.0 would expose
+      # plain HTTP to the whole internet before TLS/auth. Caddy (public profile)
+      # reaches it over the compose network; override HTTP_BIND=0.0.0.0 only for
+      # tailnet-only setups where the firewall story is understood.
+      - "${HTTP_BIND:-127.0.0.1}:8080:80"
     depends_on:
       - backend
     restart: unless-stopped

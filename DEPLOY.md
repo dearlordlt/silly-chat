@@ -62,7 +62,13 @@ Steady state ≈ 2 GB: backend + nginx + searxng + Caddy + the embed appliance
 storage is capped at 5 GB globally (`config.toml [limits]`), originals of
 documents are purged after a day, images are recompressed on ingest.
 
-## No public domain? (Tailscale-only)
+## Port 8080 & existing reverse proxies
 
-Leave `DOMAIN` unset and don't set `AUTH__COOKIE_SECURE` — Caddy stays off and
-the app serves plain HTTP on :8080, reachable over your tailnet.
+The frontend binds to **127.0.0.1:8080 only** (docker's iptables bypass ufw, so a
+0.0.0.0 bind would expose plain HTTP to the internet regardless of your firewall).
+
+- **Box already runs nginx/apache on 80/443?** Leave `DOMAIN` unset (Caddy stays
+  off) and add your own vhost + cert proxying to `127.0.0.1:8080`.
+- **Tailscale-only, no domain?** Set `HTTP_BIND=0.0.0.0` in `.env` (and firewall
+  8080 on the public interface), don't set `AUTH__COOKIE_SECURE`, and reach the
+  app over your tailnet on :8080.
