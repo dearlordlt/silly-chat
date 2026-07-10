@@ -37,6 +37,7 @@ from app.agent.activity import (
     docs_var,
     emit_var,
     findings_var,
+    looks_var,
     maps_var,
     sources_var,
 )
@@ -302,6 +303,7 @@ async def stream_chat(
         tok_f = findings_var.set(findings)
         tok_c = code_var.set(code)
         tok_ct = code_tasks_var.set({})
+        tok_lk = looks_var.set([])
         tok_art = artifacts_var.set(artifacts or {})
         tok_m = maps_var.set(built_maps)
         tok_tz = tz_var.set(timezone)
@@ -342,6 +344,7 @@ async def stream_chat(
             findings_var.reset(tok_f)
             code_var.reset(tok_c)
             code_tasks_var.reset(tok_ct)
+            looks_var.reset(tok_lk)
             artifacts_var.reset(tok_art)
             maps_var.reset(tok_m)
             tz_var.reset(tok_tz)

@@ -3,3 +3,7 @@ Pass a clear, specific question (what you need to know to help — e.g. "what is
 photo and any visible text", "what's the error in this screenshot"). Use this whenever the
 user attached an image; their request usually refers to it. Returns a description from a
 vision model. If nothing is attached it says so.
+
+Look ONCE, with one thorough question. The image shows the state from BEFORE your reply —
+after you make changes (e.g. edit code), looking again cannot verify them; it will just
+show the same old picture.

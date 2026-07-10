@@ -30,6 +30,7 @@ from app.agent.activity import (
     code_tasks_var,
     docs_var,
     emit_var,
+    looks_var,
     record_code,
     record_findings,
     record_map,
@@ -328,6 +329,17 @@ async def look(question: str) -> str:
     atts = attachments_var.get() or []
     if not atts:
         return "No image is attached to this message."
+    # The attachment shows the state from BEFORE this turn's changes — re-examining
+    # it cannot verify an edit. Two looks per turn is plenty.
+    seen_looks = looks_var.get()
+    if seen_looks is not None:
+        if len(seen_looks) >= 2:
+            return (
+                "(REFUSED: the image was already examined this turn — see the earlier "
+                "results. It shows the state BEFORE your changes, so looking again "
+                "cannot verify anything. Finish your answer.)"
+            )
+        seen_looks.append(question[:100])
     aid = uuid.uuid4().hex[:8]
     agent_update(aid, label=f"Looking at {len(atts)} image(s)", status="Examining…", state="running")
     try:
