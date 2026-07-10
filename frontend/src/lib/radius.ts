@@ -6,10 +6,11 @@ export interface RadiusOption {
   value: string
 }
 
+// "Medium" (default) = the design doc's 12px card radius (design/TOKENS.md).
 export const RADII: RadiusOption[] = [
-  { id: 'sharp', label: 'Sharp', value: '0.15rem' },
-  { id: 'small', label: 'Small', value: '0.4rem' },
-  { id: 'medium', label: 'Medium', value: '0.625rem' },
+  { id: 'sharp', label: 'Sharp', value: '0.2rem' },
+  { id: 'small', label: 'Small', value: '0.5rem' },
+  { id: 'medium', label: 'Medium', value: '0.75rem' },
   { id: 'large', label: 'Round', value: '1rem' },
 ]
 

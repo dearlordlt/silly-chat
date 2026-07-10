@@ -12,25 +12,28 @@ export interface Theme {
 type Seed = { bgL?: number; bgC?: number }
 
 // Build a cohesive palette from a primary hue (pH), neutral hue (nH) and primary
-// chroma (pC). Keeps contrast/readability fixed; only hue + saturation vary.
+// chroma (pC). Formulas measured from the design doc (see design/TOKENS.md) —
+// keeps contrast/readability fixed; only hue + saturation vary.
 function light(pH: number, nH: number, pC: number, s: Seed = {}): Record<string, string> {
   const bgL = s.bgL ?? 0.985
-  const bgC = s.bgC ?? 0.006
+  const bgC = s.bgC ?? 0.004
   return {
     background: `oklch(${bgL} ${bgC} ${nH})`,
-    foreground: `oklch(0.24 0.03 ${nH})`,
-    card: `oklch(${Math.min(bgL + 0.012, 1)} ${bgC * 0.6} ${nH})`,
-    'card-foreground': `oklch(0.24 0.03 ${nH})`,
-    muted: `oklch(0.955 ${bgC + 0.006} ${nH})`,
-    'muted-foreground': `oklch(0.5 0.03 ${nH})`,
-    primary: `oklch(0.55 ${pC} ${pH})`,
-    'primary-foreground': `oklch(0.99 0.005 ${pH})`,
-    accent: `oklch(0.93 0.045 ${pH})`,
+    foreground: `oklch(0.25 0.03 ${nH})`,
+    card: `oklch(1 0 0)`,
+    'card-foreground': `oklch(0.25 0.03 ${nH})`,
+    muted: `oklch(0.955 0.008 ${nH})`,
+    'muted-foreground': `oklch(0.52 0.025 ${nH})`,
+    primary: `oklch(0.51 ${pC + 0.06} ${pH})`,
+    'primary-foreground': `oklch(0.99 0.004 ${pH})`,
+    accent: `oklch(0.945 0.032 ${pH})`,
     'accent-foreground': `oklch(0.34 0.09 ${pH})`,
-    border: `oklch(0.9 ${bgC + 0.004} ${nH})`,
-    input: `oklch(0.9 ${bgC + 0.004} ${nH})`,
-    ring: `oklch(0.55 ${pC} ${pH})`,
-    sidebar: `oklch(${bgL - 0.02} ${bgC + 0.004} ${nH})`,
+    border: `oklch(0.912 0.012 ${nH})`,
+    input: `oklch(0.912 0.012 ${nH})`,
+    ring: `oklch(0.51 ${pC + 0.06} ${pH})`,
+    sidebar: `oklch(0.973 0.007 ${nH})`,
+    destructive: 'oklch(0.55 0.19 25)',
+    success: 'oklch(0.58 0.14 150)',
   }
 }
 
@@ -39,19 +42,22 @@ function dark(pH: number, nH: number, pC: number, s: Seed = {}): Record<string, 
   const bgC = s.bgC ?? 0.018
   return {
     background: `oklch(${bgL} ${bgC} ${nH})`,
-    foreground: `oklch(0.95 0.012 ${nH})`,
-    card: `oklch(${bgL + 0.04} ${bgC + 0.004} ${nH})`,
-    'card-foreground': `oklch(0.95 0.012 ${nH})`,
-    muted: `oklch(${bgL + 0.1} ${bgC + 0.006} ${nH})`,
-    'muted-foreground': `oklch(0.71 0.025 ${nH})`,
-    primary: `oklch(0.7 ${pC} ${pH})`,
-    'primary-foreground': `oklch(${bgL} ${bgC} ${nH})`,
-    accent: `oklch(${bgL + 0.13} 0.05 ${pH})`,
+    foreground: `oklch(0.93 0.014 ${nH})`,
+    card: `oklch(${bgL + 0.048} ${bgC + 0.005} ${nH})`,
+    'card-foreground': `oklch(0.93 0.014 ${nH})`,
+    muted: `oklch(${bgL + 0.095} ${bgC + 0.007} ${nH})`,
+    'muted-foreground': `oklch(0.71 0.03 ${nH})`,
+    primary: `oklch(0.74 ${pC} ${pH})`,
+    // Dark text on the bright primary (the doc's look) — buttons read as chips of light.
+    'primary-foreground': `oklch(0.21 0.07 ${pH})`,
+    accent: `oklch(0.31 0.06 ${pH})`,
     'accent-foreground': `oklch(0.93 0.04 ${pH})`,
-    border: `oklch(${bgL + 0.14} ${bgC + 0.004} ${nH})`,
-    input: `oklch(${bgL + 0.16} ${bgC + 0.004} ${nH})`,
-    ring: `oklch(0.7 ${pC} ${pH})`,
-    sidebar: `oklch(${bgL + 0.02} ${bgC + 0.004} ${nH})`,
+    border: `oklch(${bgL + 0.15} ${bgC + 0.01} ${nH})`,
+    input: `oklch(${bgL + 0.17} ${bgC + 0.01} ${nH})`,
+    ring: `oklch(0.74 ${pC} ${pH})`,
+    sidebar: `oklch(${bgL + 0.025} ${bgC + 0.003} ${nH})`,
+    destructive: 'oklch(0.66 0.17 22)',
+    success: 'oklch(0.75 0.14 155)',
   }
 }
 
@@ -75,7 +81,7 @@ export const THEMES: Theme[] = [
   { id: 'njord', name: 'Njörðr', category: 'dark', mode: 'dark', vars: dark(220, 225, 0.12) },
 
   // Mixed — my pick (cosmic/places, distinctive dusk palettes)
-  { id: 'bifrost', name: 'Bifröst', category: 'mixed', mode: 'dark', vars: dark(320, 300, 0.17, { bgL: 0.2, bgC: 0.04 }) },
+  { id: 'bifrost', name: 'Bifröst', category: 'mixed', mode: 'dark', vars: dark(350, 340, 0.17, { bgL: 0.165, bgC: 0.025 }) },
   { id: 'yggdrasil', name: 'Yggdrasil', category: 'mixed', mode: 'dark', vars: dark(150, 140, 0.14, { bgL: 0.185, bgC: 0.03 }) },
   { id: 'ragnarok', name: 'Ragnarök', category: 'mixed', mode: 'dark', vars: dark(45, 40, 0.16, { bgL: 0.165, bgC: 0.03 }) },
 ]
