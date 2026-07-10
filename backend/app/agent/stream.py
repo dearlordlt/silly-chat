@@ -17,7 +17,9 @@ from pydantic_ai.messages import (
     FunctionToolResultEvent,
     ModelRequest,
     ModelResponse,
+    PartStartEvent,
     TextPart,
+    ToolCallPart,
     UserPromptPart,
 )
 
@@ -47,6 +49,18 @@ _TOOL_STATUS = {
     "research": "Planning the research…",
     "find_images": "Looking for images…",
     "show_map": "Drawing the map…",
+}
+
+# Shown the moment the model STARTS writing a tool call (its arguments can take a
+# long time to generate — e.g. a detailed coding brief). Without this, the UI sits
+# on a bare "Thinking…" for the whole stretch.
+_TOOL_PREP = {
+    "write_code": "Writing the build brief…",
+    "research": "Planning the research…",
+    "find_images": "Planning the image hunt…",
+    "show_map": "Choosing places for the map…",
+    "search_document": "Checking your document…",
+    "look": "Opening your image…",
 }
 _MAX_HISTORY = 20  # messages of prior context fed to the model
 
@@ -130,7 +144,11 @@ async def stream_chat(
 
     async def on_events(ctx: RunContext, event_stream) -> None:
         async for event in event_stream:
-            if isinstance(event, FunctionToolCallEvent):
+            if isinstance(event, PartStartEvent) and isinstance(event.part, ToolCallPart):
+                msg = _TOOL_PREP.get(event.part.tool_name or "")
+                if msg:
+                    emit(AgentStatusEvent(message=msg))
+            elif isinstance(event, FunctionToolCallEvent):
                 msg = _TOOL_STATUS.get(event.part.tool_name)
                 if msg:
                     emit(AgentStatusEvent(message=msg))
