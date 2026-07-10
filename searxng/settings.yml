@@ -20,8 +20,16 @@ outgoing:
   request_timeout: 6.0
   max_request_timeout: 10.0
 
+# Engine mix for datacenter IPs: DDG blocks them outright; Google rate-suspends
+# under bursts (180s) — so keep several fallbacks enabled.
 engines:
   - name: duckduckgo
     disabled: true
   - name: duckduckgo images
     disabled: true
+  - name: bing
+    disabled: false
+  - name: mojeek
+    disabled: false
+  - name: wikipedia
+    disabled: false

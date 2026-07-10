@@ -466,15 +466,18 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                       {turn.status}
                     </div>
                   )}
-                  {/* While composing with nothing rendered yet, hint the incoming answer
-                      with shimmering paragraph lines (design doc frame 1g). */}
-                  {turn.status && turn.slots.length === 0 && (
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-11/12" />
-                      <Skeleton className="h-4 w-4/6" />
-                    </div>
-                  )}
+                  {/* Composing skeleton (design doc frame 1g) — but only when the answer
+                      is actually being written: while agents run, THEY are the show;
+                      a shimmer on top just hides them and over-promises. */}
+                  {turn.status &&
+                    turn.slots.length === 0 &&
+                    (turn.agents.length === 0 || turn.status === 'Writing the answer…') && (
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-11/12" />
+                        <Skeleton className="h-4 w-4/6" />
+                      </div>
+                    )}
                   {turn.agents?.length > 0 && <AgentActivity agents={turn.agents} />}
                   {turn.slots.map((slot) => (
                     <div key={slot.id} className="animate-rise">
