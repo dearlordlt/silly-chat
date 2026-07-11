@@ -244,6 +244,23 @@ body {
   .silly-shimmer { animation: none; }
 }
 
+/* ---- Export to PDF (print) ---- */
+/* The print surface is invisible on screen; during print it's the ONLY thing. */
+.print-surface {
+  display: none;
+}
+@media print {
+  body.print-export #root {
+    display: none !important;
+  }
+  body.print-export .print-surface {
+    display: block !important;
+  }
+  @page {
+    margin: 18mm 16mm;
+  }
+}
+
 /* ---- Maps (Leaflet + OSM tiles) ---- */
 /* Dark themes: invert the light tiles into a muted night map that fits the theme. */
 .dark .map-tiles {

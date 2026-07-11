@@ -8,6 +8,7 @@ import { CodeBlockView } from './CodeBlock'
 import { DiagramBlockView } from './DiagramBlock'
 import { SlidesBlockView } from './SlidesBlock'
 import { EditsBlockView } from './EditsBlock'
+import { FileBlockView } from './FileBlock'
 import { MapBlockView } from './MapBlock'
 import { SourcesBlockView } from './SourcesBlock'
 
@@ -30,6 +31,8 @@ export function BlockView({ block }: { block: Block }) {
       return <SlidesBlockView block={block} />
     case 'edits':
       return <EditsBlockView block={block} />
+    case 'file':
+      return <FileBlockView block={block} />
     case 'map':
       return <MapBlockView block={block} />
     case 'sources':
@@ -66,6 +69,8 @@ export function BlockSkeleton({ blockType }: { blockType: string }) {
       return <Skeleton className="aspect-[16/9] w-full" />
     case 'edits':
       return <Skeleton className="h-24 w-full" />
+    case 'file':
+      return <Skeleton className="h-16 w-full max-w-md" />
     case 'code':
       return <Skeleton className="h-24 w-full" />
     default:

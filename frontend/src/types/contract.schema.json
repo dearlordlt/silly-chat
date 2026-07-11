@@ -80,6 +80,7 @@
               "code": "#/$defs/CodeBlock",
               "diagram": "#/$defs/DiagramBlock",
               "edits": "#/$defs/EditsBlock",
+              "file": "#/$defs/FileBlock",
               "gallery": "#/$defs/GalleryBlock",
               "map": "#/$defs/MapBlock",
               "slides": "#/$defs/SlidesBlock",
@@ -113,6 +114,9 @@
             },
             {
               "$ref": "#/$defs/EditsBlock"
+            },
+            {
+              "$ref": "#/$defs/FileBlock"
             },
             {
               "$ref": "#/$defs/MapBlock"
@@ -461,6 +465,41 @@
         "message"
       ],
       "title": "ErrorEvent",
+      "type": "object"
+    },
+    "FileBlock": {
+      "description": "A downloadable generated file (e.g. a PDF from make_document).\n\nTool-authored only \u2014 the url points into the uploads store (owner-only).",
+      "properties": {
+        "type": {
+          "const": "file",
+          "default": "file",
+          "title": "Type",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "mime": {
+          "default": "application/octet-stream",
+          "title": "Mime",
+          "type": "string"
+        },
+        "size": {
+          "default": 0,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "url"
+      ],
+      "title": "FileBlock",
       "type": "object"
     },
     "GalleryBlock": {

@@ -28,15 +28,18 @@ from app.agent.activity import (
     artifacts_var,
     attachments_var,
     code_tasks_var,
+    doc_tasks_var,
     docs_var,
     emit_var,
     looks_var,
     record_code,
     record_edits,
+    record_file,
     record_findings,
     record_map,
     record_sources,
     status_for_current_agent,
+    user_var,
 )
 from app.agent import maps as osm
 from app.embeddings import embed_texts, rank
@@ -388,6 +391,51 @@ async def write_code(task: str, language: str = "code", artifact_id: str = "") -
         return f"(could not write code: {exc})"
 
 
+async def make_document(title: str, content_markdown: str) -> str:
+    """Turn markdown content into a downloadable, nicely typeset PDF for the user."""
+    user_id = user_var.get()
+    if user_id is None:
+        return "(cannot generate documents in this context)"
+    # One document per title per turn — models hedge-call generation tools.
+    seen_docs = doc_tasks_var.get()
+    key = " ".join(title.lower().split())
+    if seen_docs is not None:
+        if key in seen_docs:
+            return (
+                "(that document was already created this turn and is shown to the user "
+                "as a download — do not call make_document again)"
+            )
+        if len(seen_docs) >= 3:
+            return "(REFUSED: enough documents for one turn — give your final answer)"
+        seen_docs[key] = "made"
+    aid = uuid.uuid4().hex[:8]
+    agent_update(aid, label=f"Document: {title}", status="Typesetting PDF…", state="running")
+    try:
+        from sqlmodel import Session
+
+        from app.agent.clock import now_str
+        from app.db import engine
+        from app.documents import render_pdf, store_export
+        from app.schema import FileBlock
+
+        # Rendering is CPU-bound — keep the event loop responsive.
+        data = await asyncio.to_thread(render_pdf, title, content_markdown, now_str(tz_var.get()))
+        safe = re.sub(r"[^\w\s-]", "", title).strip().replace(" ", "-")[:60] or "document"
+        name = f"{safe}.pdf"
+        with Session(engine) as session:
+            uid = store_export(session, user_id, name, data, "application/pdf", "pdf")
+        record_file(FileBlock(name=name, url=f"/api/uploads/{uid}", mime="application/pdf", size=len(data)))
+        agent_update(aid, status="Done", state="done")
+        return (
+            f"Created '{name}' ({len(data) // 1024} KB) — it appears as a download in your "
+            "answer automatically. Do not repeat the document's contents; a one-line intro is enough."
+        )
+    except Exception as exc:
+        agent_update(aid, status="Failed", state="error")
+        log.warning("make_document failed: %s", exc)
+        return f"(could not create the document: {exc})"
+
+
 async def _vision_yes(image_url: str, question: str) -> bool:
     try:
         data = await fetch_image_bytes(image_url)
@@ -537,6 +585,7 @@ def build_tools() -> list[Tool]:
         Tool(research, name="research", description=get_prompt("tools/research")),
         Tool(find_images, name="find_images", description=get_prompt("tools/find_images")),
         Tool(write_code, name="write_code", description=get_prompt("tools/write_code")),
+        Tool(make_document, name="make_document", description=get_prompt("tools/make_document")),
         Tool(look, name="look", description=get_prompt("tools/look")),
         Tool(search_document, name="search_document", description=get_prompt("tools/search_document")),
         Tool(show_map, name="show_map", description=get_prompt("tools/show_map")),

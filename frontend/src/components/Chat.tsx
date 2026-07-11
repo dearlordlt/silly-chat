@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowUp, FileText, Link2, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, Square, X } from 'lucide-react'
+import { ArrowUp, FileDown, FileText, Link2, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, Square, X } from 'lucide-react'
 import { api, type AppMeta, type Me } from '@/lib/api'
 import { chatStream, type HistoryMessage } from '@/lib/stream'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,8 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 import { StreamingCode } from '@/components/blocks/StreamingCode'
 import { StreamingEdit } from '@/components/blocks/StreamingEdit'
+import { ExportPrint } from '@/components/ExportPrint'
+import { downloadText, exportFilename, turnsToMarkdown } from '@/lib/export'
 import { Skeleton } from '@/components/ui/skeleton'
 
 type Assistant = Extract<Turn, { role: 'assistant' }>
@@ -61,6 +63,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [mention, setMention] = useState<{ start: number; query: string; sel: number } | null>(null)
   const [stats, setStats] = useState<TurnStats | null>(null) // last turn's telemetry
   const [meta, setMeta] = useState<AppMeta | null>(null) // compaction knobs ride on /api/meta
+  const [printJob, setPrintJob] = useState<{ title: string; turns: Turn[] } | null>(null)
   // Rolling compaction state (persisted with the chat): summary of turns[:upTo].
   const summaryRef = useRef('')
   const summarizedUpTo = useRef(0)
@@ -525,6 +528,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   }
 
   const lastUserIndex = turns.reduce((acc, t, i) => (t.role === 'user' ? i : acc), -1)
+  const chatTitle = conversations.find((c) => c.id === currentId)?.title || titleFrom(turns) || 'silly-chat'
+
+  // Per-answer export scope: the answer plus the question that produced it.
+  function answerScope(i: number): Turn[] {
+    const prev = turns[i - 1]
+    return prev?.role === 'user' ? [prev, turns[i]] : [turns[i]]
+  }
 
   // Status line: always on. Before any turn reports usage, fall back to the
   // current models + window from /api/meta; per-turn stats then update it.
@@ -591,6 +601,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             })()}
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            {/* Whole-chat export (PDF via print, or Markdown). */}
+            {turns.length > 0 && !busy && (
+              <ExportButtons
+                onPdf={() => setPrintJob({ title: chatTitle, turns })}
+                onMd={() => downloadText(exportFilename(chatTitle, 'md'), turnsToMarkdown(turns, chatTitle))}
+              />
+            )}
             {/* Status line: model(s) + context used last turn (from the done event). */}
             {shownStats && (
               <span
@@ -722,7 +739,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   </div>
                 )
               ) : (
-                <div key={i} className="space-y-3 text-[0.95rem]">
+                <div key={i} className="group space-y-3 text-[0.95rem]">
                   {turn.status && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span className="flex gap-1">
@@ -765,7 +782,21 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                     <p className="text-xs font-medium text-muted-foreground">Stopped.</p>
                   )}
                   {turn.ts != null && !turn.status && (
-                    <p className="text-[10px] text-muted-foreground/70">{fmtTime(turn.ts)}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-muted-foreground/70">{fmtTime(turn.ts)}</p>
+                      {turn.slots.some((s) => s.kind === 'filled') && !busy && (
+                        <ExportButtons
+                          subtle
+                          onPdf={() => setPrintJob({ title: chatTitle, turns: answerScope(i) })}
+                          onMd={() =>
+                            downloadText(
+                              exportFilename(chatTitle, 'md'),
+                              turnsToMarkdown(answerScope(i), chatTitle),
+                            )
+                          }
+                        />
+                      )}
+                    </div>
                   )}
                   {turn.error && (
                     <div className="animate-rise flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3.5">
@@ -1007,6 +1038,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         </div>
       </div>
 
+      {printJob && (
+        <ExportPrint title={printJob.title} turns={printJob.turns} onDone={() => setPrintJob(null)} />
+      )}
+
       {pendingDelete && (
         <ConfirmDialog
           title="Delete chat?"
@@ -1054,6 +1089,8 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
             return `[presentation: ${b.title ?? ''} — slides: ${b.slides.map((s) => s.title).join('; ')}]`
           case 'edits':
             return `[edited artifact ${b.artifact_id}${b.name ? ` (${b.name})` : ''}: ${b.changes.length} targeted change(s)]`
+          case 'file':
+            return `[generated file: ${b.name}]`
           case 'sources':
             return 'Sources: ' + b.items.map((i) => i.title).join('; ')
         }
@@ -1079,6 +1116,38 @@ function fmtTok(n: number): string {
   if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`
   if (n >= 1000) return `${+(n / 1000).toFixed(1)}k`
   return String(n)
+}
+
+// Compact export actions: PDF (via the print surface) and Markdown download.
+// `subtle` hides them until the surrounding .group is hovered (per-answer rows).
+function ExportButtons({
+  onPdf,
+  onMd,
+  subtle = false,
+}: {
+  onPdf: () => void
+  onMd: () => void
+  subtle?: boolean
+}) {
+  const btn =
+    'flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3'
+  return (
+    <span
+      className={cn(
+        'flex shrink-0 items-center gap-0.5',
+        subtle && 'opacity-0 transition-opacity group-hover:opacity-100',
+      )}
+    >
+      <button onClick={onPdf} title="Save as PDF" className={btn}>
+        <FileDown />
+        PDF
+      </button>
+      <button onClick={onMd} title="Save as Markdown" className={btn}>
+        <FileText />
+        MD
+      </button>
+    </span>
+  )
 }
 
 function Dot({ delay = '0ms' }: { delay?: string }) {

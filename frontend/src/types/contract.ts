@@ -83,6 +83,7 @@ export type Block =
   | DiagramBlock
   | SlidesBlock
   | EditsBlock
+  | FileBlock
   | MapBlock
   | SourcesBlock;
 export type Type8 = "edits";
@@ -91,8 +92,13 @@ export type Name1 = string | null;
 export type Old = string;
 export type New = string;
 export type Changes = EditChange[];
-export type Type9 = "map";
+export type Type9 = "file";
 export type Name2 = string;
+export type Url2 = string;
+export type Mime = string;
+export type Size = number;
+export type Type10 = "map";
+export type Name3 = string;
 export type Lat = number;
 export type Lon = number;
 export type Points = MapPoint[];
@@ -105,7 +111,7 @@ export type Mode1 = string;
 export type Label = string | null;
 export type Geometry1 = number[][];
 export type Areas = MapArea[] | null;
-export type Name3 = string;
+export type Name4 = string;
 export type Approximate = boolean;
 export type Polygons = number[][][];
 export type Title5 = string | null;
@@ -266,13 +272,26 @@ export interface EditChange {
   [k: string]: unknown;
 }
 /**
+ * A downloadable generated file (e.g. a PDF from make_document).
+ *
+ * Tool-authored only — the url points into the uploads store (owner-only).
+ */
+export interface FileBlock {
+  type?: Type9;
+  name: Name2;
+  url: Url2;
+  mime?: Mime;
+  size?: Size;
+  [k: string]: unknown;
+}
+/**
  * A map with resolved locations (and optionally a route between them).
  *
  * Never authored by the model directly — the ``show_map`` tool geocodes real
  * coordinates and records this block, so positions can't be hallucinated.
  */
 export interface MapBlock {
-  type?: Type9;
+  type?: Type10;
   points: Points;
   route?: MapRoute | null;
   areas?: Areas;
@@ -280,7 +299,7 @@ export interface MapBlock {
   [k: string]: unknown;
 }
 export interface MapPoint {
-  name: Name2;
+  name: Name3;
   lat: Lat;
   lon: Lon;
   [k: string]: unknown;
@@ -307,7 +326,7 @@ export interface MapLeg {
  * approximation (drawn dashed + labeled approximate).
  */
 export interface MapArea {
-  name: Name3;
+  name: Name4;
   approximate?: Approximate;
   polygons: Polygons;
   [k: string]: unknown;

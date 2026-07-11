@@ -35,12 +35,19 @@ docs_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("docs", defaul
 maps_var: ContextVar[list[object] | None] = ContextVar("maps", default=None)
 # Targeted-edit records (EditsBlock) this turn — shown before the updated code.
 edits_var: ContextVar[list[object] | None] = ContextVar("edits", default=None)
+# Generated files (FileBlock) this turn — e.g. PDFs from make_document.
+files_var: ContextVar[list[object] | None] = ContextVar("files", default=None)
+# The requesting user's id — generated files are stored under their ownership.
+user_var: ContextVar[int | None] = ContextVar("user", default=None)
 # Coding tasks already dispatched this turn — write_code refuses exact duplicates
 # (models sometimes emit the same tool call twice, in parallel or on output retry).
 code_tasks_var: ContextVar[dict[str, str] | None] = ContextVar("code_tasks", default=None)
 # look-tool invocations this turn — capped, since re-examining a pre-change
 # screenshot to "verify" an edit is pure waste (seen live in a look/edit loop).
 looks_var: ContextVar[list[str] | None] = ContextVar("looks", default=None)
+# Documents generated this turn (by title) — make_document refuses duplicates
+# (models hedge-call generation tools twice; seen live with write_code AND here).
+doc_tasks_var: ContextVar[dict[str, str] | None] = ContextVar("doc_tasks", default=None)
 
 
 def agent_update(id: str, *, label: str = "", status: str = "", state: str = "running") -> None:
@@ -81,5 +88,11 @@ def record_map(block: object) -> None:
 
 def record_edits(block: object) -> None:
     bucket = edits_var.get()
+    if bucket is not None:
+        bucket.append(block)
+
+
+def record_file(block: object) -> None:
+    bucket = files_var.get()
     if bucket is not None:
         bucket.append(block)

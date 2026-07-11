@@ -79,6 +79,14 @@ small changes apply as targeted patches you can watch stream in as red/green dif
 (an "Edited — N changes" card stays in the chat), while big rewrites regenerate the
 whole file. The newest version always wins.
 
+## Exporting & documents
+
+Hover any answer to reveal **PDF** and **MD** buttons — PDF opens your browser's
+save-as-PDF dialog with a clean paper layout (tables and charts included), MD downloads
+the answer as Markdown. The same buttons in the header export the whole chat. You can
+also just ask for a document: "make me a PDF with…" produces a typeset PDF as a
+download chip right in the answer.
+
 ## Chat history & storage
 
 Each chat can live in one of three places, switchable per chat from its ⋯ menu: **Off**

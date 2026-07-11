@@ -35,13 +35,16 @@ from app.agent.activity import (
     attachments_var,
     code_tasks_var,
     code_var,
+    doc_tasks_var,
     docs_var,
     edits_var,
     emit_var,
+    files_var,
     findings_var,
     looks_var,
     maps_var,
     sources_var,
+    user_var,
 )
 from app.agent.clock import tz_var
 from app.agent.ollama import orchestrator_model
@@ -160,6 +163,7 @@ async def stream_chat(
     context: str | None = None,
     summary: str | None = None,
     artifacts: dict[str, tuple[str, str, str]] | None = None,  # id -> (name, language, content)
+    user_id: int | None = None,  # owner for generated files (make_document)
 ) -> AsyncIterator[StreamEvent]:
     attachments = attachments or []
     doc_chunks = doc_chunks or []
@@ -221,6 +225,7 @@ async def stream_chat(
     code: list[tuple[str, str, str | None, str]] = []  # (language, content, filename, artifact_id)
     built_maps: list = []
     edits: list = []  # EditsBlocks from targeted artifact edits
+    files: list = []  # FileBlocks from make_document
     stats: dict[str, int] = {}  # turn telemetry for the status line
 
     def emit(ev: object) -> None:
@@ -310,6 +315,9 @@ async def stream_chat(
         tok_art = artifacts_var.set(artifacts or {})
         tok_m = maps_var.set(built_maps)
         tok_ed = edits_var.set(edits)
+        tok_fi = files_var.set(files)
+        tok_dt = doc_tasks_var.set({})
+        tok_u = user_var.set(user_id)
         tok_tz = tz_var.set(timezone)
         tok_a = attachments_var.set(attachments)
         tok_d = docs_var.set(doc_chunks)
@@ -352,6 +360,9 @@ async def stream_chat(
             artifacts_var.reset(tok_art)
             maps_var.reset(tok_m)
             edits_var.reset(tok_ed)
+            files_var.reset(tok_fi)
+            doc_tasks_var.reset(tok_dt)
+            user_var.reset(tok_u)
             tz_var.reset(tok_tz)
             attachments_var.reset(tok_a)
             docs_var.reset(tok_d)
@@ -370,7 +381,7 @@ async def stream_chat(
                 if kind == "error":
                     yield ErrorEvent(message=str(payload))
                 else:
-                    for ev in _final_events(payload, code, built_maps, sources, edits, artifacts):
+                    for ev in _final_events(payload, code, built_maps, sources, edits, artifacts, files):
                         yield ev
             else:
                 yield item  # AgentStatusEvent / AgentUpdateEvent / block streaming
@@ -456,6 +467,7 @@ def _final_events(
     sources: list[Source],
     edits: list | None = None,
     artifacts: dict[str, tuple[str, str, str]] | None = None,
+    files: list | None = None,
 ):
     blocks = list(reply.blocks)
     contents = [v[2] for v in (artifacts or {}).values()] + [c for _, c, _, _ in code]
@@ -492,6 +504,8 @@ def _final_events(
     # Maps built by show_map carry real geocoded coordinates — always appended verbatim.
     # (The Reply schema excludes map blocks, so the model cannot emit its own.)
     blocks.extend(built_maps)
+    # Generated files (make_document) — download chips.
+    blocks.extend(files or [])
     seen: set[str] = set()
     unique: list[Source] = []
     for s in sources:

@@ -9,6 +9,12 @@ ENV UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/srv/backend/.venv \
     PATH="/srv/backend/.venv/bin:$PATH"
 
+# WeasyPrint (PDF generation for make_document) needs Pango + friends.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libharfbuzz-subset0 \
+    fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install deps first (cached layer).
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev

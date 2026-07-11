@@ -127,7 +127,7 @@ async def chat(req: ChatRequest, user: ApprovedUser, session: SessionDep) -> Eve
     async def event_generator():
         async for event in stream_chat(
             req.message, req.mode, history, req.timezone, images, doc_chunks,
-            req.context, req.summary, artifacts,
+            req.context, req.summary, artifacts, user.id,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 

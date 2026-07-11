@@ -166,6 +166,19 @@ class SlidesBlock(BaseModel):
     slides: list[Slide]
 
 
+class FileBlock(BaseModel):
+    """A downloadable generated file (e.g. a PDF from make_document).
+
+    Tool-authored only — the url points into the uploads store (owner-only).
+    """
+
+    type: Literal["file"] = "file"
+    name: str
+    url: str
+    mime: str = "application/octet-stream"
+    size: int = 0
+
+
 class Source(BaseModel):
     title: str
     url: str
@@ -181,7 +194,7 @@ class SourcesBlock(BaseModel):
 Block = Annotated[
     Union[
         TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, SlidesBlock,
-        EditsBlock, MapBlock, SourcesBlock
+        EditsBlock, FileBlock, MapBlock, SourcesBlock
     ],
     Field(discriminator="type"),
 ]

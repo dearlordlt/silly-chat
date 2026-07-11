@@ -4,6 +4,15 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.6.0 — 2026-07-11
+
+- **Export answers and chats** — hover any answer for PDF / MD buttons (the header
+  has the same pair for the whole chat): PDF opens your browser's save-as-PDF with
+  a clean paper layout (charts included), MD downloads faithful Markdown.
+- **"Make me a PDF"** — the assistant can now produce real documents: ask for a
+  PDF ("make me a PDF with the packing list") and a nicely typeset file appears
+  as a download chip in the answer.
+
 ## v1.5.0 — 2026-07-10
 
 - **Presentations** — ask for "a presentation about X in 7 slides" and the assistant
