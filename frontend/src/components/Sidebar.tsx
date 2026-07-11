@@ -298,7 +298,7 @@ export function Sidebar({
           <button
             onClick={() => setDialog('about')}
             title="About silly-chat"
-            className="flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            className="flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs font-semibold tabular-nums tracking-[0.04em] text-muted-foreground transition-colors hover:text-foreground"
           >
             <Sparkles className="size-3 text-primary" />
             {version ? `v${version}` : 'About'}
