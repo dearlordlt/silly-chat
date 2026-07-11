@@ -311,7 +311,7 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
                     Log out
                   </Button>
                 </div>
-                <SecuritySection />
+                <SecuritySection username={me.username} />
               </div>
             )}
           </main>
@@ -323,7 +323,7 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
 
 // Password change (re-wraps the encryption key — chats stay readable) and
 // recovery-key regeneration (shown once via RecoveryKeyDialog).
-function SecuritySection() {
+function SecuritySection({ username }: { username: string }) {
   const [oldPw, setOldPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [changed, setChanged] = useState(false)
@@ -388,7 +388,7 @@ function SecuritySection() {
         </Button>
       </div>
 
-      {newKey && <RecoveryKeyDialog recoveryKey={newKey} onClose={() => setNewKey(null)} />}
+      {newKey && <RecoveryKeyDialog recoveryKey={newKey} username={username} onClose={() => setNewKey(null)} />}
     </>
   )
 }

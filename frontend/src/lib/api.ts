@@ -72,6 +72,8 @@ export const api = {
     req<{ ok: boolean }>('POST', '/api/auth/reset', { username, recovery_key, new_password }),
   regenRecovery: (password: string) =>
     req<{ recovery_key: string }>('POST', '/api/auth/recovery', { password }),
+  adminResetPassword: (id: number) =>
+    req<{ temp_password: string; deleted_chats: number }>('POST', `/api/admin/users/${id}/reset`),
   logout: () => req<{ ok: boolean }>('POST', '/api/auth/logout'),
   updateSettings: (settings: Record<string, unknown>) =>
     req<Record<string, unknown>>('PUT', '/api/auth/settings', settings),

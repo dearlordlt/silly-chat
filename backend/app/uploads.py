@@ -25,7 +25,8 @@ from pypdf import PdfReader
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from app.auth.deps import ApprovedUser, SessionDep
+from app.auth import crypto
+from app.auth.deps import ApprovedUser, SessionDep, SessionKey
 from app.config import ROOT, get_settings
 from app.db import engine
 from app.embeddings import embed_texts, pack
@@ -40,6 +41,12 @@ def _dir() -> Path:
     d = ROOT / "data" / "uploads"
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _path(up: Upload) -> Path:
+    """On-disk file: sealed uploads are per-user ({id}.enc — no cross-user dedupe by
+    design); legacy plaintext keeps the content-hash name until TTL retires it."""
+    return _dir() / (f"{up.id}.enc" if up.enc else f"{up.sha256}.{up.ext}")
 
 
 # Document extensions we can extract text from.
@@ -174,7 +181,10 @@ def _delete_upload(session: Session, up: Upload) -> None:
 
 
 def _gc_orphan_files(session: Session) -> None:
-    referenced = set(session.exec(select(Upload.sha256)).all())
+    # Plaintext files are named by content sha; sealed ones by upload id.
+    referenced = set(session.exec(select(Upload.sha256)).all()) | set(
+        session.exec(select(Upload.id).where(Upload.enc == 1)).all()
+    )
     for f in _dir().glob("*.*"):
         if f.stem not in referenced:
             f.unlink(missing_ok=True)
@@ -205,7 +215,7 @@ def sweep_expired() -> int:
         for up in session.exec(
             select(Upload).where(Upload.kind == "doc", Upload.created_at < doc_file_cutoff)
         ).all():
-            (_dir() / f"{up.sha256}.{up.ext}").unlink(missing_ok=True)
+            _path(up).unlink(missing_ok=True)
         # 2) fully expire old uploads.
         expired = session.exec(select(Upload).where(Upload.created_at < full_cutoff)).all()
         for up in expired:
@@ -221,7 +231,7 @@ def sweep_expired() -> int:
 
 @router.post("")
 async def create_upload(
-    user: ApprovedUser, session: SessionDep, file: UploadFile = File(...)
+    user: ApprovedUser, session: SessionDep, dk: SessionKey, file: UploadFile = File(...)
 ) -> dict:
     cfg = get_settings().limits
     raw = await file.read()
@@ -254,13 +264,15 @@ async def create_upload(
     _evict_until_room(session, len(data), cfg.upload_global_quota_mb * 1024 * 1024)
 
     sha = hashlib.sha256(data).hexdigest()
-    path = _dir() / f"{sha}.{ext}"
-    if not path.exists():
-        path.write_bytes(data)
     up = Upload(
         id=uuid.uuid4().hex, user_id=user.id, sha256=sha, kind=kind,
-        mime=mime, ext=ext, size=len(data), name=name,
+        mime=mime, ext=ext, size=len(data), name=name, enc=1 if dk is not None else 0,
     )
+    path = _path(up)
+    if up.enc:
+        path.write_bytes(crypto.encrypt_bytes(dk, data))
+    elif not path.exists():
+        path.write_bytes(data)
     session.add(up)
     session.commit()
 
@@ -271,7 +283,11 @@ async def create_upload(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "no readable text in that document")
         vecs = await embed_texts(chunks)
         for i, (ctext, vec) in enumerate(zip(chunks, vecs)):
-            session.add(DocChunk(upload_id=up.id, idx=i, text=ctext, embedding=pack(vec)))
+            emb = pack(vec)
+            if up.enc:
+                ctext = crypto.encrypt_json(dk, ctext)
+                emb = crypto.encrypt_bytes(dk, emb)
+            session.add(DocChunk(upload_id=up.id, idx=i, text=ctext, embedding=emb))
         session.commit()
         log.info("doc %s: %d chunks embedded", name, len(chunks))
         return {"id": up.id, "kind": kind, "name": name, "mime": mime, "chunks": len(chunks)}
@@ -280,23 +296,33 @@ async def create_upload(
 
 
 @router.get("/{uid}")
-def serve_upload(uid: str, user: ApprovedUser, session: SessionDep) -> FileResponse:
+def serve_upload(uid: str, user: ApprovedUser, session: SessionDep, dk: SessionKey):
+    from fastapi.responses import Response
+
     up = session.get(Upload, uid)
     if up is None or up.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
-    path = _dir() / f"{up.sha256}.{up.ext}"
+    path = _path(up)
     if not path.exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "expired")
     up.last_used_at = _utcnow()
     session.add(up)
     session.commit()
-    return FileResponse(path, media_type=up.mime, headers={"Cache-Control": "private, max-age=86400"})
+    headers = {"Cache-Control": "private, max-age=86400"}
+    if up.enc:
+        data = crypto.decrypt_bytes(dk, path.read_bytes()) if dk is not None else None
+        if data is None:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "log in again to unlock this file")
+        return Response(content=data, media_type=up.mime, headers=headers)
+    return FileResponse(path, media_type=up.mime, headers=headers)
 
 
 def resolve_attachments(
-    session: Session, ids: list[str], user_id: int, include_docs: bool = True
+    session: Session, ids: list[str], user_id: int, include_docs: bool = True,
+    dk: bytes | None = None,
 ) -> tuple[list[tuple[str, bytes]], list[tuple[str, bytes]]]:
-    """Resolve upload ids (owner-checked) into (images, doc_chunks).
+    """Resolve upload ids (owner-checked) into (images, doc_chunks), unsealing
+    encrypted ones with the requester's data key.
 
     images: list of (mime, bytes) for the vision tool.
     doc_chunks: list of (text, embedding_bytes) for RAG (empty unless include_docs).
@@ -307,16 +333,28 @@ def resolve_attachments(
         up = session.get(Upload, aid)
         if up is None or up.user_id != user_id:
             continue
+        if up.enc and dk is None:
+            continue  # sealed but no key aboard — skip rather than fail the turn
         if up.kind == "image":
-            path = _dir() / f"{up.sha256}.{up.ext}"
+            path = _path(up)
             if path.exists():
-                up.last_used_at = _utcnow()
-                session.add(up)
-                images.append((up.mime, path.read_bytes()))
+                data = path.read_bytes()
+                if up.enc:
+                    data = crypto.decrypt_bytes(dk, data)
+                if data is not None:
+                    up.last_used_at = _utcnow()
+                    session.add(up)
+                    images.append((up.mime, data))
         elif up.kind == "doc" and include_docs:
             up.last_used_at = _utcnow()
             session.add(up)
             for ch in session.exec(select(DocChunk).where(DocChunk.upload_id == up.id)).all():
-                doc_chunks.append((ch.text, ch.embedding))
+                if up.enc:
+                    text = crypto.decrypt_json(dk, ch.text)
+                    emb = crypto.decrypt_bytes(dk, ch.embedding)
+                    if isinstance(text, str) and emb is not None:
+                        doc_chunks.append((text, emb))
+                else:
+                    doc_chunks.append((ch.text, ch.embedding))
     session.commit()
     return images, doc_chunks

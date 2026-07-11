@@ -1,11 +1,21 @@
 import { useState } from 'react'
-import { Check, Copy, KeyRound } from 'lucide-react'
+import { Check, Copy, FileDown, KeyRound } from 'lucide-react'
 
 /**
  * Shows a freshly minted recovery key ONCE. It's the only way back into
  * encrypted chats after a forgotten password — hence the insistent tone.
+ * The download produces the file entirely client-side; the key never makes
+ * another trip to the server.
  */
-export function RecoveryKeyDialog({ recoveryKey, onClose }: { recoveryKey: string; onClose: () => void }) {
+export function RecoveryKeyDialog({
+  recoveryKey,
+  username,
+  onClose,
+}: {
+  recoveryKey: string
+  username?: string
+  onClose: () => void
+}) {
   const [copied, setCopied] = useState(false)
 
   function copy() {
@@ -13,6 +23,37 @@ export function RecoveryKeyDialog({ recoveryKey, onClose }: { recoveryKey: strin
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     })
+  }
+
+  function download() {
+    const text = [
+      'silly-chat — recovery key',
+      '=========================',
+      '',
+      `Account:  ${username ?? '(your username)'}`,
+      `Created:  ${new Date().toISOString().slice(0, 10)}`,
+      '',
+      'Recovery key:',
+      '',
+      `    ${recoveryKey}`,
+      '',
+      'Your chats are encrypted with a key only you hold. If you ever forget',
+      'your password, this recovery key is the ONLY way to unlock them:',
+      'on the login screen choose "Forgot your password?" and enter it',
+      'together with a new password.',
+      '',
+      'Keep this file somewhere safe — a password manager, a printed copy,',
+      'a USB stick. Anyone with your username AND this key can access your',
+      'account.',
+      '',
+    ].join('\n')
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'silly-chat-recovery-key.txt'
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -41,12 +82,21 @@ export function RecoveryKeyDialog({ recoveryKey, onClose }: { recoveryKey: strin
             <Copy className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
           )}
         </button>
-        <button
-          onClick={onClose}
-          className="h-[42px] w-full rounded-md bg-primary text-sm font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
-        >
-          I saved it
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={download}
+            className="flex h-[42px] flex-1 items-center justify-center gap-2 rounded-md border bg-card text-sm font-semibold transition-colors hover:bg-accent [&_svg]:size-4"
+          >
+            <FileDown />
+            Download file
+          </button>
+          <button
+            onClick={onClose}
+            className="h-[42px] flex-1 rounded-md bg-primary text-sm font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+          >
+            I saved it
+          </button>
+        </div>
       </div>
     </div>
   )

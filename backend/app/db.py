@@ -52,6 +52,10 @@ def _ensure_columns() -> None:
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN wrapped_dk TEXT DEFAULT ''")
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN wrapped_dk_recovery TEXT DEFAULT ''")
             conn.commit()
+        upcols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(upload)").fetchall()}
+        if "enc" not in upcols:
+            conn.exec_driver_sql("ALTER TABLE upload ADD COLUMN enc INTEGER DEFAULT 0")
+            conn.commit()
 
 
 def get_session() -> Iterator[Session]:

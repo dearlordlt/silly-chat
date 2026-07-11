@@ -4,6 +4,20 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.7.0 — 2026-07-11
+
+- **Attachments encrypted too** — uploaded images, documents (including the text
+  snippets used to answer questions about them), and generated PDFs are now sealed
+  under your personal key, same as chats: the database and disk alone reveal nothing.
+- **Recovery key as a file** — the recovery-key window now offers "Download file"
+  alongside copy, so the key lands somewhere more durable than a clipboard.
+- **Admin password reset** — admins can issue a temporary password when someone is
+  locked out. By design it can't unlock their encrypted chats (those are lost
+  without the recovery key — that's the privacy guarantee); fresh keys are issued
+  at their next login.
+- Security hardening: the encryption key inside your session cookie is itself
+  sealed now. Everyone gets logged out once by this release.
+
 ## v1.6.0 — 2026-07-11
 
 - **Export answers and chats** — hover any answer for PDF / MD buttons (the header

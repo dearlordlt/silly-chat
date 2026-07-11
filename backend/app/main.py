@@ -13,7 +13,7 @@ from sse_starlette.sse import EventSourceResponse
 from app import ratelimit
 from app.agent.orchestrator import Mode
 from app.agent.stream import stream_chat
-from app.auth.deps import ApprovedUser, SessionDep
+from app.auth.deps import ApprovedUser, SessionDep, SessionKey
 from app.auth.routes import admin_router, auth_router
 from app.config import get_settings
 from app.conversations import router as conversations_router
@@ -111,15 +111,17 @@ async def health() -> dict:
 
 
 @app.post("/api/chat")
-async def chat(req: ChatRequest, user: ApprovedUser, session: SessionDep) -> EventSourceResponse:
+async def chat(
+    req: ChatRequest, user: ApprovedUser, session: SessionDep, dk: SessionKey
+) -> EventSourceResponse:
     if not ratelimit.allow(f"user:{user.id}", get_settings().limits.user_requests_per_minute):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "slow down a moment")
 
     history = [(m.role, m.content) for m in req.history]
-    # Resolve attachment ids (owner-checked). Documents are chat-only — ignore them in
-    # search/code modes so they don't divert those flows.
+    # Resolve attachment ids (owner-checked, unsealed with the requester's key).
+    # Documents are chat-only — ignore them in search/code modes.
     images, doc_chunks = resolve_attachments(
-        session, req.attachments, user.id, include_docs=req.mode == "chat"
+        session, req.attachments, user.id, include_docs=req.mode == "chat", dk=dk
     )
 
     artifacts = {a.id: (a.name, a.language, a.content[:200_000]) for a in req.artifacts[:12]}
@@ -127,7 +129,7 @@ async def chat(req: ChatRequest, user: ApprovedUser, session: SessionDep) -> Eve
     async def event_generator():
         async for event in stream_chat(
             req.message, req.mode, history, req.timezone, images, doc_chunks,
-            req.context, req.summary, artifacts, user.id,
+            req.context, req.summary, artifacts, user.id, dk,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 

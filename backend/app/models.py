@@ -47,6 +47,9 @@ class Upload(SQLModel, table=True):
     ext: str = "bin"
     size: int = 0  # stored (post-compression) byte size
     name: str = ""  # original filename, for display/download
+    # 1 = file bytes (and doc chunks) sealed under the owner's data key; the file on
+    # disk is named {id}.enc. 0 = legacy plaintext ({sha256}.{ext}), ages out via TTL.
+    enc: int = 0
     created_at: datetime = Field(default_factory=_utcnow)
     last_used_at: datetime = Field(default_factory=_utcnow)
 

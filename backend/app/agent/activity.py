@@ -39,6 +39,8 @@ edits_var: ContextVar[list[object] | None] = ContextVar("edits", default=None)
 files_var: ContextVar[list[object] | None] = ContextVar("files", default=None)
 # The requesting user's id — generated files are stored under their ownership.
 user_var: ContextVar[int | None] = ContextVar("user", default=None)
+# The requester's data key — generated files are sealed with it.
+dk_var: ContextVar[bytes | None] = ContextVar("dk", default=None)
 # Coding tasks already dispatched this turn — write_code refuses exact duplicates
 # (models sometimes emit the same tool call twice, in parallel or on output retry).
 code_tasks_var: ContextVar[dict[str, str] | None] = ContextVar("code_tasks", default=None)

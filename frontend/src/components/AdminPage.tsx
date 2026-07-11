@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, MoreHorizontal, Shield, ShieldOff, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, KeyRound, MoreHorizontal, Shield, ShieldOff, Trash2 } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -58,7 +58,8 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
 function UsersSection() {
   const [users, setUsers] = useState<Me[] | null>(null)
   const [menuFor, setMenuFor] = useState<number | null>(null)
-  const [confirm, setConfirm] = useState<{ user: Me; action: 'delete' | 'demote' } | null>(null)
+  const [confirm, setConfirm] = useState<{ user: Me; action: 'delete' | 'demote' | 'reset' } | null>(null)
+  const [tempPw, setTempPw] = useState<{ username: string; password: string } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const load = () => api.listUsers().then(setUsers).catch((e) => toast.error(String(e.message ?? e)))
@@ -168,6 +169,15 @@ function UsersSection() {
                     </MenuItem>
                   )}
                   <MenuItem
+                    icon={<KeyRound />}
+                    onClick={() => {
+                      setMenuFor(null)
+                      setConfirm({ user: u, action: 'reset' })
+                    }}
+                  >
+                    Reset password
+                  </MenuItem>
+                  <MenuItem
                     icon={<Trash2 />}
                     danger
                     onClick={() => {
@@ -186,23 +196,51 @@ function UsersSection() {
 
       {confirm && (
         <ConfirmDialog
-          title={confirm.action === 'delete' ? `Delete ${confirm.user.username}?` : `Demote ${confirm.user.username}?`}
+          title={
+            confirm.action === 'delete'
+              ? `Delete ${confirm.user.username}?`
+              : confirm.action === 'reset'
+                ? `Reset ${confirm.user.username}'s password?`
+                : `Demote ${confirm.user.username}?`
+          }
           message={
             confirm.action === 'delete'
               ? 'Their account, chats, and uploads will be removed for good. This can’t be undone.'
-              : 'They will lose access to this admin panel.'
+              : confirm.action === 'reset'
+                ? 'Their ENCRYPTED CHATS WILL BE PERMANENTLY LOST — a reset can never recover encrypted data (that’s the privacy guarantee). They get a temporary password and fresh keys at next login.'
+                : 'They will lose access to this admin panel.'
           }
-          confirmLabel={confirm.action === 'delete' ? 'Delete' : 'Demote'}
-          destructive={confirm.action === 'delete'}
+          confirmLabel={confirm.action === 'delete' ? 'Delete' : confirm.action === 'reset' ? 'Reset' : 'Demote'}
+          destructive={confirm.action !== 'demote'}
           onCancel={() => setConfirm(null)}
           onConfirm={() => {
             const { user, action } = confirm
             setConfirm(null)
+            if (action === 'reset') {
+              api
+                .adminResetPassword(user.id)
+                .then((r) => {
+                  setTempPw({ username: user.username, password: r.temp_password })
+                  load()
+                })
+                .catch((e) => toast.error(String(e.message ?? e)))
+              return
+            }
             act(
               action === 'delete' ? api.deleteUser(user.id) : api.setRole(user.id, 'user'),
               action === 'delete' ? `${user.username} deleted` : `${user.username} demoted`,
             )
           }}
+        />
+      )}
+
+      {tempPw && (
+        <ConfirmDialog
+          title={`Temporary password for ${tempPw.username}`}
+          message={`Give them this password (they should change it right away): ${tempPw.password}`}
+          confirmLabel="Done"
+          onCancel={() => setTempPw(null)}
+          onConfirm={() => setTempPw(null)}
         />
       )}
     </div>

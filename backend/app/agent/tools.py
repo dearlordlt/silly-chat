@@ -423,8 +423,10 @@ async def make_document(title: str, content_markdown: str) -> str:
         data = await asyncio.to_thread(render_pdf, title, content_markdown, now_str(tz_var.get()))
         safe = re.sub(r"[^\w\s-]", "", title).strip().replace(" ", "-")[:60] or "document"
         name = f"{safe}.pdf"
+        from app.agent.activity import dk_var
+
         with Session(engine) as session:
-            uid = store_export(session, user_id, name, data, "application/pdf", "pdf")
+            uid = store_export(session, user_id, name, data, "application/pdf", "pdf", dk=dk_var.get())
         record_file(FileBlock(name=name, url=f"/api/uploads/{uid}", mime="application/pdf", size=len(data)))
         agent_update(aid, status="Done", state="done")
         return (

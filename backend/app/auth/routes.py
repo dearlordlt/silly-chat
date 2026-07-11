@@ -309,6 +309,36 @@ def set_models(body: dict[str, str], _: AdminUser) -> dict[str, str]:
     return runtime.set_overrides(body)
 
 
+@admin_router.post("/users/{user_id}/reset")
+def admin_reset_password(user_id: int, admin: AdminUser, session: SessionDep) -> dict:
+    """Account-only recovery: issue a temporary password. The user's encryption keys
+    are wiped and their (now undecryptable) server chats deleted — by design, an
+    admin reset can never expose or restore encrypted data."""
+    import secrets as _secrets
+
+    from app.models import Conversation
+
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such user")
+    if user.id == admin.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "use Settings to change your own password")
+    temp = "-".join(_secrets.token_hex(2) for _ in range(3))
+    user.password_hash = hash_password(temp)
+    user.wrapped_dk = ""
+    user.wrapped_dk_recovery = ""
+    # Only sealed chats die (they're undecryptable without the lost key); any
+    # still-plaintext ones survive and seal under the fresh key at next login.
+    deleted = 0
+    for c in session.exec(select(Conversation).where(Conversation.user_id == user.id)).all():
+        if c.enc_data:
+            session.delete(c)
+            deleted += 1
+    session.add(user)
+    session.commit()
+    return {"temp_password": temp, "deleted_chats": deleted}
+
+
 @admin_router.get("/chat")
 def get_chat_cfg(_: AdminUser) -> dict[str, int]:
     from app import runtime

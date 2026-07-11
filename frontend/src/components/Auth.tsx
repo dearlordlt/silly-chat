@@ -54,7 +54,7 @@ export function Auth({ onAuthed }: { onAuthed: (me: Me) => void }) {
   }
 
   if (minted) {
-    return <RecoveryKeyDialog recoveryKey={minted.key} onClose={() => minted.next()} />
+    return <RecoveryKeyDialog recoveryKey={minted.key} username={username} onClose={() => minted.next()} />
   }
 
   if (pending) {

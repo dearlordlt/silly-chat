@@ -79,6 +79,28 @@ def unwrap_dk(wrapped: str, secret: str) -> bytes | None:
     return _open(_kdf(secret, _b64d(salt_s)), blob)
 
 
+def encrypt_bytes(dk: bytes, data: bytes) -> bytes:
+    """Seal raw bytes (files, embeddings): nonce + AES-GCM ciphertext."""
+    nonce = secrets.token_bytes(12)
+    return nonce + AESGCM(dk).encrypt(nonce, data, None)
+
+
+def decrypt_bytes(dk: bytes, blob: bytes) -> bytes | None:
+    try:
+        return AESGCM(dk).decrypt(blob[:12], blob[12:], None)
+    except (InvalidTag, ValueError):
+        return None
+
+
+def seal_for_secret(secret: str, data: bytes) -> str:
+    """Seal small values under an app secret (e.g. the dk inside the session token)."""
+    return _seal(hashlib.sha256(secret.encode()).digest(), data)
+
+
+def open_for_secret(secret: str, blob: str) -> bytes | None:
+    return _open(hashlib.sha256(secret.encode()).digest(), blob)
+
+
 def encrypt_json(dk: bytes, obj: object) -> str:
     return _seal(dk, json.dumps(obj, separators=(",", ":")).encode())
 

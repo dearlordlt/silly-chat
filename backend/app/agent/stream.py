@@ -36,6 +36,7 @@ from app.agent.activity import (
     code_tasks_var,
     code_var,
     dispatch_var,
+    dk_var,
     doc_tasks_var,
     docs_var,
     edits_var,
@@ -165,6 +166,7 @@ async def stream_chat(
     summary: str | None = None,
     artifacts: dict[str, tuple[str, str, str]] | None = None,  # id -> (name, language, content)
     user_id: int | None = None,  # owner for generated files (make_document)
+    dk: bytes | None = None,  # requester's data key — seals generated files
 ) -> AsyncIterator[StreamEvent]:
     attachments = attachments or []
     doc_chunks = doc_chunks or []
@@ -320,6 +322,7 @@ async def stream_chat(
         tok_dt = doc_tasks_var.set({})
         tok_dp = dispatch_var.set({})
         tok_u = user_var.set(user_id)
+        tok_dk = dk_var.set(dk)
         tok_tz = tz_var.set(timezone)
         tok_a = attachments_var.set(attachments)
         tok_d = docs_var.set(doc_chunks)
@@ -366,6 +369,7 @@ async def stream_chat(
             doc_tasks_var.reset(tok_dt)
             dispatch_var.reset(tok_dp)
             user_var.reset(tok_u)
+            dk_var.reset(tok_dk)
             tz_var.reset(tok_tz)
             attachments_var.reset(tok_a)
             docs_var.reset(tok_d)

@@ -26,17 +26,18 @@ def _serializer() -> URLSafeTimedSerializer:
 
 def make_session_token(user_id: int, dk: bytes | None = None) -> str:
     """Signed session. Carries the user's chat data key (their own key — minted only
-    at login, never stored server-side) so requests can decrypt their conversations."""
-    import base64
+    at login, never stored server-side) SEALED under the app secret, so even the raw
+    cookie value doesn't expose it."""
+    from app.auth import crypto
 
     payload: dict = {"uid": user_id}
     if dk is not None:
-        payload["dk"] = base64.urlsafe_b64encode(dk).decode()
+        payload["dk"] = crypto.seal_for_secret(get_settings().session_secret, dk)
     return _serializer().dumps(payload)
 
 
 def read_session_token(token: str) -> tuple[int, bytes | None] | None:
-    import base64
+    from app.auth import crypto
 
     max_age = get_settings().auth.session_days * 86400
     try:
@@ -48,8 +49,5 @@ def read_session_token(token: str) -> tuple[int, bytes | None] | None:
         return None
     dk = None
     if isinstance(data.get("dk"), str):
-        try:
-            dk = base64.urlsafe_b64decode(data["dk"].encode())
-        except ValueError:
-            dk = None
+        dk = crypto.open_for_secret(get_settings().session_secret, data["dk"])
     return uid, dk
