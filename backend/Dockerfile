@@ -12,7 +12,7 @@ ENV UV_LINK_MODE=copy \
 # WeasyPrint (PDF generation for make_document) needs Pango + friends.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libharfbuzz-subset0 \
-    fonts-dejavu-core \
+    fonts-dejavu-core fonts-symbola \
     && rm -rf /var/lib/apt/lists/*
 
 # Install deps first (cached layer).

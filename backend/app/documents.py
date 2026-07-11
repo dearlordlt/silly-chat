@@ -32,7 +32,7 @@ _CSS = """
         color: #999;
     }
 }
-body { font-family: "DejaVu Sans", sans-serif; font-size: 10.5pt; line-height: 1.55; color: #1a1a1a; }
+body { font-family: "DejaVu Sans", "Symbola", sans-serif; font-size: 10.5pt; line-height: 1.55; color: #1a1a1a; }
 h1 { font-size: 21pt; letter-spacing: -0.02em; margin: 0 0 4pt; }
 .subtitle { color: #888; font-size: 9pt; margin: 0 0 14pt; }
 hr.rule { border: none; border-top: 1.5pt solid #1a1a1a; margin: 0 0 16pt; }
@@ -44,7 +44,7 @@ li { margin: 2.5pt 0; }
 table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 9.5pt; }
 th { text-align: left; border-bottom: 1.2pt solid #1a1a1a; padding: 4pt 6pt; }
 td { border-bottom: 0.5pt solid #ccc; padding: 4pt 6pt; vertical-align: top; }
-code { font-family: "DejaVu Sans Mono", monospace; font-size: 8.8pt; background: #f2f2f2; padding: 0.5pt 2.5pt; border-radius: 2pt; }
+code { font-family: "DejaVu Sans Mono", "Symbola", monospace; font-size: 8.8pt; background: #f2f2f2; padding: 0.5pt 2.5pt; border-radius: 2pt; }
 pre { background: #f6f6f6; border: 0.5pt solid #ddd; border-radius: 3pt; padding: 7pt 9pt; overflow-wrap: break-word; white-space: pre-wrap; }
 pre code { background: none; padding: 0; }
 blockquote { border-left: 2pt solid #ccc; margin: 6pt 0; padding: 1pt 0 1pt 10pt; color: #555; }
@@ -53,9 +53,19 @@ strong { font-weight: 700; }
 """
 
 
+def _normalize(text: str) -> str:
+    return "".join(ch for ch in text.casefold() if ch.isalnum())
+
+
 def render_pdf(title: str, content_markdown: str, subtitle: str = "") -> bytes:
     """Render a markdown document to PDF bytes with the house style."""
     from weasyprint import HTML
+
+    # Models often repeat the title as the markdown's first heading — the layout
+    # already renders the title, so drop the duplicate.
+    lines = content_markdown.lstrip().split("\n")
+    if lines and lines[0].startswith("#") and _normalize(lines[0].lstrip("# ")) == _normalize(title):
+        content_markdown = "\n".join(lines[1:])
 
     body = md.markdown(
         content_markdown,
