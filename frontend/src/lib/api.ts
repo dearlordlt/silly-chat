@@ -60,9 +60,18 @@ export type ServerConv = ServerConvSummary & {
 export const api = {
   me: () => req<Me | null>('GET', '/api/auth/me'),
   login: (username: string, password: string) =>
-    req<Me>('POST', '/api/auth/login', { username, password }),
+    req<Me & { recovery_key?: string }>('POST', '/api/auth/login', { username, password }),
   register: (username: string, password: string) =>
-    req<{ first: boolean; status: string }>('POST', '/api/auth/register', { username, password }),
+    req<{ first: boolean; status: string; recovery_key?: string }>('POST', '/api/auth/register', {
+      username,
+      password,
+    }),
+  changePassword: (old_password: string, new_password: string) =>
+    req<{ ok: boolean }>('PUT', '/api/auth/password', { old_password, new_password }),
+  resetPassword: (username: string, recovery_key: string, new_password: string) =>
+    req<{ ok: boolean }>('POST', '/api/auth/reset', { username, recovery_key, new_password }),
+  regenRecovery: (password: string) =>
+    req<{ recovery_key: string }>('POST', '/api/auth/recovery', { password }),
   logout: () => req<{ ok: boolean }>('POST', '/api/auth/logout'),
   updateSettings: (settings: Record<string, unknown>) =>
     req<Record<string, unknown>>('PUT', '/api/auth/settings', settings),

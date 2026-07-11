@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { ArrowLeft, Check } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
+import { RecoveryKeyDialog } from '@/components/RecoveryKeyDialog'
+import { toast } from '@/components/ui/toast'
 import { FONTS, type FontId, getFont, setFont } from '@/lib/fonts'
 import { AUTO_THEME, getThemeId, setTheme, THEMES, type Theme, type ThemeCategory } from '@/lib/theme'
 import { getRadius, RADII, type RadiusId, setRadius } from '@/lib/radius'
@@ -299,20 +301,95 @@ export function SettingsPage({ me, onBack, onLogout }: { me: Me; onBack: () => v
             )}
 
             {section === 'account' && (
-              <div className="flex max-w-md items-center justify-between rounded-lg border bg-card px-4 py-3.5">
-                <div>
-                  <p className="text-sm font-semibold">{me.username}</p>
-                  <p className="text-xs capitalize text-muted-foreground">{me.role}</p>
+              <div className="max-w-md space-y-4">
+                <div className="flex items-center justify-between rounded-lg border bg-card px-4 py-3.5">
+                  <div>
+                    <p className="text-sm font-semibold">{me.username}</p>
+                    <p className="text-xs capitalize text-muted-foreground">{me.role}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={onLogout}>
+                    Log out
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm" onClick={onLogout}>
-                  Log out
-                </Button>
+                <SecuritySection />
               </div>
             )}
           </main>
         </div>
       </div>
     </div>
+  )
+}
+
+// Password change (re-wraps the encryption key — chats stay readable) and
+// recovery-key regeneration (shown once via RecoveryKeyDialog).
+function SecuritySection() {
+  const [oldPw, setOldPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [changed, setChanged] = useState(false)
+  const [regenPw, setRegenPw] = useState('')
+  const [newKey, setNewKey] = useState<string | null>(null)
+
+  async function changePassword() {
+    try {
+      await api.changePassword(oldPw, newPw)
+      setOldPw('')
+      setNewPw('')
+      setChanged(true)
+      setTimeout(() => setChanged(false), 3000)
+    } catch (e) {
+      toast.error(String((e as Error).message ?? e))
+    }
+  }
+
+  async function regen() {
+    try {
+      const r = await api.regenRecovery(regenPw)
+      setRegenPw('')
+      setNewKey(r.recovery_key)
+    } catch (e) {
+      toast.error(String((e as Error).message ?? e))
+    }
+  }
+
+  const input =
+    'h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring'
+
+  return (
+    <>
+      <div className="space-y-2.5 rounded-lg border bg-card px-4 py-3.5">
+        <p className="text-sm font-semibold">Change password</p>
+        <p className="text-xs text-muted-foreground">
+          Your encrypted chats stay readable — the key is re-wrapped under the new password.
+        </p>
+        <input className={input} type="password" placeholder="Current password" value={oldPw} onChange={(e) => setOldPw(e.target.value)} />
+        <input className={input} type="password" placeholder="New password (min 8 chars)" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={changePassword} disabled={!oldPw || newPw.length < 8}>
+            Change password
+          </Button>
+          {changed && (
+            <span className="flex items-center gap-1 text-sm text-success">
+              <Check className="size-4" /> Changed
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2.5 rounded-lg border bg-card px-4 py-3.5">
+        <p className="text-sm font-semibold">New recovery key</p>
+        <p className="text-xs text-muted-foreground">
+          The recovery key is the only way into your encrypted chats if you forget your
+          password. Generate a fresh one anytime — the old one stops working.
+        </p>
+        <input className={input} type="password" placeholder="Confirm with your password" value={regenPw} onChange={(e) => setRegenPw(e.target.value)} />
+        <Button size="sm" variant="outline" onClick={regen} disabled={regenPw.length < 8}>
+          Generate new key
+        </Button>
+      </div>
+
+      {newKey && <RecoveryKeyDialog recoveryKey={newKey} onClose={() => setNewKey(null)} />}
+    </>
   )
 }
 

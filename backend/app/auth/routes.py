@@ -12,7 +12,8 @@ from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlmodel import func, select
 
-from app.auth.deps import AdminUser, ApprovedUser, CurrentUser, SessionDep
+from app.auth import crypto
+from app.auth.deps import AdminUser, ApprovedUser, CurrentUser, SessionDep, SessionKey
 from app.auth.security import (
     COOKIE_NAME,
     hash_password,
@@ -39,16 +40,41 @@ class UserOut(BaseModel):
     settings: dict[str, Any] = {}
 
 
-def _set_session_cookie(response: Response, user_id: int) -> None:
+def _set_session_cookie(response: Response, user_id: int, dk: bytes | None = None) -> None:
     auth = get_settings().auth
     response.set_cookie(
         COOKIE_NAME,
-        make_session_token(user_id),
+        make_session_token(user_id, dk),
         max_age=auth.session_days * 86400,
         httponly=True,
         samesite="lax",
         secure=auth.cookie_secure,  # true behind HTTPS (Caddy) via AUTH__COOKIE_SECURE
     )
+
+
+def _issue_keys(user: User, password: str) -> tuple[bytes, str]:
+    """Create the user's data key + recovery key; wrap both onto the user row.
+    Only callable when the password is in hand (register/login/reset). Caller commits."""
+    dk = crypto.new_data_key()
+    recovery = crypto.new_recovery_key()
+    user.wrapped_dk = crypto.wrap_dk(dk, password)
+    user.wrapped_dk_recovery = crypto.wrap_dk(dk, recovery)
+    return dk, recovery
+
+
+def _encrypt_existing_convs(session, user: User, dk: bytes) -> int:
+    """Lazy migration: seal any plaintext conversations this user still has."""
+    from app.conversations import seal_conv
+    from app.models import Conversation
+
+    rows = session.exec(select(Conversation).where(Conversation.user_id == user.id)).all()
+    n = 0
+    for c in rows:
+        if not c.enc_data:
+            seal_conv(c, dk)
+            session.add(c)
+            n += 1
+    return n
 
 
 @auth_router.post("/register")
@@ -63,25 +89,120 @@ def register(creds: Credentials, session: SessionDep, response: Response) -> dic
         status="approved" if is_first else "pending",
         role="admin" if is_first else "user",
     )
+    dk, recovery = _issue_keys(user, creds.password)
     session.add(user)
     session.commit()
     session.refresh(user)
 
     # The bootstrap admin is logged in immediately; pending users are not.
     if is_first:
-        _set_session_cookie(response, user.id)
-    return {"first": is_first, "status": user.status}
+        _set_session_cookie(response, user.id, dk)
+    return {"first": is_first, "status": user.status, "recovery_key": recovery}
 
 
 @auth_router.post("/login")
-def login(creds: Credentials, session: SessionDep, response: Response) -> UserOut:
+def login(creds: Credentials, session: SessionDep, response: Response) -> dict:
     user = session.exec(select(User).where(User.username == creds.username)).first()
     if not user or not verify_password(creds.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid credentials")
     if user.status != "approved":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "account pending approval")
-    _set_session_cookie(response, user.id)
-    return UserOut(**user.model_dump())
+
+    recovery = None
+    if not user.wrapped_dk:
+        # Pre-encryption account: mint keys now and seal their existing chats.
+        dk, recovery = _issue_keys(user, creds.password)
+        n = _encrypt_existing_convs(session, user, dk)
+        session.add(user)
+        session.commit()
+        if n:
+            from app.logging_setup import get_logger
+
+            get_logger("auth").info("encrypted %d existing conversation(s) for %s", n, user.username)
+    else:
+        dk = crypto.unwrap_dk(user.wrapped_dk, creds.password)
+        if dk is None:
+            # Password verified but the wrap didn't open — should never happen.
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "key unwrap failed")
+
+    _set_session_cookie(response, user.id, dk)
+    out = UserOut(**user.model_dump()).model_dump()
+    if recovery:
+        out["recovery_key"] = recovery
+    return out
+
+
+class PasswordChange(BaseModel):
+    old_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+@auth_router.put("/password")
+def change_password(
+    body: PasswordChange, user: ApprovedUser, session: SessionDep, response: Response
+) -> dict:
+    """Change password knowing the old one — the data key is re-wrapped, chats intact."""
+    if not verify_password(body.old_password, user.password_hash):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "wrong current password")
+    dk = crypto.unwrap_dk(user.wrapped_dk, body.old_password) if user.wrapped_dk else None
+    user.password_hash = hash_password(body.new_password)
+    if dk is not None:
+        user.wrapped_dk = crypto.wrap_dk(dk, body.new_password)
+    session.add(user)
+    session.commit()
+    _set_session_cookie(response, user.id, dk)
+    return {"ok": True}
+
+
+class PasswordReset(BaseModel):
+    username: str = Field(min_length=3, max_length=32)
+    recovery_key: str = Field(min_length=10, max_length=64)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+@auth_router.post("/reset")
+def reset_password(body: PasswordReset, session: SessionDep, response: Response) -> dict:
+    """Forgot password: the recovery key unlocks the data key and sets a new password.
+    Without it, encrypted chats are unrecoverable — that is the privacy guarantee."""
+    from app import ratelimit
+
+    if not ratelimit.allow(f"reset:{body.username.lower()}", 5):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "slow down a moment")
+    user = session.exec(select(User).where(User.username == body.username)).first()
+    dk = (
+        crypto.unwrap_dk(user.wrapped_dk_recovery, crypto.canon_recovery(body.recovery_key))
+        if user and user.wrapped_dk_recovery
+        else None
+    )
+    if user is None or dk is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid username or recovery key")
+    if user.status != "approved":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "account pending approval")
+    user.password_hash = hash_password(body.new_password)
+    user.wrapped_dk = crypto.wrap_dk(dk, body.new_password)
+    session.add(user)
+    session.commit()
+    _set_session_cookie(response, user.id, dk)
+    return {"ok": True}
+
+
+class RecoveryRegen(BaseModel):
+    password: str = Field(min_length=8, max_length=128)
+
+
+@auth_router.post("/recovery")
+def regenerate_recovery(body: RecoveryRegen, user: ApprovedUser, session: SessionDep) -> dict:
+    """Issue a fresh recovery key (invalidates the old one). Needs the password."""
+    if not verify_password(body.password, user.password_hash):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "wrong password")
+    dk = crypto.unwrap_dk(user.wrapped_dk, body.password) if user.wrapped_dk else None
+    if dk is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "encryption not initialized — log in again first")
+    recovery = crypto.new_recovery_key()
+    user.wrapped_dk_recovery = crypto.wrap_dk(dk, recovery)
+    session.add(user)
+    session.commit()
+    return {"recovery_key": recovery}
 
 
 @auth_router.post("/logout")

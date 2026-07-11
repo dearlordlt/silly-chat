@@ -21,6 +21,10 @@ class User(SQLModel, table=True):
     role: str = Field(default="user")  # user | admin
     # Per-user preferences synced across devices (e.g. {"storageMode": "server"}).
     settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # Chat-encryption data key, wrapped under the password / the recovery key.
+    # Empty until the user's first login after encryption shipped.
+    wrapped_dk: str = ""
+    wrapped_dk_recovery: str = ""
     created_at: datetime = Field(default_factory=_utcnow)
 
 
@@ -71,5 +75,10 @@ class Conversation(SQLModel, table=True):
     summarized_upto: int = 0
     # Code artifacts: [{id, name, language, content, updatedAt}] — latest version each.
     artifacts: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    # Encrypted-at-rest payload (AES-GCM under the owner's data key). When set, the
+    # plaintext columns above hold empty placeholders. Title is sealed separately so
+    # the sidebar list decrypts cheaply.
+    enc_title: str = ""
+    enc_data: str = ""
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)

@@ -1,20 +1,25 @@
 import { useState } from 'react'
 import { Clock } from 'lucide-react'
 import { api, type Me } from '@/lib/api'
+import { RecoveryKeyDialog } from '@/components/RecoveryKeyDialog'
 
 /**
  * Auth screens (design doc frames 1a/1b/1c): a floating 380px card over the themed
  * background — logo, big centered heading, quiet inputs, full-width primary button,
  * switch link. Registering a non-first account lands on the friendly
- * "You're almost in" pending-approval screen.
+ * "You're almost in" pending-approval screen. Login/registration mint the chat
+ * encryption key; a fresh recovery key is shown once via RecoveryKeyDialog.
  */
 export function Auth({ onAuthed }: { onAuthed: (me: Me) => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [recoveryInput, setRecoveryInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [busy, setBusy] = useState(false)
+  // A freshly minted recovery key to show once; `next` continues after "I saved it".
+  const [minted, setMinted] = useState<{ key: string; next: () => void } | null>(null)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -22,17 +27,34 @@ export function Auth({ onAuthed }: { onAuthed: (me: Me) => void }) {
     setBusy(true)
     try {
       if (mode === 'login') {
-        onAuthed(await api.login(username, password))
-      } else {
+        const me = await api.login(username, password)
+        if (me.recovery_key) {
+          // Encryption was just enabled for this account — show the key once.
+          setMinted({ key: me.recovery_key, next: () => onAuthed(me) })
+        } else {
+          onAuthed(me)
+        }
+      } else if (mode === 'register') {
         const r = await api.register(username, password)
-        if (r.first) onAuthed((await api.me()) as Me)
-        else setPending(true)
+        const proceed = async () => {
+          if (r.first) onAuthed((await api.me()) as Me)
+          else setPending(true)
+        }
+        if (r.recovery_key) setMinted({ key: r.recovery_key, next: proceed })
+        else await proceed()
+      } else {
+        await api.resetPassword(username, recoveryInput, password)
+        onAuthed((await api.me()) as Me)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
+  }
+
+  if (minted) {
+    return <RecoveryKeyDialog recoveryKey={minted.key} onClose={() => minted.next()} />
   }
 
   if (pending) {
@@ -59,6 +81,9 @@ export function Auth({ onAuthed }: { onAuthed: (me: Me) => void }) {
     )
   }
 
+  const heading =
+    mode === 'login' ? 'Welcome back' : mode === 'register' ? 'Create your account' : 'Reset your password'
+
   return (
     <Centered>
       <div className="grid size-11 place-items-center rounded-xl bg-primary text-lg font-bold text-primary-foreground shadow-sm">
@@ -66,35 +91,63 @@ export function Auth({ onAuthed }: { onAuthed: (me: Me) => void }) {
       </div>
       <div className="space-y-1">
         <h1 className="text-[17px] font-extrabold tracking-[-0.02em]">silly-chat</h1>
-        <p className="text-[22px] font-bold tracking-tight text-foreground">
-          {mode === 'login' ? 'Welcome back' : 'Create your account'}
-        </p>
+        <p className="text-[22px] font-bold tracking-tight text-foreground">{heading}</p>
       </div>
+
+      {mode === 'reset' && (
+        <p className="-mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
+          Enter the recovery key you saved when your account was created — it unlocks your
+          encrypted chats and sets a new password.
+        </p>
+      )}
 
       <form onSubmit={submit} className="flex w-full flex-col gap-3">
         <AuthInput placeholder="Username" value={username} autoFocus onChange={setUsername} />
-        <AuthInput placeholder="Password" type="password" value={password} onChange={setPassword} />
+        {mode === 'reset' && (
+          <AuthInput placeholder="Recovery key" value={recoveryInput} onChange={setRecoveryInput} />
+        )}
+        <AuthInput
+          placeholder={mode === 'reset' ? 'New password' : 'Password'}
+          type="password"
+          value={password}
+          onChange={setPassword}
+        />
         {error && <p className="-mt-1 text-left text-[12.5px] text-destructive">{error}</p>}
         <button
           type="submit"
-          disabled={busy || !username || !password}
+          disabled={busy || !username || !password || (mode === 'reset' && !recoveryInput)}
           className="h-[42px] w-full rounded-md bg-primary text-sm font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {mode === 'login' ? 'Log in' : 'Create account'}
+          {mode === 'login' ? 'Log in' : mode === 'register' ? 'Create account' : 'Reset password'}
         </button>
       </form>
-      <p className="text-[13px] text-muted-foreground">
-        {mode === 'login' ? 'Need an account? ' : 'Already have an account? '}
-        <button
-          className="font-semibold text-primary hover:underline"
-          onClick={() => {
-            setMode(mode === 'login' ? 'register' : 'login')
-            setError(null)
-          }}
-        >
-          {mode === 'login' ? 'Register' : 'Log in'}
-        </button>
-      </p>
+      <div className="space-y-1.5 text-[13px] text-muted-foreground">
+        <p>
+          {mode === 'login' ? 'Need an account? ' : 'Already have an account? '}
+          <button
+            className="font-semibold text-primary hover:underline"
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login')
+              setError(null)
+            }}
+          >
+            {mode === 'login' ? 'Register' : 'Log in'}
+          </button>
+        </p>
+        {mode === 'login' && (
+          <p>
+            <button
+              className="font-medium hover:text-foreground hover:underline"
+              onClick={() => {
+                setMode('reset')
+                setError(null)
+              }}
+            >
+              Forgot your password?
+            </button>
+          </p>
+        )}
+      </div>
     </Centered>
   )
 }

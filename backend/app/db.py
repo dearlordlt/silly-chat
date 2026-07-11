@@ -43,6 +43,15 @@ def _ensure_columns() -> None:
         if "artifacts" not in cols:
             conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN artifacts TEXT DEFAULT '[]'")
             conn.commit()
+        if "enc_data" not in cols:
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN enc_title TEXT DEFAULT ''")
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN enc_data TEXT DEFAULT ''")
+            conn.commit()
+        ucols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()}
+        if "wrapped_dk" not in ucols:
+            conn.exec_driver_sql("ALTER TABLE user ADD COLUMN wrapped_dk TEXT DEFAULT ''")
+            conn.exec_driver_sql("ALTER TABLE user ADD COLUMN wrapped_dk_recovery TEXT DEFAULT ''")
+            conn.commit()
 
 
 def get_session() -> Iterator[Session]:

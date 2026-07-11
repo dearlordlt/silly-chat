@@ -18,13 +18,26 @@ def current_user(request: Request, session: SessionDep) -> User | None:
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         return None
-    uid = read_session_token(token)
-    if uid is None:
+    parsed = read_session_token(token)
+    if parsed is None:
         return None
-    return session.get(User, uid)
+    uid, dk = parsed
+    user = session.get(User, uid)
+    # Encryption enabled but this session predates it (no key aboard): force a
+    # fresh login so the token can carry the data key.
+    if user is not None and user.wrapped_dk and dk is None:
+        return None
+    request.state.dk = dk
+    return user
+
+
+def session_key(request: Request) -> bytes | None:
+    """The requester's chat data key (from their session token), if any."""
+    return getattr(request.state, "dk", None)
 
 
 CurrentUser = Annotated[User | None, Depends(current_user)]
+SessionKey = Annotated[bytes | None, Depends(session_key)]
 
 
 def require_approved(user: CurrentUser) -> User:

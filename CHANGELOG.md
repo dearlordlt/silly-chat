@@ -14,6 +14,12 @@ from this file.
 - **"Make me a PDF"** — the assistant can now produce real documents: ask for a
   PDF ("make me a PDF with the packing list") and a nicely typeset file appears
   as a download chip in the answer.
+- **Private chats (encryption at rest)** — server-saved chats are now encrypted
+  with a key only you hold: whoever gets the database — the admin included —
+  sees ciphertext. You get a one-time **recovery key** at your next login: it's
+  the only way back in if you forget your password (changing your password
+  normally keeps everything). Password change and recovery live in Settings →
+  Account and "Forgot your password?" on the login screen.
 
 ## v1.5.0 — 2026-07-10
 

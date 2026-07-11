@@ -115,6 +115,15 @@ Settings → Privacy controls whether the assistant knows your timezone: Off (se
 clock, nothing shared), Automatic (from your browser), or Manual (pick a zone). Chats
 in Off/Local storage never touch the server's database.
 
+Server-saved chats are **encrypted at rest** with a key derived from your password —
+whoever holds the database (the admin included) sees only ciphertext. At login you
+receive a one-time **recovery key**: store it safely; if you forget your password it's
+the only way to unlock your chats ("Forgot your password?" on the login screen).
+Changing your password normally (Settings → Account) keeps everything readable, and
+you can generate a fresh recovery key there too. Honest fine print: messages are
+necessarily readable by the server *while it answers you* (they go to the model), and
+uploaded attachments aren't encrypted yet — this protects what's stored.
+
 ## Accounts & admin
 
 New registrations wait for an admin's approval. Admins manage users (approve, promote,

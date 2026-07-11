@@ -14,10 +14,49 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import select
 
-from app.auth.deps import ApprovedUser, SessionDep
+from app.auth import crypto
+from app.auth.deps import ApprovedUser, SessionDep, SessionKey
 from app.models import Conversation
 
 router = APIRouter(prefix="/api/conversations", tags=["conversations"])
+
+
+# ---- encryption at rest -------------------------------------------------------------
+# Conversations are stored sealed under the owner's data key (see auth/crypto.py):
+# nobody with just the database — admin included — can read them.
+
+def seal_conv(c: Conversation, dk: bytes) -> None:
+    c.enc_title = crypto.encrypt_json(dk, c.title)
+    c.enc_data = crypto.encrypt_json(
+        dk,
+        {
+            "turns": c.turns,
+            "linked": c.linked or [],
+            "summary": c.summary or "",
+            "summarized_upto": c.summarized_upto or 0,
+            "artifacts": c.artifacts or [],
+        },
+    )
+    c.title, c.turns, c.linked, c.summary, c.summarized_upto, c.artifacts = "", [], [], "", 0, []
+
+
+def _unseal_title(c: Conversation, dk: bytes | None) -> str:
+    if not c.enc_title:
+        return c.title
+    if dk is None:
+        return "(locked)"
+    title = crypto.decrypt_json(dk, c.enc_title)
+    return title if isinstance(title, str) else "(locked)"
+
+
+def _unseal_data(c: Conversation, dk: bytes | None) -> dict | None:
+    if not c.enc_data:
+        return {
+            "turns": c.turns, "linked": c.linked or [], "summary": c.summary or "",
+            "summarized_upto": c.summarized_upto or 0, "artifacts": c.artifacts or [],
+        }
+    data = crypto.decrypt_json(dk, c.enc_data) if dk is not None else None
+    return data if isinstance(data, dict) else None
 
 
 class ConvIn(BaseModel):
@@ -57,51 +96,53 @@ def _own(session: SessionDep, user: ApprovedUser, cid: str) -> Conversation:
 
 
 @router.get("")
-def list_conversations(user: ApprovedUser, session: SessionDep) -> list[ConvSummary]:
+def list_conversations(user: ApprovedUser, session: SessionDep, dk: SessionKey) -> list[ConvSummary]:
     rows = session.exec(
         select(Conversation)
         .where(Conversation.user_id == user.id)
         .order_by(Conversation.updated_at.desc())
     ).all()
-    return [ConvSummary(id=c.id, title=c.title, updated_at=_utc(c.updated_at)) for c in rows]
+    return [ConvSummary(id=c.id, title=_unseal_title(c, dk), updated_at=_utc(c.updated_at)) for c in rows]
 
 
 @router.get("/{cid}")
-def get_conversation(cid: str, user: ApprovedUser, session: SessionDep) -> ConvOut:
+def get_conversation(cid: str, user: ApprovedUser, session: SessionDep, dk: SessionKey) -> ConvOut:
     c = _own(session, user, cid)
+    data = _unseal_data(c, dk)
+    if data is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "log in again to unlock this chat")
     return ConvOut(
-        id=c.id, title=c.title, turns=c.turns, linked=c.linked or [],
-        summary=c.summary or "", summarized_upto=c.summarized_upto or 0,
-        artifacts=c.artifacts or [], updated_at=_utc(c.updated_at),
+        id=c.id, title=_unseal_title(c, dk), turns=data.get("turns", []),
+        linked=data.get("linked", []), summary=data.get("summary", ""),
+        summarized_upto=data.get("summarized_upto", 0), artifacts=data.get("artifacts", []),
+        updated_at=_utc(c.updated_at),
     )
 
 
 @router.put("/{cid}")
 def upsert_conversation(
-    cid: str, body: ConvIn, user: ApprovedUser, session: SessionDep
+    cid: str, body: ConvIn, user: ApprovedUser, session: SessionDep, dk: SessionKey
 ) -> ConvSummary:
     now = datetime.now(timezone.utc)
     c = session.get(Conversation, cid)
     if c is not None:
         if c.user_id != user.id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "no such conversation")
-        c.title = body.title
-        c.turns = body.turns
-        c.linked = body.linked
-        c.summary = body.summary
-        c.summarized_upto = body.summarized_upto
-        c.artifacts = body.artifacts
         c.updated_at = now
     else:
-        c = Conversation(
-            id=cid, user_id=user.id, title=body.title, turns=body.turns, linked=body.linked,
-            summary=body.summary, summarized_upto=body.summarized_upto, artifacts=body.artifacts,
-            created_at=now, updated_at=now,
-        )
+        c = Conversation(id=cid, user_id=user.id, created_at=now, updated_at=now)
+    c.title = body.title
+    c.turns = body.turns
+    c.linked = body.linked
+    c.summary = body.summary
+    c.summarized_upto = body.summarized_upto
+    c.artifacts = body.artifacts
+    c.enc_title = c.enc_data = ""
+    if dk is not None:
+        seal_conv(c, dk)
     session.add(c)
     session.commit()
-    session.refresh(c)
-    return ConvSummary(id=c.id, title=c.title, updated_at=_utc(c.updated_at))
+    return ConvSummary(id=c.id, title=body.title, updated_at=_utc(c.updated_at))
 
 
 @router.delete("/{cid}")

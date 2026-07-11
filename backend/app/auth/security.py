@@ -24,15 +24,32 @@ def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(get_settings().session_secret, salt="silly-session")
 
 
-def make_session_token(user_id: int) -> str:
-    return _serializer().dumps({"uid": user_id})
+def make_session_token(user_id: int, dk: bytes | None = None) -> str:
+    """Signed session. Carries the user's chat data key (their own key — minted only
+    at login, never stored server-side) so requests can decrypt their conversations."""
+    import base64
+
+    payload: dict = {"uid": user_id}
+    if dk is not None:
+        payload["dk"] = base64.urlsafe_b64encode(dk).decode()
+    return _serializer().dumps(payload)
 
 
-def read_session_token(token: str) -> int | None:
+def read_session_token(token: str) -> tuple[int, bytes | None] | None:
+    import base64
+
     max_age = get_settings().auth.session_days * 86400
     try:
         data = _serializer().loads(token, max_age=max_age)
     except (BadSignature, SignatureExpired):
         return None
     uid = data.get("uid")
-    return uid if isinstance(uid, int) else None
+    if not isinstance(uid, int):
+        return None
+    dk = None
+    if isinstance(data.get("dk"), str):
+        try:
+            dk = base64.urlsafe_b64decode(data["dk"].encode())
+        except ValueError:
+            dk = None
+    return uid, dk
