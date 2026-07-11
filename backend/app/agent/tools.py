@@ -27,6 +27,7 @@ from app.agent.activity import (
     agent_var,
     artifacts_var,
     attachments_var,
+    claim_dispatch,
     code_tasks_var,
     doc_tasks_var,
     docs_var,
@@ -516,6 +517,15 @@ async def show_map(
     title: str = "",
 ) -> str:
     """Geocode places / boundaries and show them on a map (optionally routed)."""
+    key = "map|" + "|".join([
+        ",".join(sorted(places)), str(route), mode,
+        ",".join(sorted(outline or [])), ",".join(sorted(s.label for s in sketch or [])),
+    ]).lower()
+    if not claim_dispatch(key):
+        return (
+            "(that exact map was already shown this turn — do not call show_map again; "
+            "give your final answer)"
+        )
     aid = uuid.uuid4().hex[:8]
     what = ", ".join([*places, *(outline or []), *[s.label for s in sketch or []]])[:80]
     agent_update(aid, label=f"Mapping: {what}", status="Finding places…", state="running")

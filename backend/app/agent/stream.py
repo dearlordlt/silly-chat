@@ -35,6 +35,7 @@ from app.agent.activity import (
     attachments_var,
     code_tasks_var,
     code_var,
+    dispatch_var,
     doc_tasks_var,
     docs_var,
     edits_var,
@@ -317,6 +318,7 @@ async def stream_chat(
         tok_ed = edits_var.set(edits)
         tok_fi = files_var.set(files)
         tok_dt = doc_tasks_var.set({})
+        tok_dp = dispatch_var.set({})
         tok_u = user_var.set(user_id)
         tok_tz = tz_var.set(timezone)
         tok_a = attachments_var.set(attachments)
@@ -362,6 +364,7 @@ async def stream_chat(
             edits_var.reset(tok_ed)
             files_var.reset(tok_fi)
             doc_tasks_var.reset(tok_dt)
+            dispatch_var.reset(tok_dp)
             user_var.reset(tok_u)
             tz_var.reset(tok_tz)
             attachments_var.reset(tok_a)
@@ -503,9 +506,19 @@ def _final_events(
                 )
     # Maps built by show_map carry real geocoded coordinates — always appended verbatim.
     # (The Reply schema excludes map blocks, so the model cannot emit its own.)
-    blocks.extend(built_maps)
-    # Generated files (make_document) — download chips.
-    blocks.extend(files or [])
+    # Identical payloads collapse to one — belt to the tool-level dispatch guard.
+    seen_maps: set[str] = set()
+    for m in built_maps:
+        dump = m.model_dump_json()
+        if dump not in seen_maps:
+            seen_maps.add(dump)
+            blocks.append(m)
+    # Generated files (make_document) — download chips, deduped by name.
+    seen_files: set[str] = set()
+    for f in files or []:
+        if f.name not in seen_files:
+            seen_files.add(f.name)
+            blocks.append(f)
     seen: set[str] = set()
     unique: list[Source] = []
     for s in sources:

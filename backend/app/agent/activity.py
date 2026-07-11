@@ -48,6 +48,20 @@ looks_var: ContextVar[list[str] | None] = ContextVar("looks", default=None)
 # Documents generated this turn (by title) — make_document refuses duplicates
 # (models hedge-call generation tools twice; seen live with write_code AND here).
 doc_tasks_var: ContextVar[dict[str, str] | None] = ContextVar("doc_tasks", default=None)
+# Generic exactly-once claims for generation tools (models hedge-call them — seen
+# live with code, documents, AND maps). Key = tool name + normalized args.
+dispatch_var: ContextVar[dict[str, str] | None] = ContextVar("dispatch", default=None)
+
+
+def claim_dispatch(key: str) -> bool:
+    """Claim a turn-scoped exactly-once slot. False = this exact call already ran."""
+    d = dispatch_var.get()
+    if d is None:
+        return True
+    if key in d:
+        return False
+    d[key] = "claimed"
+    return True
 
 
 def agent_update(id: str, *, label: str = "", status: str = "", state: str = "running") -> None:
