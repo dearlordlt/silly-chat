@@ -83,7 +83,8 @@ whole file. The newest version always wins.
 
 Hover any answer to reveal **PDF** and **MD** buttons — PDF opens your browser's
 save-as-PDF dialog with a clean paper layout (tables and charts included), MD downloads
-the answer as Markdown. The same buttons in the header export the whole chat. You can
+the answer as Markdown. The same buttons in the header export the whole chat, and every
+slide deck has its own PDF button that prints one slide per page (a handout). You can
 also just ask for a document: "make me a PDF with…" produces a typeset PDF as a
 download chip right in the answer.
 

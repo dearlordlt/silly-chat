@@ -8,7 +8,9 @@ from this file.
 
 - **Export answers and chats** — hover any answer for PDF / MD buttons (the header
   has the same pair for the whole chat): PDF opens your browser's save-as-PDF with
-  a clean paper layout (charts included), MD downloads faithful Markdown.
+  a clean paper layout (charts included), MD downloads faithful Markdown. Slide
+  decks export as a handout — one slide per page, straight from the deck's own
+  PDF button.
 - **"Make me a PDF"** — the assistant can now produce real documents: ask for a
   PDF ("make me a PDF with the packing list") and a nicely typeset file appears
   as a download chip in the answer.

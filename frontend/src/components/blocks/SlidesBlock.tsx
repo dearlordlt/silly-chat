@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ChevronLeft, ChevronRight, Maximize2, Presentation, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileDown, Maximize2, Presentation, X } from 'lucide-react'
 import type { SlidesBlock } from '@/types/contract'
+import type { Turn } from '@/lib/types'
+import { ExportPrint } from '@/components/ExportPrint'
 import { cn } from '@/lib/utils'
 
 /**
@@ -93,7 +95,10 @@ function NavBtn({
 export function SlidesBlockView({ block }: { block: SlidesBlock }) {
   const [index, setIndex] = useState(0)
   const [expanded, setExpanded] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const n = block.slides.length
+  // The deck as a standalone print job — one slide per page (see ExportPrint).
+  const printTurn: Turn = { role: 'assistant', status: null, agents: [], slots: [{ id: 'deck', kind: 'filled', block }] }
   const prev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), [])
   const next = useCallback(() => setIndex((i) => Math.min(n - 1, i + 1)), [n])
 
@@ -130,6 +135,14 @@ export function SlidesBlockView({ block }: { block: SlidesBlock }) {
             {index + 1} / {n}
           </span>
           <button
+            onClick={() => setPrinting(true)}
+            aria-label="Save deck as PDF"
+            title="Save deck as PDF — one slide per page"
+            className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground [&_svg]:size-3.5"
+          >
+            <FileDown />
+          </button>
+          <button
             onClick={() => setExpanded(true)}
             aria-label="Present fullscreen"
             title="Present fullscreen"
@@ -155,6 +168,14 @@ export function SlidesBlockView({ block }: { block: SlidesBlock }) {
           />
         ))}
       </div>
+
+      {printing && (
+        <ExportPrint
+          title={block.title || 'Presentation'}
+          turns={[printTurn]}
+          onDone={() => setPrinting(false)}
+        />
+      )}
 
       {expanded &&
         createPortal(

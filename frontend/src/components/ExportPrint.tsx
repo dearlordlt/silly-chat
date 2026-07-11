@@ -70,17 +70,26 @@ function PrintBlock({ b }: { b: Block }) {
         </div>
       )
     case 'slides':
+      // A deck prints as a handout: one slide per page, big and readable.
       return (
-        <div className="space-y-4">
-          {b.title && <h2 className="text-xl font-bold">{b.title}</h2>}
+        <div>
           {b.slides.map((s, i) => (
-            <section key={i} className="rounded border border-neutral-300 p-4">
-              <h3 className="mb-1 font-bold">
-                {i + 1}. {s.title}
-              </h3>
-              <div className={MD}>
+            <section
+              key={i}
+              className="flex min-h-[230mm] flex-col justify-center px-6"
+              style={{ breakAfter: i < b.slides.length - 1 ? 'page' : 'auto' }}
+            >
+              <span className="mb-4 block h-1.5 w-20 rounded-full bg-neutral-800" />
+              <h2 className={i === 0 ? 'text-4xl font-bold tracking-tight' : 'text-3xl font-bold tracking-tight'}>
+                {s.title}
+              </h2>
+              <div className={`mt-5 text-lg ${MD} [&_li]:my-2`}>
                 <Markdown remarkPlugins={[remarkGfm]}>{s.markdown ?? ''}</Markdown>
               </div>
+              <p className="mt-auto pt-8 text-right text-xs text-neutral-400">
+                {b.title ? `${b.title} · ` : ''}
+                {i + 1} / {b.slides.length}
+              </p>
             </section>
           ))}
         </div>
