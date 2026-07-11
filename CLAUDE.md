@@ -10,13 +10,15 @@ heading IS the current version. `/api/meta`, the About/Help UI, and the orchestr
 self-knowledge (genome) all derive from `CHANGELOG.md` + `HELP.md` — never hardcode a
 version or feature list anywhere else.
 
-For EVERY feature-level change (new capability, changed behavior a user would notice —
-not bug-level fixes):
+**Deploy = release.** Every deploy to the VPS is its own version, tagged at deploy
+time — never deploy twice under the same number:
 
-1. Add a bullet under the current top version heading in `CHANGELOG.md` while it is
-   unreleased, or start a new `## vX.Y.Z — YYYY-MM-DD` heading on release.
+1. Features since the last deploy → bump the MINOR (`1.7.0`); fixes only → bump the
+   PATCH (`1.6.1`). Finalize the `## vX.Y.Z — YYYY-MM-DD` heading in `CHANGELOG.md`
+   before deploying (feature bullets for minors; one short fixes bullet for patches).
 2. Update `HELP.md` if the feature is user-facing (add/adjust its `##` section).
-3. On release ("tag it"): bump the heading, then `git tag vX.Y.Z && git push --tags`.
+3. Deploy flow: commit → `git tag vX.Y.Z && git push --tags` → ship that exact
+   commit to the VPS. Local dev may run unreleased work; prod only runs tagged code.
 
 A feature is not done until CHANGELOG.md and HELP.md reflect it.
 
