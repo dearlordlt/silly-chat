@@ -407,10 +407,11 @@ function ModelsSection() {
 function ImagesSection() {
   const [hasKey, setHasKey] = useState(false)
   const [keyHint, setKeyHint] = useState('')
-  const [available, setAvailable] = useState<string[]>([])
+  const [available, setAvailable] = useState<{ id: string; name: string }[]>([])
   const [model, setModel] = useState('')
   const [key, setKey] = useState('')
-  const [saved, setSaved] = useState(false)
+  const [savedKey, setSavedKey] = useState(false)
+  const [savedModel, setSavedModel] = useState(false)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -425,16 +426,16 @@ function ImagesSection() {
       .catch((e) => toast.error(String(e.message ?? e)))
   }, [])
 
-  async function save() {
+  // Key and model save SEPARATELY — a combined save let browser autofill in the
+  // password field silently overwrite the stored key on an unrelated model change.
+  async function save(patch: { model?: string; api_key?: string }, after: () => void) {
     setBusy(true)
-    setSaved(false)
     try {
-      const r = await api.setImagesCfg({ model, ...(key.trim() ? { api_key: key.trim() } : {}) })
+      const r = await api.setImagesCfg(patch)
       setModel(r.model)
       setHasKey(r.has_key)
       setKeyHint(r.key_hint)
-      setKey('')
-      setSaved(true)
+      after()
     } catch (e) {
       toast.error(String((e as Error).message ?? e))
     } finally {
@@ -453,59 +454,63 @@ function ImagesSection() {
       </div>
       <div className="space-y-2.5">
         <div className="rounded-lg border bg-card px-4 py-3">
-          <div className="mb-1 flex items-center justify-between gap-3">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
             <span className="text-sm font-semibold">API key</span>
-            <input
-              type="password"
-              value={key}
-              onChange={(e) => {
-                setSaved(false)
-                setKey(e.target.value)
-              }}
-              placeholder={hasKey ? `saved (${keyHint})` : 'sk-or-…'}
-              autoComplete="off"
-              className="h-9 w-full max-w-[60%] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
+            <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+              <input
+                type="password"
+                name="openrouter-api-key"
+                value={key}
+                onChange={(e) => {
+                  setSavedKey(false)
+                  setKey(e.target.value)
+                }}
+                placeholder={hasKey ? `saved (${keyHint})` : 'sk-or-…'}
+                autoComplete="new-password"
+                className="h-9 w-full max-w-[420px] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <Button size="sm" onClick={() => save({ api_key: key.trim() }, () => { setKey(''); setSavedKey(true) })} disabled={busy || !key.trim()}>
+                Save key
+              </Button>
+              {savedKey && <Check className="size-4 shrink-0 text-success" />}
+            </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Get one at openrouter.ai → Keys. Stored on the server and never shown again;
-            leave blank to keep the current key.
+            Get one at openrouter.ai → Keys. Stored on the server and never shown again.
           </p>
         </div>
         <div className="rounded-lg border bg-card px-4 py-3">
-          <div className="mb-1 flex items-center justify-between gap-3">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
             <span className="text-sm font-semibold">Image model</span>
-            <select
-              value={model}
-              onChange={(e) => {
-                setSaved(false)
-                setModel(e.target.value)
-              }}
-              className="h-9 max-w-[60%] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {model && !available.includes(model) && <option value={model}>{model}</option>}
-              {available.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+            <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+              <select
+                value={model}
+                onChange={(e) => {
+                  setSavedModel(false)
+                  setModel(e.target.value)
+                }}
+                className="h-9 min-w-0 max-w-[420px] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {model && !available.some((m) => m.id === model) && (
+                  <option value={model}>{model}</option>
+                )}
+                {available.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              <Button size="sm" onClick={() => save({ model }, () => setSavedModel(true))} disabled={busy || !model}>
+                Save model
+              </Button>
+              {savedModel && <Check className="size-4 shrink-0 text-success" />}
+            </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Every image-capable model OpenRouter offers, priced per image on your key.
+            Only models that can generate images are listed (OpenRouter's image catalog),
+            priced per image on your key.
           </p>
         </div>
-      </div>
-      <div className="mt-4 flex items-center gap-3">
-        <Button onClick={save} disabled={busy}>
-          Save
-        </Button>
-        {saved && (
-          <span className="flex items-center gap-1 text-sm text-success">
-            <Check className="size-4" />
-            Saved
-          </span>
-        )}
       </div>
     </div>
   )

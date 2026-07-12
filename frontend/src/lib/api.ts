@@ -114,7 +114,8 @@ export const api = {
   // Image generation (OpenRouter): per-user switch, admin-managed key + model, stats.
   setUserImageGen: (id: number, enabled: boolean) =>
     req<Me>('PUT', `/api/admin/users/${id}/imagegen`, { enabled }),
-  getImagesCfg: () => req<ImagesCfg & { available: string[] }>('GET', '/api/admin/images'),
+  getImagesCfg: () =>
+    req<ImagesCfg & { available: { id: string; name: string }[] }>('GET', '/api/admin/images'),
   setImagesCfg: (cfg: { model?: string; api_key?: string }) =>
     req<ImagesCfg>('PUT', '/api/admin/images', cfg),
   getStats: (since?: string) =>

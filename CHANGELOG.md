@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.9.1 — 2026-07-12
+
+- Fixes: Admin → Images — the API key and the model now save with separate buttons,
+  and browser autofill can no longer silently overwrite the stored key when saving
+  an unrelated change; the model picker shows friendly names sorted alphabetically
+  (it always listed only image-capable models — OpenRouter's image catalog is just
+  that big).
+
 ## v1.9.0 — 2026-07-12
 
 - **Images mode** — people with image generation get a fourth pill next to

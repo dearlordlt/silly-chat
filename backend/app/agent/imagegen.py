@@ -58,8 +58,10 @@ async def generate(prompt: str, aspect_ratio: str = "") -> tuple[bytes, str]:
         raise ImageGenError(f"unexpected OpenRouter response: {exc}") from exc
 
 
-async def available_image_models() -> list[str]:
-    """Image-capable models on OpenRouter (for the admin picker). Empty on error."""
+async def available_image_models() -> list[dict[str, str]]:
+    """Image-capable models on OpenRouter (for the admin picker), as {id, name}
+    sorted by display name. Empty on error. The /images/models catalog only ever
+    contains models that can OUTPUT images — no filtering needed here."""
     cfg = get_settings().images
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -67,6 +69,11 @@ async def available_image_models() -> list[str]:
             resp.raise_for_status()
             data = resp.json()
         entries = data.get("data", data) if isinstance(data, dict) else data
-        return sorted(m["id"] for m in entries if isinstance(m, dict) and m.get("id"))
+        out = [
+            {"id": m["id"], "name": str(m.get("name") or m["id"])}
+            for m in entries
+            if isinstance(m, dict) and m.get("id")
+        ]
+        return sorted(out, key=lambda m: m["name"].lower())
     except (httpx.HTTPError, KeyError, TypeError, ValueError):
         return []
