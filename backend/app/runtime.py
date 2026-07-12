@@ -34,7 +34,10 @@ def load_overrides() -> None:
         _chat.update({k: int(v) for k, v in chat_row.value.items() if isinstance(v, (int, float))})
     _images.clear()
     if images_row:
-        _images.update({k: str(v) for k, v in images_row.value.items() if v})
+        # model_quality keeps an explicit "" (= disabled); other empties are noise.
+        _images.update(
+            {k: str(v) for k, v in images_row.value.items() if v or k == "model_quality"}
+        )
 
 
 def compact_pct() -> int:
@@ -62,24 +65,39 @@ def image_model() -> str:
     return _images.get("model") or get_settings().images.model
 
 
+def image_model_quality_setting() -> str:
+    """The configured quality model as a setting: admin override wins (an explicit
+    "" means 'always use the fast model'), else the config.toml default."""
+    q = _images.get("model_quality")
+    return q if q is not None else get_settings().images.model_quality
+
+
+def image_model_quality() -> str:
+    """The slow/best model for demanding asks; falls back to the fast one."""
+    return image_model_quality_setting() or image_model()
+
+
 def image_api_key() -> str:
     return _images.get("api_key", "")
 
 
-def set_images(values: dict[str, str]) -> None:
-    """Merge-update the image-generation settings (model and/or api_key).
-    Empty values are ignored so saving a model never wipes the key."""
+def set_images(values: dict[str, str | None]) -> None:
+    """Merge-update the image-generation settings. model/api_key: empty values are
+    ignored so saving one never wipes the other. model_quality: an explicit empty
+    string CLEARS it (= always use the fast model); absent/None keeps it."""
     from sqlmodel import Session
 
     from app.db import engine
     from app.models import AppSetting
 
-    clean = {
-        k: str(v).strip()
-        for k, v in values.items()
-        if k in ("model", "api_key") and str(v or "").strip()
-    }
-    merged = {**_images, **clean}
+    merged = {**_images}
+    for k in ("model", "api_key"):
+        v = str(values.get(k) or "").strip()
+        if v:
+            merged[k] = v
+    if values.get("model_quality") is not None:
+        # "" is stored as an explicit disable — it must beat the config default.
+        merged["model_quality"] = str(values["model_quality"]).strip()
     with Session(engine) as session:
         row = session.get(AppSetting, "images") or AppSetting(key="images", value={})
         row.value = merged

@@ -445,8 +445,9 @@ async def make_document(title: str, content_markdown: str) -> str:
         return f"(could not create the document: {exc})"
 
 
-async def generate_image(prompt: str, aspect_ratio: str = "") -> str:
+async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = False) -> str:
     """Create a brand-new image from a text description (OpenRouter image model).
+    quality=True routes to the slower top-quality model for demanding asks.
     The result is shown in the answer automatically."""
     user_id = user_var.get()
     if user_id is None:
@@ -473,12 +474,13 @@ async def generate_image(prompt: str, aspect_ratio: str = "") -> str:
         from app.documents import store_export
         from app.schema import GalleryImage
 
-        data, mime = await imagegen.generate(prompt, aspect_ratio)
+        model = runtime.image_model_quality() if quality else runtime.image_model()
+        data, mime = await imagegen.generate(prompt, aspect_ratio, model=model)
         ext = imagegen.ext_for(mime)
         with Session(engine) as session:
             uid = store_export(session, user_id, f"image-{aid}.{ext}", data, mime, ext, dk=dk_var.get())
-        usage.record_image(runtime.image_model())
-        record_gen_image(GalleryImage(url=f"/api/uploads/{uid}", caption=prompt[:200]))
+        usage.record_image(model)
+        record_gen_image(GalleryImage(url=f"/api/uploads/{uid}", caption=prompt[:200]), model)
         agent_update(aid, status="Done", state="done")
         return (
             "Image generated — it is already shown in your answer. Do not embed links or "

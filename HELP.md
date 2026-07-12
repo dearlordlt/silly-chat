@@ -37,13 +37,15 @@ day; what the assistant learned stays available in that chat for a week.
 
 Ask the assistant to draw or design a picture — "draw a cozy cabin in the woods",
 "make a logo for my bakery" — and it generates one with an AI image model (via
-OpenRouter; Grok by default). The image appears right in the answer: click it to view
-fullscreen and use the download button there to save it. The **Images** pill under
-the input switches to picture-first mode where every idea you type gets drawn. It's a
-per-user feature: admins have it by default and can switch it on or off for anyone in
-Admin → Users (the API key and model live in Admin → Images). Generated images are
-private to you and, like other attachments, expire after a week — download the ones
-you want to keep.
+OpenRouter). Two models work behind the scenes: a fast one for casual asks (seconds)
+and a top-quality one the assistant switches to when your request demands it —
+photorealism, fine detail, "make it stunning". The image appears right in the answer:
+click it to view fullscreen and use the download button there to save it. The
+**Images** pill under the input switches to picture-first mode where every idea you
+type gets drawn. It's a per-user feature: admins have it by default and can switch it
+on or off for anyone in Admin → Users (the API key and both models live in
+Admin → Images). Generated images are private to you and, like other attachments,
+expire after a week — download the ones you want to keep.
 
 ## Presentations
 

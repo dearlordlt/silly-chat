@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.10.0 — 2026-07-12
+
+- **Fast & quality image models** — Admin → Images now configures a model pair: a
+  fast default (Grok) and an optional top-quality one (GPT Image). The assistant
+  routes each request itself — "a cat in a hat" comes back in seconds from the fast
+  model, "super realistic 1900 London" goes to the quality one; statistics and the
+  models chip show whichever actually ran.
+
 ## v1.9.1 — 2026-07-12
 
 - Fixes: Admin → Images — the API key and the model now save with separate buttons,

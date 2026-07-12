@@ -234,7 +234,7 @@ async def stream_chat(
     built_maps: list = []
     edits: list = []  # EditsBlocks from targeted artifact edits
     files: list = []  # FileBlocks from make_document
-    gen_images: list = []  # GalleryImages from generate_image
+    gen_images: list = []  # (GalleryImage, model) pairs from generate_image
     stats: dict[str, int] = {}  # turn telemetry for the status line
 
     def emit(ev: object) -> None:
@@ -416,8 +416,7 @@ async def stream_chat(
             models.append(runtime.model_for("vision"))
         if code:
             models.append(runtime.model_for("coder"))
-        if gen_images:
-            models.append(runtime.image_model())
+        models.extend(dict.fromkeys(m for _, m in gen_images))
         yield DoneEvent(
             input_tokens=stats.get("input_tokens"),
             output_tokens=stats.get("output_tokens"),
@@ -545,7 +544,7 @@ def _final_events(
     # Images generated this turn (generate_image) — tool-authored, so the model can't
     # hallucinate a URL. One gallery, deduped by url.
     seen_imgs: set[str] = set()
-    made_imgs = [g for g in gen_images or [] if not (g.url in seen_imgs or seen_imgs.add(g.url))]
+    made_imgs = [g for g, _ in gen_images or [] if not (g.url in seen_imgs or seen_imgs.add(g.url))]
     if made_imgs:
         blocks.append(GalleryBlock(images=made_imgs))
     seen: set[str] = set()

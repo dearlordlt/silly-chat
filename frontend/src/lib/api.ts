@@ -52,7 +52,8 @@ export type AppMeta = {
   context_window: number | null
 }
 
-export type ImagesCfg = { model: string; has_key: boolean; key_hint: string }
+// model = fast/default; model_quality = optional top model ('' = always use fast).
+export type ImagesCfg = { model: string; model_quality: string; has_key: boolean; key_hint: string }
 
 export type UsageModelRow = {
   model: string
@@ -116,7 +117,7 @@ export const api = {
     req<Me>('PUT', `/api/admin/users/${id}/imagegen`, { enabled }),
   getImagesCfg: () =>
     req<ImagesCfg & { available: { id: string; name: string }[] }>('GET', '/api/admin/images'),
-  setImagesCfg: (cfg: { model?: string; api_key?: string }) =>
+  setImagesCfg: (cfg: { model?: string; api_key?: string; model_quality?: string }) =>
     req<ImagesCfg>('PUT', '/api/admin/images', cfg),
   getStats: (since?: string) =>
     req<{ users: UsageUserRow[] }>(

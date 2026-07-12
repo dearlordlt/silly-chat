@@ -409,6 +409,7 @@ function ImagesSection() {
   const [keyHint, setKeyHint] = useState('')
   const [available, setAvailable] = useState<{ id: string; name: string }[]>([])
   const [model, setModel] = useState('')
+  const [modelQ, setModelQ] = useState('')
   const [key, setKey] = useState('')
   const [savedKey, setSavedKey] = useState(false)
   const [savedModel, setSavedModel] = useState(false)
@@ -419,6 +420,7 @@ function ImagesSection() {
       .getImagesCfg()
       .then((d) => {
         setModel(d.model)
+        setModelQ(d.model_quality)
         setHasKey(d.has_key)
         setKeyHint(d.key_hint)
         setAvailable(d.available)
@@ -428,11 +430,15 @@ function ImagesSection() {
 
   // Key and model save SEPARATELY — a combined save let browser autofill in the
   // password field silently overwrite the stored key on an unrelated model change.
-  async function save(patch: { model?: string; api_key?: string }, after: () => void) {
+  async function save(
+    patch: { model?: string; api_key?: string; model_quality?: string },
+    after: () => void,
+  ) {
     setBusy(true)
     try {
       const r = await api.setImagesCfg(patch)
       setModel(r.model)
+      setModelQ(r.model_quality)
       setHasKey(r.has_key)
       setKeyHint(r.key_hint)
       after()
@@ -481,38 +487,77 @@ function ImagesSection() {
         </div>
         <div className="rounded-lg border bg-card px-4 py-3">
           <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-semibold">Image model</span>
-            <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
-              <select
-                value={model}
-                onChange={(e) => {
-                  setSavedModel(false)
-                  setModel(e.target.value)
-                }}
-                className="h-9 min-w-0 max-w-[420px] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {model && !available.some((m) => m.id === model) && (
-                  <option value={model}>{model}</option>
-                )}
-                {available.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-              <Button size="sm" onClick={() => save({ model }, () => setSavedModel(true))} disabled={busy || !model}>
-                Save model
-              </Button>
-              {savedModel && <Check className="size-4 shrink-0 text-success" />}
-            </span>
+            <span className="text-sm font-semibold">Fast model</span>
+            <ModelSelect
+              value={model}
+              options={available}
+              onChange={(v) => {
+                setSavedModel(false)
+                setModel(v)
+              }}
+            />
+          </div>
+          <p className="mb-3 text-xs text-muted-foreground">
+            The default — used for casual and quick images; pick something snappy.
+          </p>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-semibold">Quality model</span>
+            <ModelSelect
+              value={modelQ}
+              options={available}
+              emptyLabel="Same as fast model"
+              onChange={(v) => {
+                setSavedModel(false)
+                setModelQ(v)
+              }}
+            />
           </div>
           <p className="text-xs text-muted-foreground">
-            Only models that can generate images are listed (OpenRouter's image catalog),
-            priced per image on your key.
+            The assistant switches to this slower, finest model when the ask demands it
+            (photorealism, fine detail, "make it stunning"). Only image-capable models
+            are listed (OpenRouter's image catalog), priced per image on your key.
           </p>
+          <div className="mt-3 flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => save({ model, model_quality: modelQ }, () => setSavedModel(true))}
+              disabled={busy || !model}
+            >
+              Save models
+            </Button>
+            {savedModel && <Check className="size-4 shrink-0 text-success" />}
+          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function ModelSelect({
+  value,
+  options,
+  onChange,
+  emptyLabel,
+}: {
+  value: string
+  options: { id: string; name: string }[]
+  onChange: (v: string) => void
+  emptyLabel?: string
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-9 min-w-0 max-w-[420px] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {emptyLabel && <option value="">{emptyLabel}</option>}
+      {value && !options.some((m) => m.id === value) && <option value={value}>{value}</option>}
+      {options.map((m) => (
+        <option key={m.id} value={m.id}>
+          {m.name}
+        </option>
+      ))}
+    </select>
   )
 }
 

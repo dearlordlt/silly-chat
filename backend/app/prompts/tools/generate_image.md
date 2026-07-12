@@ -8,6 +8,15 @@ Write prompt as one vivid, specific description of the desired image: subject, s
 work best. Optionally set aspect_ratio to a common ratio — "1:1" (default), "16:9"
 wide, "9:16" tall, "4:3", "3:4".
 
+Two models sit behind this tool — pick with `quality`:
+- quality=false (default): the FAST model, back in seconds. Right for casual, fun,
+  simple asks — memes, doodles, quick illustrations, "show me a cat in a hat".
+- quality=true: the slow TOP model. Choose it when the ask demands craftsmanship —
+  photorealism, rich fine detail, historical/period accuracy, complex composition,
+  readable text inside the image — or the user signals stakes ("stunning",
+  "super realistic", "make it perfect", a logo they'll actually use), or a fast
+  attempt disappointed and they want it better.
+
 The generated image is attached to your answer automatically: never embed links or
 markdown images for it, and keep your reply to a one-line intro. For finding real,
 existing photos use find_images instead.

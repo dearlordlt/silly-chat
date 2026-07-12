@@ -33,14 +33,14 @@ def _error_detail(resp: httpx.Response) -> str:
     return str(detail or resp.text or resp.reason_phrase)[:200]
 
 
-async def generate(prompt: str, aspect_ratio: str = "") -> tuple[bytes, str]:
+async def generate(prompt: str, aspect_ratio: str = "", model: str | None = None) -> tuple[bytes, str]:
     """Generate one image; returns (bytes, mime). Raises ImageGenError on failure."""
     cfg = get_settings().images
     key = runtime.image_api_key()
     if not key:
         raise ImageGenError("no OpenRouter API key is configured (Admin → Images)")
     url = cfg.base_url.rstrip("/") + "/images"
-    body: dict = {"model": runtime.image_model(), "prompt": prompt, "n": 1}
+    body: dict = {"model": model or runtime.image_model(), "prompt": prompt, "n": 1}
     if aspect_ratio:
         body["aspect_ratio"] = aspect_ratio
     async with httpx.AsyncClient(timeout=float(cfg.timeout_s)) as client:

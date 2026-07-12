@@ -378,31 +378,39 @@ def _key_hint(key: str) -> str:
 
 
 class ImagesCfgIn(BaseModel):
-    model: str = ""
+    model: str = ""  # empty = keep
     api_key: str = ""  # empty = keep the stored key
+    # None = keep; "" = clear (always use the fast model); value = set.
+    model_quality: str | None = None
 
 
-@admin_router.get("/images")
-async def get_images_cfg(_: AdminUser) -> dict[str, Any]:
+def _images_cfg() -> dict[str, Any]:
     from app import runtime
-    from app.agent.imagegen import available_image_models
 
     key = runtime.image_api_key()
     return {
         "model": runtime.image_model(),
+        "model_quality": runtime.image_model_quality_setting(),
         "has_key": bool(key),
         "key_hint": _key_hint(key),
-        "available": await available_image_models(),
     }
+
+
+@admin_router.get("/images")
+async def get_images_cfg(_: AdminUser) -> dict[str, Any]:
+    from app.agent.imagegen import available_image_models
+
+    return {**_images_cfg(), "available": await available_image_models()}
 
 
 @admin_router.put("/images")
 def set_images_cfg(body: ImagesCfgIn, _: AdminUser) -> dict[str, Any]:
     from app import runtime
 
-    runtime.set_images({"model": body.model, "api_key": body.api_key})
-    key = runtime.image_api_key()
-    return {"model": runtime.image_model(), "has_key": bool(key), "key_hint": _key_hint(key)}
+    runtime.set_images(
+        {"model": body.model, "api_key": body.api_key, "model_quality": body.model_quality}
+    )
+    return _images_cfg()
 
 
 @admin_router.get("/stats")

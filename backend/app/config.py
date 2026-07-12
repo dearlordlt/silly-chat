@@ -47,8 +47,11 @@ class ImagesCfg(BaseModel):
     (AppSetting, set in the Admin panel) — never in config or the repo."""
 
     base_url: str = "https://openrouter.ai/api/v1"
-    # Default image model; admins can pick any image-capable model at runtime.
+    # Fast/default image model; admins can pick any image-capable model at runtime.
     model: str = "x-ai/grok-imagine-image-quality"
+    # Optional slower top-quality model — the orchestrator picks it for demanding
+    # asks (photorealism, fine detail). Empty = always use `model`.
+    model_quality: str = "openai/gpt-5.4-image-2"
     timeout_s: int = 180
     max_per_turn: int = 4  # hard cap on generated images per chat turn
 
