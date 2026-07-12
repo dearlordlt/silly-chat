@@ -520,8 +520,10 @@ async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = Fa
                     emit(ImageQuotaEvent(used=used_now, remaining=remaining, resets_at=resets.isoformat()))
         agent_update(aid, status="Done", state="done")
         return (
-            "Image generated — it is already shown in your answer. Do not embed links or "
-            "markdown images for it; a one-line intro is enough."
+            f"Image generated ({made + 1}/{max_per_turn} this turn) — it is already shown "
+            "in your answer. Do not embed links, markdown images, or gallery blocks for "
+            "it. If the user asked for several distinct subjects, call generate_image "
+            "again for each remaining one; otherwise a short intro is enough."
         )
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")

@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.11.1 — 2026-07-12
+
+- Fixes: multi-subject image requests ("portraits for my 4 party members") now
+  reliably generate one image per subject into a single gallery — previously the
+  assistant sometimes generated one and only pretended to do the rest.
+
 ## v1.11.0 — 2026-07-12
 
 - **Weekly image quotas** — admins can give each person a weekly image allowance

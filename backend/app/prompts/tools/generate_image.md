@@ -17,6 +17,11 @@ Two models sit behind this tool — pick with `quality`:
   "super realistic", "make it perfect", a logo they'll actually use), or a fast
   attempt disappointed and they want it better.
 
-The generated image is attached to your answer automatically: never embed links or
-markdown images for it, and keep your reply to a one-line intro. For finding real,
-existing photos use find_images instead.
+For several distinct subjects (e.g. one portrait per party member), call
+generate_image once PER subject — every call's image joins one shared gallery in
+your answer. Up to 4 images per turn; if the user asks for more, generate the first
+4 and say the rest need another message.
+
+The generated images are attached to your answer automatically: never embed links,
+markdown images, or your own gallery for them, and keep your reply to a short intro.
+For finding real, existing photos use find_images instead.
