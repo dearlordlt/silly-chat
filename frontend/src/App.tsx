@@ -10,6 +10,7 @@ import { newId } from '@/lib/history'
 import { Auth } from '@/components/Auth'
 import { Chat } from '@/components/Chat'
 import { SettingsPage } from '@/components/SettingsPage'
+import { GalleryPage } from '@/components/GalleryPage'
 import { AdminPage } from '@/components/AdminPage'
 import { Toaster } from '@/components/ui/toast'
 
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="/" element={<NewChatRedirect />} />
         <Route path="/c/:id" element={<Chat me={me} onLogout={logout} />} />
         <Route path="/settings" element={<Back render={(onBack) => <SettingsPage me={me} onBack={onBack} onLogout={logout} />} />} />
+        <Route path="/gallery" element={<Back render={(onBack) => <GalleryPage onBack={onBack} />} />} />
         <Route
           path="/admin"
           element={me.role === 'admin' ? <Back render={(onBack) => <AdminPage onBack={onBack} />} /> : <Navigate to="/" replace />}

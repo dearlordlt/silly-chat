@@ -47,9 +47,17 @@ on or off for anyone in Admin → Users (the API key and both models live in
 Admin → Images). Each person can have a weekly image allowance (admins set it in
 Users → ⋯ → Image quota; admins themselves are unlimited) — you won't notice yours
 until it's nearly used up, then a small notice appears after each image, and once
-it's spent the assistant tells you when it resets (Mondays). Generated images are
-private to you and, like other attachments, expire after a week — download the ones
-you want to keep.
+it's spent the assistant tells you when it resets (Mondays). You can also ask about
+an image it made ("does she actually hold a sword?") — the assistant looks at the
+real picture, not its memory of the prompt.
+
+## Image gallery
+
+Every generated image is saved to your Gallery (user menu → Gallery): the picture,
+the exact prompt that made it, the model used, and the date. Click an image for
+fullscreen with a download button; the trash button deletes it for good (it also
+disappears from chats that showed it). Generated images stay until you delete them
+and are sealed under your key like everything else — only you can see them.
 
 ## Presentations
 

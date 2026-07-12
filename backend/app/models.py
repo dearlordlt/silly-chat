@@ -76,6 +76,9 @@ class Upload(SQLModel, table=True):
     # 1 = file bytes (and doc chunks) sealed under the owner's data key; the file on
     # disk is named {id}.enc. 0 = legacy plaintext ({sha256}.{ext}), ages out via TTL.
     enc: int = 0
+    # Generated images (kind="genimage"): the generation prompt + model as JSON,
+    # sealed under the owner's key when enc=1 — powers the user's Gallery.
+    gen_meta: str = ""
     created_at: datetime = Field(default_factory=_utcnow)
     last_used_at: datetime = Field(default_factory=_utcnow)
 

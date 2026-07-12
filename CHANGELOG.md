@@ -4,6 +4,18 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.12.0 — 2026-07-12
+
+- **Image gallery** — your generated images now have a home: Gallery (in the user
+  menu) shows every image the assistant made for you with the prompt that made it
+  and the model used, fullscreen view + download, and delete. Prompts are stored
+  sealed under your key like everything else. Generated images no longer expire
+  after a week — they stay until you delete them.
+- **The assistant can see its own creations** — ask about a generated image
+  ("does she actually hold a sword?", "make the next one match this style") and it
+  examines the real picture with its vision model, prompt in hand, instead of
+  guessing from memory.
+
 ## v1.11.1 — 2026-07-12
 
 - Fixes: multi-subject image requests ("portraits for my 4 party members") now

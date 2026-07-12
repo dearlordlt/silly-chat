@@ -504,8 +504,19 @@ async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = Fa
         model = runtime.image_model_quality() if quality else runtime.image_model()
         data, mime = await imagegen.generate(prompt, aspect_ratio, model=model)
         ext = imagegen.ext_for(mime)
+        # Prompt + model ride along sealed (Gallery shows them; DB alone reveals nothing).
+        import json as _json
+
+        from app.auth import crypto as _crypto
+
+        dk = dk_var.get()
+        meta = {"prompt": prompt, "model": model}
+        gen_meta = _crypto.encrypt_json(dk, meta) if dk is not None else _json.dumps(meta)
         with Session(engine) as session:
-            uid = store_export(session, user_id, f"image-{aid}.{ext}", data, mime, ext, dk=dk_var.get())
+            uid = store_export(
+                session, user_id, f"image-{aid}.{ext}", data, mime, ext,
+                dk=dk, kind="genimage", gen_meta=gen_meta,
+            )
         usage.record_image(model)
         record_gen_image(GalleryImage(url=f"/api/uploads/{uid}", caption=prompt[:200]), model)
         # Quota stays invisible until ≤10% remains — then every generation shows a
@@ -529,6 +540,63 @@ async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = Fa
         agent_update(aid, status="Failed", state="error")
         log.warning("generate_image failed: %s", exc)
         return f"(could not generate the image: {exc})"
+
+
+async def look_generated(question: str, count: int = 1) -> str:
+    """Examine the user's most recently GENERATED image(s) (newest first) with the
+    vision model and answer a question about them."""
+    user_id = user_var.get()
+    if user_id is None:
+        return "(cannot access images in this context)"
+    count = max(1, min(int(count), 4))
+    aid = uuid.uuid4().hex[:8]
+    agent_update(aid, label=f"Reviewing {count} generated image(s)", status="Opening…", state="running")
+    try:
+        from sqlmodel import Session, select
+
+        from app.agent.activity import dk_var
+        from app.auth import crypto as _crypto
+        from app.db import engine
+        from app.models import Upload
+        from app.uploads import _gen_meta, _path
+
+        dk = dk_var.get()
+        imgs: list[tuple[str, bytes, str]] = []  # (mime, bytes, prompt)
+        with Session(engine) as session:
+            rows = session.exec(
+                select(Upload)
+                .where(Upload.user_id == user_id, Upload.kind == "genimage")
+                .order_by(Upload.created_at.desc())
+                .limit(count)
+            ).all()
+            for up in rows:
+                path = _path(up)
+                if not path.exists() or (up.enc and dk is None):
+                    continue
+                data = path.read_bytes()
+                if up.enc:
+                    data = _crypto.decrypt_bytes(dk, data)
+                if data is None:
+                    continue
+                imgs.append((up.mime, data, str(_gen_meta(up, dk).get("prompt", ""))))
+        if not imgs:
+            agent_update(aid, status="Done", state="done")
+            return "(no generated images found for this user — generate one first, or they were deleted)"
+        agent_update(aid, status="Examining…")
+        agent = Agent(vision_model())
+        content: list = [
+            question if len(imgs) == 1 else f"{question}\n(The images are ordered newest first.)"
+        ]
+        content += [BinaryContent(data=d, media_type=m) for m, d, _ in imgs]
+        r = await agent.run(content)
+        record_llm(runtime.model_for("vision"), r.usage)
+        agent_update(aid, status="Done", state="done")
+        prompts = "; ".join(f"«{p[:100]}»" for _, _, p in imgs if p)
+        return str(r.output) + (f"\n\n(Generation prompt(s), newest first: {prompts})" if prompts else "")
+    except Exception as exc:
+        agent_update(aid, status="Failed", state="error")
+        log.warning("look_generated failed: %s", exc)
+        return f"(could not view the generated image: {exc})"
 
 
 async def _vision_yes(image_url: str, question: str) -> bool:
@@ -699,4 +767,5 @@ def build_tools(image_gen: bool = False) -> list[Tool]:
     # Per-user feature (admin-granted) — only offered to users who may use it.
     if image_gen:
         tools.append(Tool(generate_image, name="generate_image", description=get_prompt("tools/generate_image")))
+        tools.append(Tool(look_generated, name="look_generated", description=get_prompt("tools/look_generated")))
     return tools

@@ -653,6 +653,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <UserMenu
               me={me}
               onSettings={() => navigate('/settings')}
+              onGallery={() => navigate('/gallery')}
               onAdmin={() => navigate('/admin')}
               onLogout={onLogout}
             />

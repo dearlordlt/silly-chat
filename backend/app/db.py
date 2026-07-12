@@ -62,6 +62,9 @@ def _ensure_columns() -> None:
         if "enc" not in upcols:
             conn.exec_driver_sql("ALTER TABLE upload ADD COLUMN enc INTEGER DEFAULT 0")
             conn.commit()
+        if "gen_meta" not in upcols:
+            conn.exec_driver_sql("ALTER TABLE upload ADD COLUMN gen_meta TEXT DEFAULT ''")
+            conn.commit()
 
 
 def get_session() -> Iterator[Session]:

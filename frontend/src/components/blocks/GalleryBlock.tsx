@@ -51,8 +51,9 @@ function hostname(url: string): string {
 const ROUND_BTN =
   'grid size-9 place-items-center rounded-full border bg-card shadow-lg transition-colors hover:bg-accent [&_svg]:size-4'
 
-/** Fullscreen image viewer (same shell as the map/diagram expand) with download. */
-function Lightbox({ img, onClose }: { img: GalleryImage; onClose: () => void }) {
+/** Fullscreen image viewer (same shell as the map/diagram expand) with download.
+ * Shared: chat galleries and the Gallery page both open images through it. */
+export function Lightbox({ img, onClose }: { img: GalleryImage; onClose: () => void }) {
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onEsc)

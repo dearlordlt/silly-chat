@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, LogOut, Settings, Shield } from 'lucide-react'
+import { ChevronDown, Images, LogOut, Settings, Shield } from 'lucide-react'
 import type { Me } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 export function UserMenu({
   me,
   onSettings,
+  onGallery,
   onAdmin,
   onLogout,
 }: {
   me: Me
   onSettings: () => void
+  onGallery: () => void
   onAdmin: () => void
   onLogout: () => void
 }) {
@@ -59,6 +61,9 @@ export function UserMenu({
           <div className="my-1 border-t" />
           <MenuItem icon={<Settings />} onClick={close(onSettings)}>
             Settings
+          </MenuItem>
+          <MenuItem icon={<Images />} onClick={close(onGallery)}>
+            Gallery
           </MenuItem>
           {me.role === 'admin' && (
             <MenuItem icon={<Shield />} onClick={close(onAdmin)}>

@@ -216,8 +216,11 @@ def sweep_expired() -> int:
             select(Upload).where(Upload.kind == "doc", Upload.created_at < doc_file_cutoff)
         ).all():
             _path(up).unlink(missing_ok=True)
-        # 2) fully expire old uploads.
-        expired = session.exec(select(Upload).where(Upload.created_at < full_cutoff)).all()
+        # 2) fully expire old uploads — except generated images, which live in the
+        # user's Gallery until they delete them (quota LRU still applies).
+        expired = session.exec(
+            select(Upload).where(Upload.created_at < full_cutoff, Upload.kind != "genimage")
+        ).all()
         for up in expired:
             _delete_upload(session, up)
         session.commit()
@@ -315,6 +318,65 @@ def serve_upload(uid: str, user: ApprovedUser, session: SessionDep, dk: SessionK
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "log in again to unlock this file")
         return Response(content=data, media_type=up.mime, headers=headers)
     return FileResponse(path, media_type=up.mime, headers=headers)
+
+
+# ---- gallery (generated images) -------------------------------------------------------
+
+gallery_router = APIRouter(prefix="/api/gallery", tags=["gallery"])
+
+
+def _gen_meta(up: Upload, dk: bytes | None) -> dict:
+    """Unseal a generated image's {prompt, model} metadata; {} when unavailable."""
+    import json
+
+    if not up.gen_meta:
+        return {}
+    if up.enc:
+        meta = crypto.decrypt_json(dk, up.gen_meta) if dk is not None else None
+    else:
+        try:
+            meta = json.loads(up.gen_meta)
+        except ValueError:
+            meta = None
+    return meta if isinstance(meta, dict) else {}
+
+
+@gallery_router.get("")
+def list_gallery(user: ApprovedUser, session: SessionDep, dk: SessionKey) -> list[dict]:
+    """The user's generated images, newest first, with their (unsealed) prompt+model."""
+    from datetime import timezone
+
+    rows = session.exec(
+        select(Upload)
+        .where(Upload.user_id == user.id, Upload.kind == "genimage")
+        .order_by(Upload.created_at.desc())
+    ).all()
+    out = []
+    for up in rows:
+        meta = _gen_meta(up, dk)
+        created = up.created_at if up.created_at.tzinfo else up.created_at.replace(tzinfo=timezone.utc)
+        out.append(
+            {
+                "id": up.id,
+                "url": f"/api/uploads/{up.id}",
+                "prompt": str(meta.get("prompt", "")),
+                "model": str(meta.get("model", "")),
+                "created_at": created.isoformat(),
+                "size": up.size,
+            }
+        )
+    return out
+
+
+@gallery_router.delete("/{uid}")
+def delete_gallery_image(uid: str, user: ApprovedUser, session: SessionDep) -> dict:
+    up = session.get(Upload, uid)
+    if up is None or up.user_id != user.id or up.kind != "genimage":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    _delete_upload(session, up)
+    session.commit()
+    _gc_orphan_files(session)
+    return {"ok": True}
 
 
 def resolve_attachments(

@@ -74,6 +74,16 @@ export type UsageUserRow = {
   models: UsageModelRow[]
 }
 
+// A generated image in the user's Gallery (prompt/model unsealed server-side).
+export type GalleryItem = {
+  id: string
+  url: string
+  prompt: string
+  model: string
+  created_at: string
+  size: number
+}
+
 export type ServerConvSummary = { id: string; title: string; updated_at: string }
 export type ServerConv = ServerConvSummary & {
   turns: unknown[]
@@ -124,6 +134,10 @@ export const api = {
     req<ImagesCfg & { available: { id: string; name: string }[] }>('GET', '/api/admin/images'),
   setImagesCfg: (cfg: { model?: string; api_key?: string; model_quality?: string }) =>
     req<ImagesCfg>('PUT', '/api/admin/images', cfg),
+  // The user's own generated-images gallery.
+  getGallery: () => req<GalleryItem[]>('GET', '/api/gallery'),
+  deleteGalleryImage: (id: string) => req<{ ok: boolean }>('DELETE', `/api/gallery/${id}`),
+
   getStats: (since?: string) =>
     req<{ users: UsageUserRow[] }>(
       'GET',
