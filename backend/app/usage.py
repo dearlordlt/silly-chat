@@ -15,10 +15,14 @@ log = get_logger("usage")
 
 
 def record_llm(model: str, usage: object, user_id: int | None = None) -> None:
-    """Record one model run's token usage. user_id defaults to the requesting user
-    (the turn's contextvar); no-ops outside a user context. Never raises — accounting
+    """Record one model run's token usage. Pass ``result.usage`` as-is — property
+    (pydantic-ai 2.x, a RunUsage) or method both work; it's normalized in here so a
+    call-site mistake can't raise. user_id defaults to the requesting user (the
+    turn's contextvar); no-ops outside a user context. Never raises — accounting
     must not be able to break a chat turn."""
     try:
+        if callable(usage):
+            usage = usage()
         if user_id is None:
             from app.agent.activity import user_var
 

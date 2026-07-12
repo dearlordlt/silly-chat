@@ -18,7 +18,7 @@ from app.config import get_settings
 from app.prompts.registry import get_prompt
 from app.schema import Reply
 
-Mode = Literal["search", "chat", "code"]
+Mode = Literal["search", "chat", "code", "images"]
 
 
 def build_orchestrator(

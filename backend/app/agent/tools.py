@@ -102,7 +102,7 @@ async def _run_worker(subtask: str) -> Finding:
     limit = get_settings().limits.worker_request_limit
     try:
         result = await _worker().run(subtask, usage_limits=UsageLimits(request_limit=limit))
-        record_llm(runtime.model_for("worker"), result.usage())
+        record_llm(runtime.model_for("worker"), result.usage)
         agent_update(aid, status="Done", state="done")
         return Finding(subtask=subtask, summary=str(result.output))
     except UsageLimitExceeded as exc:  # hit the search cap — keep going with what we have
@@ -274,7 +274,7 @@ async def _run_coder(prompt_key: str, coder_task: str, live_id: str, live_type: 
                 emit(TextDeltaEvent(block_id=live_id, text=text))
 
     result = await agent.run(coder_task, event_stream_handler=on_events)
-    record_llm(runtime.model_for("coder"), result.usage())
+    record_llm(runtime.model_for("coder"), result.usage)
     return str(result.output)
 
 
@@ -500,7 +500,7 @@ async def _vision_yes(image_url: str, question: str) -> bool:
         f"Answer with exactly one word, yes or no: {question}",
         BinaryContent(data=data, media_type=guess_media_type(data)),
     ])
-    record_llm(runtime.model_for("vision"), r.usage())
+    record_llm(runtime.model_for("vision"), r.usage)
     return r.output.strip().lower().startswith("y")
 
 
@@ -527,7 +527,7 @@ async def look(question: str) -> str:
         content: list = [question]
         content += [BinaryContent(data=data, media_type=mime) for mime, data in atts]
         r = await agent.run(content)
-        record_llm(runtime.model_for("vision"), r.usage())
+        record_llm(runtime.model_for("vision"), r.usage)
         agent_update(aid, status="Done", state="done")
         return str(r.output)
     except Exception as exc:

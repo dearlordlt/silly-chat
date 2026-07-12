@@ -40,6 +40,19 @@ class UserOut(BaseModel):
     settings: dict[str, Any] = {}
     # Raw per-user image-generation flag; None = role default (admins yes).
     image_gen: bool | None = None
+    # Effective capability: permission AND a configured OpenRouter key. The client
+    # uses this to show the "Images" mode pill.
+    can_generate_images: bool = False
+
+
+def _user_out(user: User) -> UserOut:
+    from app import runtime
+    from app.models import image_gen_enabled
+
+    return UserOut(
+        **user.model_dump(),
+        can_generate_images=image_gen_enabled(user) and bool(runtime.image_api_key()),
+    )
 
 
 def _set_session_cookie(response: Response, user_id: int, dk: bytes | None = None) -> None:
@@ -128,7 +141,7 @@ def login(creds: Credentials, session: SessionDep, response: Response) -> dict:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "key unwrap failed")
 
     _set_session_cookie(response, user.id, dk)
-    out = UserOut(**user.model_dump()).model_dump()
+    out = _user_out(user).model_dump()
     if recovery:
         out["recovery_key"] = recovery
     return out
@@ -215,7 +228,7 @@ def logout(response: Response) -> dict:
 
 @auth_router.get("/me")
 def me(user: CurrentUser) -> UserOut | None:
-    return UserOut(**user.model_dump()) if user else None
+    return _user_out(user) if user else None
 
 
 @auth_router.put("/settings")
@@ -230,7 +243,7 @@ def update_settings(body: dict[str, Any], user: ApprovedUser, session: SessionDe
 @admin_router.get("/users")
 def list_users(_: AdminUser, session: SessionDep) -> list[UserOut]:
     users = session.exec(select(User).order_by(User.created_at)).all()
-    return [UserOut(**u.model_dump()) for u in users]
+    return [_user_out(u) for u in users]
 
 
 @admin_router.post("/users/{user_id}/approve")
@@ -242,7 +255,7 @@ def approve_user(user_id: int, _: AdminUser, session: SessionDep) -> UserOut:
     session.add(user)
     session.commit()
     session.refresh(user)
-    return UserOut(**user.model_dump())
+    return _user_out(user)
 
 
 class RoleIn(BaseModel):
@@ -266,7 +279,7 @@ def set_role(user_id: int, body: RoleIn, admin: AdminUser, session: SessionDep) 
     session.add(user)
     session.commit()
     session.refresh(user)
-    return UserOut(**user.model_dump())
+    return _user_out(user)
 
 
 @admin_router.delete("/users/{user_id}")
@@ -356,7 +369,7 @@ def set_user_image_gen(user_id: int, body: ImageGenIn, _: AdminUser, session: Se
     session.add(user)
     session.commit()
     session.refresh(user)
-    return UserOut(**user.model_dump())
+    return _user_out(user)
 
 
 def _key_hint(key: str) -> str:

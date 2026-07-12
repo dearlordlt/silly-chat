@@ -1,4 +1,5 @@
 import type { Event as StreamEvent } from '@/types/contract'
+import type { Mode } from '@/lib/types'
 
 /**
  * POST a chat message and yield parsed stream events.
@@ -10,7 +11,7 @@ export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
 
 export type ChatParams = {
   message: string
-  mode: 'search' | 'chat' | 'code'
+  mode: Mode
   history: HistoryMessage[]
   timezone?: string
   attachments: string[]

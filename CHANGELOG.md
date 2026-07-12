@@ -4,6 +4,22 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.9.0 — 2026-07-12
+
+- **Images mode** — people with image generation get a fourth pill next to
+  Search/Chat/Code: in Images mode the assistant treats any describable idea as a
+  picture request and generates it straight away, elaborating your words into a
+  proper image prompt.
+- **Image lightbox** — click any image in an answer (generated or found) to view it
+  fullscreen; a download button saves it, and found images keep a link to their
+  source page.
+- Image requests are no longer pre-moderated by the assistant's own taste — the
+  image provider's content policy is the arbiter, and its refusals are relayed
+  plainly instead of second-guessed.
+- Fixes: research agents were broken by v1.8.0's usage accounting (all research
+  returned "could not research"); the assistant no longer replies about internal
+  "invalid JSON" validator messages as if the user had sent an error.
+
 ## v1.8.0 — 2026-07-12
 
 - **Image generation** — ask the assistant to draw or design something ("draw me…",

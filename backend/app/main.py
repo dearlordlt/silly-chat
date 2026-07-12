@@ -132,10 +132,13 @@ async def chat(
     from app.models import image_gen_enabled
 
     image_gen = image_gen_enabled(user) and bool(runtime.image_api_key())
+    # The Images pill is only shown to users who can generate, but never trust the
+    # client: without the permission the mode quietly degrades to plain chat.
+    mode: Mode = req.mode if req.mode != "images" or image_gen else "chat"
 
     async def event_generator():
         async for event in stream_chat(
-            req.message, req.mode, history, req.timezone, images, doc_chunks,
+            req.message, mode, history, req.timezone, images, doc_chunks,
             req.context, req.summary, artifacts, user.id, dk, image_gen,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
@@ -170,5 +173,5 @@ async def summarize(req: SummarizeRequest, user: ApprovedUser) -> dict:
     from app import runtime
     from app.usage import record_llm
 
-    record_llm(runtime.model_for("worker"), result.usage(), user_id=user.id)
+    record_llm(runtime.model_for("worker"), result.usage, user_id=user.id)
     return {"summary": str(result.output).strip()}

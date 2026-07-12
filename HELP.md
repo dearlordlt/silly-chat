@@ -13,10 +13,12 @@ into a **Stop** button while it works — stopping keeps whatever has already ar
 
 ## Chat modes
 
-Three pills under the input choose the flavor: **Search** (default — grounded, looks
+Pills under the input choose the flavor: **Search** (default — grounded, looks
 things up before answering), **Chat** (conversational — brainstorming, writing, no
 searching unless asked), and **Code** (build-first — returns the artifact, researching
-official docs when the tech is niche or version-specific).
+official docs when the tech is niche or version-specific). If image generation is
+enabled for you, a fourth **Images** pill appears — picture-first: describe anything
+and it gets drawn right away.
 
 ## Attachments — images
 
@@ -35,8 +37,10 @@ day; what the assistant learned stays available in that chat for a week.
 
 Ask the assistant to draw or design a picture — "draw a cozy cabin in the woods",
 "make a logo for my bakery" — and it generates one with an AI image model (via
-OpenRouter; Grok by default). The image appears right in the answer. It's a per-user
-feature: admins have it by default and can switch it on or off for anyone in
+OpenRouter; Grok by default). The image appears right in the answer: click it to view
+fullscreen and use the download button there to save it. The **Images** pill under
+the input switches to picture-first mode where every idea you type gets drawn. It's a
+per-user feature: admins have it by default and can switch it on or off for anyone in
 Admin → Users (the API key and model live in Admin → Images). Generated images are
 private to you and, like other attachments, expire after a week — download the ones
 you want to keep.

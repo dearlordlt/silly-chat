@@ -6,6 +6,8 @@ export type Me = {
   settings?: { storageMode?: string } & Record<string, unknown>
   // Per-user image-generation flag; null/undefined = role default (admins yes).
   image_gen?: boolean | null
+  // Effective capability (permission AND server key set) — shows the Images pill.
+  can_generate_images?: boolean
 }
 
 // FastAPI errors come back as {detail: string} OR {detail: [{msg, loc}, ...]} (422

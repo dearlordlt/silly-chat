@@ -450,7 +450,7 @@ async def _text_fallback(message: str, findings: list[tuple[str, str]], history)
     result = await Agent(orchestrator_model()).run(prompt, message_history=history)
     from app import runtime
 
-    record_llm(runtime.model_for("orchestrator"), result.usage())
+    record_llm(runtime.model_for("orchestrator"), result.usage)
     return Reply(blocks=[TextBlock(markdown=str(result.output))])
 
 

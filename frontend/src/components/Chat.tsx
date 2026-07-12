@@ -995,7 +995,12 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   >
                     <Paperclip />
                   </button>
-                  {(['search', 'chat', 'code'] as Mode[]).map((m) => (
+                  {([
+                    'search',
+                    'chat',
+                    'code',
+                    ...(me.can_generate_images ? (['images'] as const) : []),
+                  ] as Mode[]).map((m) => (
                     <button
                       key={m}
                       onClick={() => setSearchMode(m)}
