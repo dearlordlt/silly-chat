@@ -51,6 +51,11 @@ it's spent the assistant tells you when it resets (Mondays). You can also ask ab
 an image it made ("does she actually hold a sword?") — the assistant looks at the
 real picture, not its memory of the prompt.
 
+Images can be **edited**, not just made: say "remove the hat" right after a
+generation and the same picture is changed (keep going — edits stack), or attach
+your own photo and ask "remove the people from the background", "make it a
+watercolor". Edits land in your gallery and count against the same weekly allowance.
+
 ## Image gallery
 
 Every generated image is saved to your Gallery (user menu → Gallery): the picture,

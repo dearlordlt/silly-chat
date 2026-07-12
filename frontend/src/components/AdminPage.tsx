@@ -11,7 +11,7 @@ import {
   ShieldOff,
   Trash2,
 } from 'lucide-react'
-import { api, type Me, type UsageUserRow } from '@/lib/api'
+import { api, type ImageModelOption, type Me, type UsageUserRow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -480,9 +480,10 @@ function ModelsSection() {
 function ImagesSection() {
   const [hasKey, setHasKey] = useState(false)
   const [keyHint, setKeyHint] = useState('')
-  const [available, setAvailable] = useState<{ id: string; name: string }[]>([])
+  const [available, setAvailable] = useState<ImageModelOption[]>([])
   const [model, setModel] = useState('')
   const [modelQ, setModelQ] = useState('')
+  const [modelE, setModelE] = useState('')
   const [key, setKey] = useState('')
   const [savedKey, setSavedKey] = useState(false)
   const [savedModel, setSavedModel] = useState(false)
@@ -494,6 +495,7 @@ function ImagesSection() {
       .then((d) => {
         setModel(d.model)
         setModelQ(d.model_quality)
+        setModelE(d.model_edit)
         setHasKey(d.has_key)
         setKeyHint(d.key_hint)
         setAvailable(d.available)
@@ -504,7 +506,7 @@ function ImagesSection() {
   // Key and model save SEPARATELY — a combined save let browser autofill in the
   // password field silently overwrite the stored key on an unrelated model change.
   async function save(
-    patch: { model?: string; api_key?: string; model_quality?: string },
+    patch: { model?: string; api_key?: string; model_quality?: string; model_edit?: string },
     after: () => void,
   ) {
     setBusy(true)
@@ -512,6 +514,7 @@ function ImagesSection() {
       const r = await api.setImagesCfg(patch)
       setModel(r.model)
       setModelQ(r.model_quality)
+      setModelE(r.model_edit)
       setHasKey(r.has_key)
       setKeyHint(r.key_hint)
       after()
@@ -585,15 +588,32 @@ function ImagesSection() {
               }}
             />
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="mb-3 text-xs text-muted-foreground">
             The assistant switches to this slower, finest model when the ask demands it
-            (photorealism, fine detail, "make it stunning"). Only image-capable models
-            are listed (OpenRouter's image catalog), priced per image on your key.
+            (photorealism, fine detail, "make it stunning").
+          </p>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-semibold">Editing model</span>
+            <ModelSelect
+              value={modelE}
+              options={available.filter((m) => m.edits)}
+              emptyLabel="Same as fast model"
+              onChange={(v) => {
+                setSavedModel(false)
+                setModelE(v)
+              }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Image-to-image ("remove the hat") — only models that accept an input image
+            are listed. All prices are per image on your key.
           </p>
           <div className="mt-3 flex items-center gap-2">
             <Button
               size="sm"
-              onClick={() => save({ model, model_quality: modelQ }, () => setSavedModel(true))}
+              onClick={() =>
+                save({ model, model_quality: modelQ, model_edit: modelE }, () => setSavedModel(true))
+              }
               disabled={busy || !model}
             >
               Save models
@@ -613,7 +633,7 @@ function ModelSelect({
   emptyLabel,
 }: {
   value: string
-  options: { id: string; name: string }[]
+  options: ImageModelOption[]
   onChange: (v: string) => void
   emptyLabel?: string
 }) {

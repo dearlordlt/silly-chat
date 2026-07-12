@@ -458,6 +458,106 @@ async def make_document(title: str, content_markdown: str) -> str:
         return f"(could not create the document: {exc})"
 
 
+def _images_made_this_turn() -> int:
+    return sum(1 for k in (dispatch_var.get() or {}) if k.startswith("imagegen|"))
+
+
+def _image_quota_check(user_id: int) -> tuple[int | None, int, str | None]:
+    """Weekly allowance gate: (quota, used_this_week, refusal). refusal is a ready
+    tool-return string when the allowance is spent — BEFORE any provider call."""
+    from app.usage import images_this_week, week_window
+
+    quota = image_quota_var.get()
+    if quota is None:
+        return None, 0, None
+    used = images_this_week(user_id)
+    if used >= quota:
+        _, resets = week_window()
+        return quota, used, (
+            f"(REFUSED: the user's weekly image allowance ({quota}) is used up — it "
+            f"resets {resets.strftime('%A, %b %d')}. Tell them kindly and plainly; "
+            "do not generate or edit more images this turn.)"
+        )
+    return quota, used, None
+
+
+def _image_quota_notify(quota: int | None, used_before: int) -> None:
+    """Post-generation: the quota stays invisible until ≤10% remains — then every
+    image shows a quiet client-side toast (per explicit product decision)."""
+    from app.usage import week_window
+
+    if quota is None:
+        return
+    used_now = used_before + 1
+    remaining = max(0, quota - used_now)
+    if remaining <= max(1, quota // 10):
+        emit = emit_var.get()
+        if emit is not None:
+            _, resets = week_window()
+            emit(ImageQuotaEvent(used=used_now, remaining=remaining, resets_at=resets.isoformat()))
+
+
+def _store_gen_image(user_id: int, data: bytes, mime: str, prompt: str, model: str, aid: str) -> None:
+    """Persist a generated/edited image (sealed bytes + sealed prompt/model meta for
+    the Gallery), record usage, and attach it to this answer's gallery block."""
+    import json as _json
+
+    from sqlmodel import Session
+
+    from app import usage
+    from app.agent import imagegen
+    from app.agent.activity import dk_var
+    from app.auth import crypto as _crypto
+    from app.db import engine
+    from app.documents import store_export
+    from app.schema import GalleryImage
+
+    ext = imagegen.ext_for(mime)
+    dk = dk_var.get()
+    meta = {"prompt": prompt, "model": model}
+    gen_meta = _crypto.encrypt_json(dk, meta) if dk is not None else _json.dumps(meta)
+    with Session(engine) as session:
+        uid = store_export(
+            session, user_id, f"image-{aid}.{ext}", data, mime, ext,
+            dk=dk, kind="genimage", gen_meta=gen_meta,
+        )
+    usage.record_image(model)
+    record_gen_image(GalleryImage(url=f"/api/uploads/{uid}", caption=prompt[:200]), model)
+
+
+def _load_gen_images(user_id: int, count: int) -> list[tuple[str, bytes, str]]:
+    """The user's generated images, newest first, as (mime, bytes, prompt) —
+    unsealed with the turn's data key."""
+    from sqlmodel import Session, select
+
+    from app.agent.activity import dk_var
+    from app.auth import crypto as _crypto
+    from app.db import engine
+    from app.models import Upload
+    from app.uploads import _gen_meta, _path
+
+    dk = dk_var.get()
+    out: list[tuple[str, bytes, str]] = []
+    with Session(engine) as session:
+        rows = session.exec(
+            select(Upload)
+            .where(Upload.user_id == user_id, Upload.kind == "genimage")
+            .order_by(Upload.created_at.desc())
+            .limit(count)
+        ).all()
+        for up in rows:
+            path = _path(up)
+            if not path.exists() or (up.enc and dk is None):
+                continue
+            data = path.read_bytes()
+            if up.enc:
+                data = _crypto.decrypt_bytes(dk, data)
+            if data is None:
+                continue
+            out.append((up.mime, data, str(_gen_meta(up, dk).get("prompt", ""))))
+    return out
+
+
 async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = False) -> str:
     """Create a brand-new image from a text description (OpenRouter image model).
     quality=True routes to the slower top-quality model for demanding asks.
@@ -466,7 +566,7 @@ async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = Fa
     if user_id is None:
         return "(cannot generate images in this context)"
     # Exactly-once per prompt + a per-turn cap — models hedge-call generation tools.
-    made = sum(1 for k in (dispatch_var.get() or {}) if k.startswith("imagegen|"))
+    made = _images_made_this_turn()
     if not claim_dispatch("imagegen|" + " ".join(prompt.lower().split())[:300]):
         return (
             "(that exact image was already generated this turn and is shown to the "
@@ -475,60 +575,18 @@ async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = Fa
     max_per_turn = get_settings().images.max_per_turn
     if made >= max_per_turn:
         return f"(REFUSED: already generated {max_per_turn} image(s) this turn — give your final answer)"
-    # Weekly quota (admin-set, None = unlimited). Counted from the usage records.
-    from app.usage import images_this_week, week_window
-
-    quota = image_quota_var.get()
-    used_before = 0
-    if quota is not None:
-        used_before = images_this_week(user_id)
-        if used_before >= quota:
-            _, resets = week_window()
-            return (
-                f"(REFUSED: the user's weekly image allowance ({quota}) is used up — it "
-                f"resets {resets.strftime('%A, %b %d')}. Tell them kindly and plainly; "
-                "do not call generate_image again this turn.)"
-            )
+    quota, used_before, refusal = _image_quota_check(user_id)
+    if refusal:
+        return refusal
     aid = uuid.uuid4().hex[:8]
     agent_update(aid, label=f"Image: {prompt[:300]}", status="Generating…", state="running")
     try:
-        from sqlmodel import Session
-
-        from app import usage
         from app.agent import imagegen
-        from app.agent.activity import dk_var
-        from app.db import engine
-        from app.documents import store_export
-        from app.schema import GalleryImage
 
         model = runtime.image_model_quality() if quality else runtime.image_model()
         data, mime = await imagegen.generate(prompt, aspect_ratio, model=model)
-        ext = imagegen.ext_for(mime)
-        # Prompt + model ride along sealed (Gallery shows them; DB alone reveals nothing).
-        import json as _json
-
-        from app.auth import crypto as _crypto
-
-        dk = dk_var.get()
-        meta = {"prompt": prompt, "model": model}
-        gen_meta = _crypto.encrypt_json(dk, meta) if dk is not None else _json.dumps(meta)
-        with Session(engine) as session:
-            uid = store_export(
-                session, user_id, f"image-{aid}.{ext}", data, mime, ext,
-                dk=dk, kind="genimage", gen_meta=gen_meta,
-            )
-        usage.record_image(model)
-        record_gen_image(GalleryImage(url=f"/api/uploads/{uid}", caption=prompt[:200]), model)
-        # Quota stays invisible until ≤10% remains — then every generation shows a
-        # quiet client-side toast (the user asked not to be nagged before that).
-        if quota is not None:
-            used_now = used_before + 1
-            remaining = max(0, quota - used_now)
-            if remaining <= max(1, quota // 10):
-                emit = emit_var.get()
-                if emit is not None:
-                    _, resets = week_window()
-                    emit(ImageQuotaEvent(used=used_now, remaining=remaining, resets_at=resets.isoformat()))
+        _store_gen_image(user_id, data, mime, prompt, model, aid)
+        _image_quota_notify(quota, used_before)
         agent_update(aid, status="Done", state="done")
         return (
             f"Image generated ({made + 1}/{max_per_turn} this turn) — it is already shown "
@@ -542,6 +600,63 @@ async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = Fa
         return f"(could not generate the image: {exc})"
 
 
+async def edit_image(instruction: str, source: str = "generated") -> str:
+    """Image-to-image: apply an edit instruction to the newest generated image
+    (source="generated") or to the image the user attached (source="attached").
+    The result is shown in the answer automatically."""
+    user_id = user_var.get()
+    if user_id is None:
+        return "(cannot edit images in this context)"
+    made = _images_made_this_turn()
+    if not claim_dispatch("imagegen|edit|" + " ".join(instruction.lower().split())[:300]):
+        return (
+            "(that exact edit was already made this turn and is shown to the user — "
+            "do not call edit_image again)"
+        )
+    max_per_turn = get_settings().images.max_per_turn
+    if made >= max_per_turn:
+        return f"(REFUSED: already made {max_per_turn} image(s) this turn — give your final answer)"
+    quota, used_before, refusal = _image_quota_check(user_id)
+    if refusal:
+        return refusal
+    aid = uuid.uuid4().hex[:8]
+    agent_update(aid, label=f"Edit: {instruction[:300]}", status="Fetching the source image…", state="running")
+    try:
+        from app.agent import imagegen
+
+        if source == "attached":
+            atts = attachments_var.get() or []
+            if not atts:
+                agent_update(aid, status="Failed", state="error")
+                return (
+                    "(no image is attached to this message — ask the user to attach one, "
+                    "or use source='generated' to edit the latest generated image)"
+                )
+            src_mime, src = atts[0]
+        else:
+            gen = _load_gen_images(user_id, 1)
+            if not gen:
+                agent_update(aid, status="Failed", state="error")
+                return "(no generated image found to edit — generate one first, or ask for an attachment)"
+            src_mime, src, _ = gen[0]
+        agent_update(aid, status="Editing…")
+        model = runtime.image_model_edit()
+        data, mime = await imagegen.edit(instruction, src, src_mime, model=model)
+        _store_gen_image(user_id, data, mime, instruction, model, aid)
+        _image_quota_notify(quota, used_before)
+        agent_update(aid, status="Done", state="done")
+        return (
+            f"Image edited ({made + 1}/{max_per_turn} this turn) — the result is already "
+            "shown in your answer and saved to the user's gallery. Do not embed links or "
+            "gallery blocks for it; a short intro is enough. Edits chain: another "
+            "edit_image with source='generated' refines THIS result."
+        )
+    except Exception as exc:
+        agent_update(aid, status="Failed", state="error")
+        log.warning("edit_image failed: %s", exc)
+        return f"(could not edit the image: {exc})"
+
+
 async def look_generated(question: str, count: int = 1) -> str:
     """Examine the user's most recently GENERATED image(s) (newest first) with the
     vision model and answer a question about them."""
@@ -552,33 +667,7 @@ async def look_generated(question: str, count: int = 1) -> str:
     aid = uuid.uuid4().hex[:8]
     agent_update(aid, label=f"Reviewing {count} generated image(s)", status="Opening…", state="running")
     try:
-        from sqlmodel import Session, select
-
-        from app.agent.activity import dk_var
-        from app.auth import crypto as _crypto
-        from app.db import engine
-        from app.models import Upload
-        from app.uploads import _gen_meta, _path
-
-        dk = dk_var.get()
-        imgs: list[tuple[str, bytes, str]] = []  # (mime, bytes, prompt)
-        with Session(engine) as session:
-            rows = session.exec(
-                select(Upload)
-                .where(Upload.user_id == user_id, Upload.kind == "genimage")
-                .order_by(Upload.created_at.desc())
-                .limit(count)
-            ).all()
-            for up in rows:
-                path = _path(up)
-                if not path.exists() or (up.enc and dk is None):
-                    continue
-                data = path.read_bytes()
-                if up.enc:
-                    data = _crypto.decrypt_bytes(dk, data)
-                if data is None:
-                    continue
-                imgs.append((up.mime, data, str(_gen_meta(up, dk).get("prompt", ""))))
+        imgs = _load_gen_images(user_id, count)
         if not imgs:
             agent_update(aid, status="Done", state="done")
             return "(no generated images found for this user — generate one first, or they were deleted)"
@@ -767,5 +856,6 @@ def build_tools(image_gen: bool = False) -> list[Tool]:
     # Per-user feature (admin-granted) — only offered to users who may use it.
     if image_gen:
         tools.append(Tool(generate_image, name="generate_image", description=get_prompt("tools/generate_image")))
+        tools.append(Tool(edit_image, name="edit_image", description=get_prompt("tools/edit_image")))
         tools.append(Tool(look_generated, name="look_generated", description=get_prompt("tools/look_generated")))
     return tools

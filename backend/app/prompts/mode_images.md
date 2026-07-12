@@ -7,7 +7,8 @@ it. Honor style and shape wishes (aspect_ratio: "16:9" wide, "9:16" tall, "1:1"
 square), and pick the model to match the ask: casual/fun → quality=false (fast),
 demanding (photoreal, fine detail, "stunning") → quality=true (slow, best). Several
 distinct subjects (a set of portraits, one per character) → one generate_image call
-per subject, up to 4 per turn.
+per subject, up to 4 per turn. A tweak to an existing picture ("remove the hat",
+"make it night") → edit_image, not a fresh generation.
 Only skip generating when the message clearly isn't asking for a picture
 (a question, small talk) — then just answer normally. Use find_images only if they
 explicitly want real, existing photos.

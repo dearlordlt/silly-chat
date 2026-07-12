@@ -34,9 +34,13 @@ def load_overrides() -> None:
         _chat.update({k: int(v) for k, v in chat_row.value.items() if isinstance(v, (int, float))})
     _images.clear()
     if images_row:
-        # model_quality keeps an explicit "" (= disabled); other empties are noise.
+        # model_quality/model_edit keep an explicit "" (= disabled); other empties are noise.
         _images.update(
-            {k: str(v) for k, v in images_row.value.items() if v or k == "model_quality"}
+            {
+                k: str(v)
+                for k, v in images_row.value.items()
+                if v or k in ("model_quality", "model_edit")
+            }
         )
 
 
@@ -77,6 +81,19 @@ def image_model_quality() -> str:
     return image_model_quality_setting() or image_model()
 
 
+def image_model_edit_setting() -> str:
+    """The configured image-editing model as a setting: admin override wins (an
+    explicit "" means 'use the fast model'), else the config.toml default."""
+    q = _images.get("model_edit")
+    return q if q is not None else get_settings().images.model_edit
+
+
+def image_model_edit() -> str:
+    """The image-to-image model; falls back to the fast one (which may or may not
+    accept image input — the admin picker marks the capable ones)."""
+    return image_model_edit_setting() or image_model()
+
+
 def image_api_key() -> str:
     return _images.get("api_key", "")
 
@@ -95,9 +112,10 @@ def set_images(values: dict[str, str | None]) -> None:
         v = str(values.get(k) or "").strip()
         if v:
             merged[k] = v
-    if values.get("model_quality") is not None:
-        # "" is stored as an explicit disable — it must beat the config default.
-        merged["model_quality"] = str(values["model_quality"]).strip()
+    for k in ("model_quality", "model_edit"):
+        if values.get(k) is not None:
+            # "" is stored as an explicit disable — it must beat the config default.
+            merged[k] = str(values[k]).strip()
     with Session(engine) as session:
         row = session.get(AppSetting, "images") or AppSetting(key="images", value={})
         row.value = merged

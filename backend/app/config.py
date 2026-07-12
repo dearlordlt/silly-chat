@@ -52,6 +52,9 @@ class ImagesCfg(BaseModel):
     # Optional slower top-quality model — the orchestrator picks it for demanding
     # asks (photorealism, fine detail). Empty = always use `model`.
     model_quality: str = "openai/gpt-5.4-image-2"
+    # Image-to-image editing model (must accept image INPUT). Empty = use `model`
+    # (works only if the fast model itself takes image input).
+    model_edit: str = "google/gemini-3.1-flash-image"
     timeout_s: int = 180
     max_per_turn: int = 4  # hard cap on generated images per chat turn
     # Default weekly image quota for non-admin users (admins are unlimited).

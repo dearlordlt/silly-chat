@@ -54,8 +54,16 @@ export type AppMeta = {
   context_window: number | null
 }
 
-// model = fast/default; model_quality = optional top model ('' = always use fast).
-export type ImagesCfg = { model: string; model_quality: string; has_key: boolean; key_hint: string }
+// model = fast/default; model_quality = optional top model; model_edit = image-to-image
+// model ('' = fall back to the fast model).
+export type ImagesCfg = {
+  model: string
+  model_quality: string
+  model_edit: string
+  has_key: boolean
+  key_hint: string
+}
+export type ImageModelOption = { id: string; name: string; edits: boolean }
 
 export type UsageModelRow = {
   model: string
@@ -131,9 +139,13 @@ export const api = {
   setUserImageQuota: (id: number, quota: number | null) =>
     req<Me>('PUT', `/api/admin/users/${id}/imagequota`, { quota }),
   getImagesCfg: () =>
-    req<ImagesCfg & { available: { id: string; name: string }[] }>('GET', '/api/admin/images'),
-  setImagesCfg: (cfg: { model?: string; api_key?: string; model_quality?: string }) =>
-    req<ImagesCfg>('PUT', '/api/admin/images', cfg),
+    req<ImagesCfg & { available: ImageModelOption[] }>('GET', '/api/admin/images'),
+  setImagesCfg: (cfg: {
+    model?: string
+    api_key?: string
+    model_quality?: string
+    model_edit?: string
+  }) => req<ImagesCfg>('PUT', '/api/admin/images', cfg),
   // The user's own generated-images gallery.
   getGallery: () => req<GalleryItem[]>('GET', '/api/gallery'),
   deleteGalleryImage: (id: string) => req<{ ok: boolean }>('DELETE', `/api/gallery/${id}`),

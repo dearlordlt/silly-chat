@@ -34,6 +34,7 @@ REQUIRED_PROMPTS: tuple[str, ...] = (
     "tools/write_code",
     "tools/make_document",
     "tools/generate_image",
+    "tools/edit_image",
     "tools/look_generated",
     "tools/look",
     "tools/search_document",

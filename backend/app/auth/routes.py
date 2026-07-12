@@ -403,8 +403,9 @@ def _key_hint(key: str) -> str:
 class ImagesCfgIn(BaseModel):
     model: str = ""  # empty = keep
     api_key: str = ""  # empty = keep the stored key
-    # None = keep; "" = clear (always use the fast model); value = set.
+    # None = keep; "" = clear (fall back to the fast model); value = set.
     model_quality: str | None = None
+    model_edit: str | None = None
 
 
 def _images_cfg() -> dict[str, Any]:
@@ -414,6 +415,7 @@ def _images_cfg() -> dict[str, Any]:
     return {
         "model": runtime.image_model(),
         "model_quality": runtime.image_model_quality_setting(),
+        "model_edit": runtime.image_model_edit_setting(),
         "has_key": bool(key),
         "key_hint": _key_hint(key),
     }
@@ -431,7 +433,12 @@ def set_images_cfg(body: ImagesCfgIn, _: AdminUser) -> dict[str, Any]:
     from app import runtime
 
     runtime.set_images(
-        {"model": body.model, "api_key": body.api_key, "model_quality": body.model_quality}
+        {
+            "model": body.model,
+            "api_key": body.api_key,
+            "model_quality": body.model_quality,
+            "model_edit": body.model_edit,
+        }
     )
     return _images_cfg()
 

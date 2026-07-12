@@ -4,6 +4,16 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.13.0 — 2026-07-12
+
+- **Image editing (image-to-image)** — change pictures instead of regenerating:
+  "remove the hat" edits the image the assistant just made (edits chain, each
+  refining the last), or attach your own photo and ask "remove the people from the
+  background". Edited images land in your gallery like generated ones and count
+  against the same weekly allowance. Admins pick the editing model in
+  Admin → Images (only image-input-capable models are offered; Gemini Flash Image
+  by default).
+
 ## v1.12.0 — 2026-07-12
 
 - **Image gallery** — your generated images now have a home: Gallery (in the user
