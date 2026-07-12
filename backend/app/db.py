@@ -55,6 +55,9 @@ def _ensure_columns() -> None:
         if "image_gen" not in ucols:
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN image_gen BOOLEAN")
             conn.commit()
+        if "image_quota" not in ucols:
+            conn.exec_driver_sql("ALTER TABLE user ADD COLUMN image_quota INTEGER")
+            conn.commit()
         upcols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(upload)").fetchall()}
         if "enc" not in upcols:
             conn.exec_driver_sql("ALTER TABLE upload ADD COLUMN enc INTEGER DEFAULT 0")

@@ -43,7 +43,9 @@ from app.agent.activity import (
     emit_var,
     files_var,
     findings_var,
+    found_images_var,
     gen_images_var,
+    image_quota_var,
     looks_var,
     maps_var,
     sources_var,
@@ -172,6 +174,7 @@ async def stream_chat(
     user_id: int | None = None,  # owner for generated files (make_document)
     dk: bytes | None = None,  # requester's data key — seals generated files
     image_gen: bool = False,  # may this user generate images? (per-user, admin-set)
+    image_quota: int | None = None,  # weekly image allowance; None = unlimited
 ) -> AsyncIterator[StreamEvent]:
     attachments = attachments or []
     doc_chunks = doc_chunks or []
@@ -235,6 +238,7 @@ async def stream_chat(
     edits: list = []  # EditsBlocks from targeted artifact edits
     files: list = []  # FileBlocks from make_document
     gen_images: list = []  # (GalleryImage, model) pairs from generate_image
+    found_images: set[str] = set()  # image URLs find_images actually returned
     stats: dict[str, int] = {}  # turn telemetry for the status line
 
     def emit(ev: object) -> None:
@@ -326,9 +330,11 @@ async def stream_chat(
         tok_ed = edits_var.set(edits)
         tok_fi = files_var.set(files)
         tok_gi = gen_images_var.set(gen_images)
+        tok_fnd = found_images_var.set(found_images)
         tok_dt = doc_tasks_var.set({})
         tok_dp = dispatch_var.set({})
         tok_u = user_var.set(user_id)
+        tok_q = image_quota_var.set(image_quota)
         tok_dk = dk_var.set(dk)
         tok_tz = tz_var.set(timezone)
         tok_a = attachments_var.set(attachments)
@@ -377,9 +383,11 @@ async def stream_chat(
             edits_var.reset(tok_ed)
             files_var.reset(tok_fi)
             gen_images_var.reset(tok_gi)
+            found_images_var.reset(tok_fnd)
             doc_tasks_var.reset(tok_dt)
             dispatch_var.reset(tok_dp)
             user_var.reset(tok_u)
+            image_quota_var.reset(tok_q)
             dk_var.reset(tok_dk)
             tz_var.reset(tok_tz)
             attachments_var.reset(tok_a)
@@ -400,7 +408,8 @@ async def stream_chat(
                     yield ErrorEvent(message=str(payload))
                 else:
                     for ev in _final_events(
-                        payload, code, built_maps, sources, edits, artifacts, files, gen_images
+                        payload, code, built_maps, sources, edits, artifacts, files,
+                        gen_images, found_images,
                     ):
                         yield ev
             else:
@@ -493,11 +502,24 @@ def _final_events(
     artifacts: dict[str, tuple[str, str, str]] | None = None,
     files: list | None = None,
     gen_images: list | None = None,
+    found_images: set[str] | None = None,
 ):
     blocks = list(reply.blocks)
     contents = [v[2] for v in (artifacts or {}).values()] + [c for _, c, _, _ in code]
     if contents:
         blocks = _scrub_code_leaks(blocks, contents)
+    # Model-emitted galleries may only show URLs that find_images actually returned
+    # this turn — anything else is a hallucination (seen live: invented OpenAI blob
+    # URLs rendering as broken frames next to the real generated image). Generated
+    # images arrive via their own appended gallery below, never through the model.
+    kept = []
+    for b in blocks:
+        if getattr(b, "type", None) == "gallery":
+            b.images = [im for im in b.images if im.url in (found_images or set())]
+            if not b.images:
+                continue
+        kept.append(b)
+    blocks = kept
     # Targeted-edit records (what changed) come before the updated code (the result).
     blocks.extend(edits or [])
     # Code the coder wrote this turn, deduped by artifact id (last version wins).

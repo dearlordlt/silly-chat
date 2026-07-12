@@ -562,6 +562,36 @@
       "title": "GalleryImage",
       "type": "object"
     },
+    "ImageQuotaEvent": {
+      "description": "Emitted after an image generation when the user's weekly quota runs low\n(\u226410% left) \u2014 the client shows a quiet, dismissable toast. Never sent while\nplenty of quota remains: limits stay invisible until they matter.",
+      "properties": {
+        "event": {
+          "const": "image_quota",
+          "default": "image_quota",
+          "title": "Event",
+          "type": "string"
+        },
+        "used": {
+          "title": "Used",
+          "type": "integer"
+        },
+        "remaining": {
+          "title": "Remaining",
+          "type": "integer"
+        },
+        "resets_at": {
+          "title": "Resets At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "used",
+        "remaining",
+        "resets_at"
+      ],
+      "title": "ImageQuotaEvent",
+      "type": "object"
+    },
     "MapArea": {
       "description": "A shaded region on the map: a real OSM boundary, or an LLM-sketched\napproximation (drawn dashed + labeled approximate).",
       "properties": {
@@ -1019,6 +1049,7 @@
           "block_start": "#/$defs/BlockStartEvent",
           "done": "#/$defs/DoneEvent",
           "error": "#/$defs/ErrorEvent",
+          "image_quota": "#/$defs/ImageQuotaEvent",
           "text_delta": "#/$defs/TextDeltaEvent"
         },
         "propertyName": "event"
@@ -1038,6 +1069,9 @@
         },
         {
           "$ref": "#/$defs/AgentUpdateEvent"
+        },
+        {
+          "$ref": "#/$defs/ImageQuotaEvent"
         },
         {
           "$ref": "#/$defs/DoneEvent"

@@ -426,6 +426,22 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               return { ...t, status: null, agents }
             })
             break
+          case 'image_quota': {
+            // Weekly image allowance running low — quiet 5s toast, dismissable.
+            // The server only sends this when ≤10% remains, so no spam earlier.
+            const when = new Date(ev.resets_at).toLocaleDateString(undefined, {
+              weekday: 'long',
+              month: 'short',
+              day: 'numeric',
+            })
+            toast(
+              `You've generated ${ev.used} image${ev.used === 1 ? '' : 's'} this week — ` +
+                `${ev.remaining} left. Resets ${when}.`,
+              'info',
+              5000,
+            )
+            break
+          }
           case 'block_start':
             // Upsert: streaming already opened this slot when the final answer
             // re-announces its blocks — don't duplicate it.

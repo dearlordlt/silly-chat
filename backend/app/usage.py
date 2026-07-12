@@ -71,6 +71,34 @@ def _insert(user_id: int, kind: str, model: str, tin: int, tout: int, images: in
         session.commit()
 
 
+def week_window(now: datetime | None = None) -> tuple[datetime, datetime]:
+    """The current quota week as aware-UTC (start, end): Monday 00:00 to Monday 00:00."""
+    from datetime import timedelta, timezone
+
+    now = now or datetime.now(timezone.utc)
+    start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    return start, start + timedelta(days=7)
+
+
+def images_this_week(user_id: int) -> int:
+    """Images this user generated in the current quota week (from UsageEvent)."""
+    from sqlmodel import Session, func, select
+
+    from app.db import engine
+    from app.models import UsageEvent
+
+    start, _ = week_window()
+    with Session(engine) as session:
+        total = session.exec(
+            select(func.coalesce(func.sum(UsageEvent.images), 0)).where(
+                UsageEvent.user_id == user_id,
+                UsageEvent.kind == "image",
+                UsageEvent.created_at >= start,
+            )
+        ).one()
+    return int(total or 0)
+
+
 def stats(session, since: datetime | None) -> list[dict]:
     """Aggregate usage per user, broken down per model+kind, newest-heaviest first."""
     from sqlmodel import func, select

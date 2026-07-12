@@ -44,8 +44,12 @@ click it to view fullscreen and use the download button there to save it. The
 **Images** pill under the input switches to picture-first mode where every idea you
 type gets drawn. It's a per-user feature: admins have it by default and can switch it
 on or off for anyone in Admin → Users (the API key and both models live in
-Admin → Images). Generated images are private to you and, like other attachments,
-expire after a week — download the ones you want to keep.
+Admin → Images). Each person can have a weekly image allowance (admins set it in
+Users → ⋯ → Image quota; admins themselves are unlimited) — you won't notice yours
+until it's nearly used up, then a small notice appears after each image, and once
+it's spent the assistant tells you when it resets (Mondays). Generated images are
+private to you and, like other attachments, expire after a week — download the ones
+you want to keep.
 
 ## Presentations
 

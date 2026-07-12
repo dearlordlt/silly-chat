@@ -59,6 +59,17 @@ class AgentUpdateEvent(BaseModel):
     state: Literal["running", "done", "error"] = "running"
 
 
+class ImageQuotaEvent(BaseModel):
+    """Emitted after an image generation when the user's weekly quota runs low
+    (≤10% left) — the client shows a quiet, dismissable toast. Never sent while
+    plenty of quota remains: limits stay invisible until they matter."""
+
+    event: Literal["image_quota"] = "image_quota"
+    used: int  # images generated this week (including this one)
+    remaining: int  # images still available this week
+    resets_at: str  # ISO 8601 UTC — when the weekly window resets
+
+
 class DoneEvent(BaseModel):
     event: Literal["done"] = "done"
     # Turn telemetry for the status line (None/empty when unknown, e.g. on errors).
@@ -80,6 +91,7 @@ StreamEvent = Annotated[
         BlockDataEvent,
         AgentStatusEvent,
         AgentUpdateEvent,
+        ImageQuotaEvent,
         DoneEvent,
         ErrorEvent,
     ],

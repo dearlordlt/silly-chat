@@ -65,7 +65,14 @@ export type Blocks = (
   TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | DiagramBlock | SlidesBlock | SourcesBlock
 )[];
 export type Event =
-  TextDeltaEvent | BlockStartEvent | BlockDataEvent | AgentStatusEvent | AgentUpdateEvent | DoneEvent | ErrorEvent;
+  | TextDeltaEvent
+  | BlockStartEvent
+  | BlockDataEvent
+  | AgentStatusEvent
+  | AgentUpdateEvent
+  | ImageQuotaEvent
+  | DoneEvent
+  | ErrorEvent;
 export type Event1 = "text_delta";
 export type BlockId = string;
 export type Text = string;
@@ -122,12 +129,16 @@ export type Id = string;
 export type Label1 = string;
 export type Status = string;
 export type State = "running" | "done" | "error";
-export type Event6 = "done";
+export type Event6 = "image_quota";
+export type Used = number;
+export type Remaining = number;
+export type ResetsAt = string;
+export type Event7 = "done";
 export type InputTokens = number | null;
 export type OutputTokens = number | null;
 export type ContextWindow = number | null;
 export type Models = string[];
-export type Event7 = "error";
+export type Event8 = "error";
 export type Message1 = string;
 
 /**
@@ -353,8 +364,20 @@ export interface AgentUpdateEvent {
   state?: State;
   [k: string]: unknown;
 }
-export interface DoneEvent {
+/**
+ * Emitted after an image generation when the user's weekly quota runs low
+ * (≤10% left) — the client shows a quiet, dismissable toast. Never sent while
+ * plenty of quota remains: limits stay invisible until they matter.
+ */
+export interface ImageQuotaEvent {
   event?: Event6;
+  used: Used;
+  remaining: Remaining;
+  resets_at: ResetsAt;
+  [k: string]: unknown;
+}
+export interface DoneEvent {
+  event?: Event7;
   input_tokens?: InputTokens;
   output_tokens?: OutputTokens;
   context_window?: ContextWindow;
@@ -362,7 +385,7 @@ export interface DoneEvent {
   [k: string]: unknown;
 }
 export interface ErrorEvent {
-  event?: Event7;
+  event?: Event8;
   message: Message1;
   [k: string]: unknown;
 }

@@ -35,6 +35,7 @@ from app.schema.events import (
     BlockStartEvent,
     DoneEvent,
     ErrorEvent,
+    ImageQuotaEvent,
     StreamEvent,
     TextDeltaEvent,
 )
@@ -61,6 +62,7 @@ __all__ = [
     "BlockStartEvent",
     "DoneEvent",
     "ErrorEvent",
+    "ImageQuotaEvent",
     "StreamEvent",
     "TextDeltaEvent",
 ]

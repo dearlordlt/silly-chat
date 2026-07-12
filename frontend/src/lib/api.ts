@@ -8,6 +8,8 @@ export type Me = {
   image_gen?: boolean | null
   // Effective capability (permission AND server key set) — shows the Images pill.
   can_generate_images?: boolean
+  // Weekly image quota override — only populated in admin endpoints (null = default).
+  image_quota?: number | null
 }
 
 // FastAPI errors come back as {detail: string} OR {detail: [{msg, loc}, ...]} (422
@@ -115,6 +117,9 @@ export const api = {
   // Image generation (OpenRouter): per-user switch, admin-managed key + model, stats.
   setUserImageGen: (id: number, enabled: boolean) =>
     req<Me>('PUT', `/api/admin/users/${id}/imagegen`, { enabled }),
+  // quota: null = server default, 0 = unlimited, n = images/week.
+  setUserImageQuota: (id: number, quota: number | null) =>
+    req<Me>('PUT', `/api/admin/users/${id}/imagequota`, { quota }),
   getImagesCfg: () =>
     req<ImagesCfg & { available: { id: string; name: string }[] }>('GET', '/api/admin/images'),
   setImagesCfg: (cfg: { model?: string; api_key?: string; model_quality?: string }) =>

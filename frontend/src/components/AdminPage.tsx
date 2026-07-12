@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Check,
+  Gauge,
   Image as ImageIcon,
   ImageOff,
   KeyRound,
@@ -74,6 +75,8 @@ function UsersSection() {
   const [menuFor, setMenuFor] = useState<number | null>(null)
   const [confirm, setConfirm] = useState<{ user: Me; action: 'delete' | 'demote' | 'reset' } | null>(null)
   const [tempPw, setTempPw] = useState<{ username: string; password: string } | null>(null)
+  const [quotaFor, setQuotaFor] = useState<Me | null>(null)
+  const [quotaVal, setQuotaVal] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
 
   const load = () => api.listUsers().then(setUsers).catch((e) => toast.error(String(e.message ?? e)))
@@ -143,6 +146,9 @@ function UsersSection() {
                   >
                     <ImageIcon className="size-3" />
                     images
+                    {u.role !== 'admin' &&
+                      u.image_quota != null &&
+                      (u.image_quota === 0 ? ' · ∞' : ` · ${u.image_quota}/wk`)}
                   </span>
                 )}
               </span>
@@ -208,6 +214,18 @@ function UsersSection() {
                       </MenuItem>
                     )
                   })()}
+                  {u.role !== 'admin' && (
+                    <MenuItem
+                      icon={<Gauge />}
+                      onClick={() => {
+                        setMenuFor(null)
+                        setQuotaVal(u.image_quota != null ? String(u.image_quota) : '')
+                        setQuotaFor(u)
+                      }}
+                    >
+                      Image quota…
+                    </MenuItem>
+                  )}
                   <MenuItem
                     icon={<KeyRound />}
                     onClick={() => {
@@ -282,6 +300,61 @@ function UsersSection() {
           onCancel={() => setTempPw(null)}
           onConfirm={() => setTempPw(null)}
         />
+      )}
+
+      {quotaFor && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
+          onClick={() => setQuotaFor(null)}
+        >
+          <div
+            className="animate-rise w-full max-w-sm rounded-xl border bg-card p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-1 text-[15px] font-bold">Image quota for {quotaFor.username}</h3>
+            <p className="mb-3 text-[13px] text-muted-foreground">
+              Images per week. Leave empty for the server default, 0 for unlimited. They
+              won't see the limit until it's nearly used up.
+            </p>
+            <input
+              type="number"
+              min={0}
+              autoFocus
+              value={quotaVal}
+              onChange={(e) => setQuotaVal(e.target.value)}
+              placeholder="server default"
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setQuotaFor(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  const raw = quotaVal.trim()
+                  const quota = raw === '' ? null : Math.floor(Number(raw))
+                  if (quota !== null && (!Number.isFinite(quota) || quota < 0)) {
+                    toast.error('Quota must be a whole number (or empty for the default)')
+                    return
+                  }
+                  const who = quotaFor
+                  setQuotaFor(null)
+                  act(
+                    api.setUserImageQuota(who.id, quota),
+                    quota === null
+                      ? `${who.username} back on the default quota`
+                      : quota === 0
+                        ? `${who.username}: unlimited images`
+                        : `${who.username}: ${quota} images/week`,
+                  )
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

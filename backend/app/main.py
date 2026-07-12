@@ -135,11 +135,17 @@ async def chat(
     # The Images pill is only shown to users who can generate, but never trust the
     # client: without the permission the mode quietly degrades to plain chat.
     mode: Mode = req.mode if req.mode != "images" or image_gen else "chat"
+    # Weekly image allowance: admins unlimited; others get their override or the
+    # config default (0 = unlimited). Enforced by the generate_image tool.
+    image_quota = None
+    if image_gen and user.role != "admin":
+        q = user.image_quota if user.image_quota is not None else get_settings().images.weekly_quota
+        image_quota = q if q > 0 else None
 
     async def event_generator():
         async for event in stream_chat(
             req.message, mode, history, req.timezone, images, doc_chunks,
-            req.context, req.summary, artifacts, user.id, dk, image_gen,
+            req.context, req.summary, artifacts, user.id, dk, image_gen, image_quota,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 

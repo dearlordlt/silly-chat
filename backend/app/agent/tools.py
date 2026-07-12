@@ -34,11 +34,13 @@ from app.agent.activity import (
     doc_tasks_var,
     docs_var,
     emit_var,
+    image_quota_var,
     looks_var,
     record_code,
     record_edits,
     record_file,
     record_findings,
+    record_found_images,
     record_gen_image,
     record_map,
     record_sources,
@@ -48,7 +50,15 @@ from app.agent.activity import (
 from app.usage import record_llm
 from app.agent import maps as osm
 from app.embeddings import embed_texts, rank
-from app.schema import BlockStartEvent, EditChange, EditsBlock, MapArea, MapBlock, TextDeltaEvent
+from app.schema import (
+    BlockStartEvent,
+    EditChange,
+    EditsBlock,
+    ImageQuotaEvent,
+    MapArea,
+    MapBlock,
+    TextDeltaEvent,
+)
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
 from app.agent.ollama import coder_model, vision_model, worker_model
 from app.config import get_settings
@@ -138,7 +148,9 @@ async def find_images(query: str, must_show: str = "") -> list[ImageHit]:
         candidates = await search.search_images(query)
         if not must_show:
             agent_update(aid, status="Done", state="done")
-            return [ImageHit(url=c.image_url, title=c.title, source_url=c.source_url) for c in candidates[:8]]
+            hits = [ImageHit(url=c.image_url, title=c.title, source_url=c.source_url) for c in candidates[:8]]
+            record_found_images([h.url for h in hits])
+            return hits
 
         limits = get_settings().limits
         confirmed: list[ImageHit] = []
@@ -149,6 +161,7 @@ async def find_images(query: str, must_show: str = "") -> list[ImageHit]:
             if await _vision_yes(c.image_url, f"Does this image show {must_show}?"):
                 confirmed.append(ImageHit(url=c.image_url, title=c.title, source_url=c.source_url))
         agent_update(aid, status="Done", state="done")
+        record_found_images([h.url for h in confirmed])
         return confirmed
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
@@ -462,6 +475,20 @@ async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = Fa
     max_per_turn = get_settings().images.max_per_turn
     if made >= max_per_turn:
         return f"(REFUSED: already generated {max_per_turn} image(s) this turn — give your final answer)"
+    # Weekly quota (admin-set, None = unlimited). Counted from the usage records.
+    from app.usage import images_this_week, week_window
+
+    quota = image_quota_var.get()
+    used_before = 0
+    if quota is not None:
+        used_before = images_this_week(user_id)
+        if used_before >= quota:
+            _, resets = week_window()
+            return (
+                f"(REFUSED: the user's weekly image allowance ({quota}) is used up — it "
+                f"resets {resets.strftime('%A, %b %d')}. Tell them kindly and plainly; "
+                "do not call generate_image again this turn.)"
+            )
     aid = uuid.uuid4().hex[:8]
     agent_update(aid, label=f"Image: {prompt[:300]}", status="Generating…", state="running")
     try:
@@ -481,6 +508,16 @@ async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = Fa
             uid = store_export(session, user_id, f"image-{aid}.{ext}", data, mime, ext, dk=dk_var.get())
         usage.record_image(model)
         record_gen_image(GalleryImage(url=f"/api/uploads/{uid}", caption=prompt[:200]), model)
+        # Quota stays invisible until ≤10% remains — then every generation shows a
+        # quiet client-side toast (the user asked not to be nagged before that).
+        if quota is not None:
+            used_now = used_before + 1
+            remaining = max(0, quota - used_now)
+            if remaining <= max(1, quota // 10):
+                emit = emit_var.get()
+                if emit is not None:
+                    _, resets = week_window()
+                    emit(ImageQuotaEvent(used=used_now, remaining=remaining, resets_at=resets.isoformat()))
         agent_update(aid, status="Done", state="done")
         return (
             "Image generated — it is already shown in your answer. Do not embed links or "

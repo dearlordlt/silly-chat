@@ -54,6 +54,9 @@ class ImagesCfg(BaseModel):
     model_quality: str = "openai/gpt-5.4-image-2"
     timeout_s: int = 180
     max_per_turn: int = 4  # hard cap on generated images per chat turn
+    # Default weekly image quota for non-admin users (admins are unlimited).
+    # Per-user overrides live on the User row (admin-set). 0 = unlimited.
+    weekly_quota: int = 50
 
 
 class MapsCfg(BaseModel):

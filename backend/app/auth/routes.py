@@ -43,14 +43,20 @@ class UserOut(BaseModel):
     # Effective capability: permission AND a configured OpenRouter key. The client
     # uses this to show the "Images" mode pill.
     can_generate_images: bool = False
+    # Weekly image quota override — surfaced only through admin endpoints; the
+    # /me and login payloads keep it None (quotas stay invisible to users).
+    image_quota: int | None = None
 
 
-def _user_out(user: User) -> UserOut:
+def _user_out(user: User, admin: bool = False) -> UserOut:
     from app import runtime
     from app.models import image_gen_enabled
 
+    data = user.model_dump()
+    if not admin:
+        data["image_quota"] = None
     return UserOut(
-        **user.model_dump(),
+        **data,
         can_generate_images=image_gen_enabled(user) and bool(runtime.image_api_key()),
     )
 
@@ -243,7 +249,7 @@ def update_settings(body: dict[str, Any], user: ApprovedUser, session: SessionDe
 @admin_router.get("/users")
 def list_users(_: AdminUser, session: SessionDep) -> list[UserOut]:
     users = session.exec(select(User).order_by(User.created_at)).all()
-    return [_user_out(u) for u in users]
+    return [_user_out(u, admin=True) for u in users]
 
 
 @admin_router.post("/users/{user_id}/approve")
@@ -255,7 +261,7 @@ def approve_user(user_id: int, _: AdminUser, session: SessionDep) -> UserOut:
     session.add(user)
     session.commit()
     session.refresh(user)
-    return _user_out(user)
+    return _user_out(user, admin=True)
 
 
 class RoleIn(BaseModel):
@@ -279,7 +285,7 @@ def set_role(user_id: int, body: RoleIn, admin: AdminUser, session: SessionDep) 
     session.add(user)
     session.commit()
     session.refresh(user)
-    return _user_out(user)
+    return _user_out(user, admin=True)
 
 
 @admin_router.delete("/users/{user_id}")
@@ -369,7 +375,24 @@ def set_user_image_gen(user_id: int, body: ImageGenIn, _: AdminUser, session: Se
     session.add(user)
     session.commit()
     session.refresh(user)
-    return _user_out(user)
+    return _user_out(user, admin=True)
+
+
+class ImageQuotaIn(BaseModel):
+    # None = back to the config default; 0 = unlimited for this user.
+    quota: int | None = Field(default=None, ge=0, le=100_000)
+
+
+@admin_router.put("/users/{user_id}/imagequota")
+def set_user_image_quota(user_id: int, body: ImageQuotaIn, _: AdminUser, session: SessionDep) -> UserOut:
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such user")
+    user.image_quota = body.quota
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return _user_out(user, admin=True)
 
 
 def _key_hint(key: str) -> str:

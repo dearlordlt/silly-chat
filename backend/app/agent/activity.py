@@ -40,8 +40,14 @@ files_var: ContextVar[list[object] | None] = ContextVar("files", default=None)
 # Images generated this turn as (GalleryImage, model) — appended as one gallery
 # block; the model half feeds the turn's models chip + isn't shown to the model.
 gen_images_var: ContextVar[list[tuple[object, str]] | None] = ContextVar("gen_images", default=None)
+# Image URLs that tools actually returned this turn (find_images hits). Model-emitted
+# gallery blocks are filtered against this so hallucinated URLs (seen live: invented
+# OpenAI blob links rendering as broken frames) never reach the user.
+found_images_var: ContextVar[set[str] | None] = ContextVar("found_images", default=None)
 # The requesting user's id — generated files are stored under their ownership.
 user_var: ContextVar[int | None] = ContextVar("user", default=None)
+# The user's weekly image quota for this turn. None = unlimited (admins / disabled).
+image_quota_var: ContextVar[int | None] = ContextVar("image_quota", default=None)
 # The requester's data key — generated files are sealed with it.
 dk_var: ContextVar[bytes | None] = ContextVar("dk", default=None)
 # Coding tasks already dispatched this turn — write_code refuses exact duplicates
@@ -121,3 +127,9 @@ def record_gen_image(image: object, model: str) -> None:
     bucket = gen_images_var.get()
     if bucket is not None:
         bucket.append((image, model))
+
+
+def record_found_images(urls: list[str]) -> None:
+    bucket = found_images_var.get()
+    if bucket is not None:
+        bucket.update(u for u in urls if u)

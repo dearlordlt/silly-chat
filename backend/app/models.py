@@ -25,6 +25,9 @@ class User(SQLModel, table=True):
     # dedicated column — deliberately NOT in `settings`, which users can write
     # themselves via /api/auth/settings; only admins flip this.
     image_gen: bool | None = Field(default=None)
+    # Weekly image quota override (admin-set). None = the config default; admins
+    # are always unlimited. Invisible to the user until it nearly runs out.
+    image_quota: int | None = Field(default=None)
     # Chat-encryption data key, wrapped under the password / the recovery key.
     # Empty until the user's first login after encryption shipped.
     wrapped_dk: str = ""

@@ -4,6 +4,17 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.11.0 — 2026-07-12
+
+- **Weekly image quotas** — admins can give each person a weekly image allowance
+  (Users → ⋯ → Image quota; a server default covers everyone else, admins are
+  unlimited). Deliberately invisible until it matters: when ≤10% remains, each
+  generation shows a small dismissable notice ("X generated this week, Y left,
+  resets Monday"), and when it's used up the assistant says so and when it resets.
+- Fixed: the assistant sometimes invented broken image frames next to real
+  generated pictures (hallucinated image URLs) — image galleries it writes are now
+  verified against what its tools actually returned, so only real images render.
+
 ## v1.10.0 — 2026-07-12
 
 - **Fast & quality image models** — Admin → Images now configures a model pair: a

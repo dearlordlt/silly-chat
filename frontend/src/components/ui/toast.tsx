@@ -6,13 +6,13 @@ import { useEffect, useState } from 'react'
  * fire from anywhere with toast("...") / toast.error("...").
  */
 type Variant = 'info' | 'error' | 'success'
-type Item = { id: number; message: string; variant: Variant }
+type Item = { id: number; message: string; variant: Variant; duration: number }
 
 let nextId = 1
 let push: ((t: Item) => void) | null = null
 
-export function toast(message: string, variant: Variant = 'info') {
-  push?.({ id: nextId++, message, variant })
+export function toast(message: string, variant: Variant = 'info', duration = 6000) {
+  push?.({ id: nextId++, message, variant, duration })
 }
 toast.error = (m: string) => toast(m, 'error')
 toast.success = (m: string) => toast(m, 'success')
@@ -29,7 +29,7 @@ export function Toaster() {
   useEffect(() => {
     push = (t) => {
       setItems((list) => [...list, t])
-      setTimeout(() => setItems((list) => list.filter((x) => x.id !== t.id)), 6000)
+      setTimeout(() => setItems((list) => list.filter((x) => x.id !== t.id)), t.duration)
     }
     return () => {
       push = null
