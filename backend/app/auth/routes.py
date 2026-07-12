@@ -38,6 +38,8 @@ class UserOut(BaseModel):
     status: str
     role: str
     settings: dict[str, Any] = {}
+    # Raw per-user image-generation flag; None = role default (admins yes).
+    image_gen: bool | None = None
 
 
 def _set_session_cookie(response: Response, user_id: int, dk: bytes | None = None) -> None:
@@ -278,12 +280,14 @@ def delete_user(user_id: int, admin: AdminUser, session: SessionDep) -> dict:
         admins = session.exec(select(func.count()).select_from(User).where(User.role == "admin")).one()
         if admins <= 1:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "there must be at least one admin")
-    # Take the user's data with them (conversations, uploads + doc chunks).
-    from app.models import Conversation, DocChunk, Upload
+    # Take the user's data with them (conversations, uploads + doc chunks, usage rows).
+    from app.models import Conversation, DocChunk, Upload, UsageEvent
     from app.uploads import _gc_orphan_files
 
     for conv in session.exec(select(Conversation).where(Conversation.user_id == user.id)).all():
         session.delete(conv)
+    for ev in session.exec(select(UsageEvent).where(UsageEvent.user_id == user.id)).all():
+        session.delete(ev)
     for up in session.exec(select(Upload).where(Upload.user_id == user.id)).all():
         for ch in session.exec(select(DocChunk).where(DocChunk.upload_id == up.id)).all():
             session.delete(ch)
@@ -337,6 +341,73 @@ def admin_reset_password(user_id: int, admin: AdminUser, session: SessionDep) ->
     session.add(user)
     session.commit()
     return {"temp_password": temp, "deleted_chats": deleted}
+
+
+class ImageGenIn(BaseModel):
+    enabled: bool
+
+
+@admin_router.put("/users/{user_id}/imagegen")
+def set_user_image_gen(user_id: int, body: ImageGenIn, _: AdminUser, session: SessionDep) -> UserOut:
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such user")
+    user.image_gen = body.enabled
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return UserOut(**user.model_dump())
+
+
+def _key_hint(key: str) -> str:
+    """A recognizable, non-revealing fingerprint of the stored API key."""
+    return (key[:9] + "…" + key[-4:]) if len(key) > 16 else ("set" if key else "")
+
+
+class ImagesCfgIn(BaseModel):
+    model: str = ""
+    api_key: str = ""  # empty = keep the stored key
+
+
+@admin_router.get("/images")
+async def get_images_cfg(_: AdminUser) -> dict[str, Any]:
+    from app import runtime
+    from app.agent.imagegen import available_image_models
+
+    key = runtime.image_api_key()
+    return {
+        "model": runtime.image_model(),
+        "has_key": bool(key),
+        "key_hint": _key_hint(key),
+        "available": await available_image_models(),
+    }
+
+
+@admin_router.put("/images")
+def set_images_cfg(body: ImagesCfgIn, _: AdminUser) -> dict[str, Any]:
+    from app import runtime
+
+    runtime.set_images({"model": body.model, "api_key": body.api_key})
+    key = runtime.image_api_key()
+    return {"model": runtime.image_model(), "has_key": bool(key), "key_hint": _key_hint(key)}
+
+
+@admin_router.get("/stats")
+def usage_stats(_: AdminUser, session: SessionDep, since: str | None = None) -> dict[str, Any]:
+    """Aggregated usage per user/model — counts only, never any message content."""
+    from datetime import datetime, timezone
+
+    from app.usage import stats
+
+    cutoff = None
+    if since:
+        try:
+            cutoff = datetime.fromisoformat(since.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "since must be ISO 8601")
+        if cutoff.tzinfo is not None:
+            cutoff = cutoff.astimezone(timezone.utc)
+    return {"users": stats(session, cutoff)}
 
 
 @admin_router.get("/chat")

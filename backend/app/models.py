@@ -21,11 +21,34 @@ class User(SQLModel, table=True):
     role: str = Field(default="user")  # user | admin
     # Per-user preferences synced across devices (e.g. {"storageMode": "server"}).
     settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # May this user generate images? None = default (admins yes, others no). A
+    # dedicated column — deliberately NOT in `settings`, which users can write
+    # themselves via /api/auth/settings; only admins flip this.
+    image_gen: bool | None = Field(default=None)
     # Chat-encryption data key, wrapped under the password / the recovery key.
     # Empty until the user's first login after encryption shipped.
     wrapped_dk: str = ""
     wrapped_dk_recovery: str = ""
     created_at: datetime = Field(default_factory=_utcnow)
+
+
+def image_gen_enabled(user: User) -> bool:
+    """Effective image-generation permission: explicit flag wins, else role default."""
+    return user.image_gen if user.image_gen is not None else user.role == "admin"
+
+
+class UsageEvent(SQLModel, table=True):
+    """One LLM run or image generation — counts only, never any content. Powers the
+    admin Statistics panel; what was asked or answered is never stored here."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True)
+    kind: str = "llm"  # llm | image
+    model: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    images: int = 0
+    created_at: datetime = Field(default_factory=_utcnow, index=True)
 
 
 class AppSetting(SQLModel, table=True):

@@ -31,6 +31,16 @@ In Chat mode you can attach documents — PDF, Word (.docx), Excel (.xlsx), Powe
 their contents. Large files are capped (25 MB) and originals are cleaned up after a
 day; what the assistant learned stays available in that chat for a week.
 
+## Image generation
+
+Ask the assistant to draw or design a picture — "draw a cozy cabin in the woods",
+"make a logo for my bakery" — and it generates one with an AI image model (via
+OpenRouter; Grok by default). The image appears right in the answer. It's a per-user
+feature: admins have it by default and can switch it on or off for anyone in
+Admin → Users (the API key and model live in Admin → Images). Generated images are
+private to you and, like other attachments, expire after a week — download the ones
+you want to keep.
+
 ## Presentations
 
 Ask for "a presentation about X" (optionally "in 7 slides") and you get a real slide
@@ -130,8 +140,11 @@ fine print: messages are necessarily readable by the server *while it answers yo
 ## Accounts & admin
 
 New registrations wait for an admin's approval. Admins manage users (approve, promote,
-demote, delete) and choose which Ollama models power each role — main, research
-agents, vision, coding, and embeddings — from the Admin panel, applied instantly.
+demote, delete, toggle image generation) and choose which Ollama models power each
+role — main, research agents, vision, coding, and embeddings — from the Admin panel,
+applied instantly. Admin → Statistics shows how much each person has used: tokens per
+model and images generated, filterable by period (today, last days, week, month) —
+counts only, never what anyone wrote.
 
 ## Install as an app
 

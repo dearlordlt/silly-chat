@@ -126,10 +126,17 @@ async def chat(
 
     artifacts = {a.id: (a.name, a.language, a.content[:200_000]) for a in req.artifacts[:12]}
 
+    # Image generation: per-user (admin-granted, admins on by default) and only
+    # when an OpenRouter key is configured — otherwise the tool isn't offered at all.
+    from app import runtime
+    from app.models import image_gen_enabled
+
+    image_gen = image_gen_enabled(user) and bool(runtime.image_api_key())
+
     async def event_generator():
         async for event in stream_chat(
             req.message, req.mode, history, req.timezone, images, doc_chunks,
-            req.context, req.summary, artifacts, user.id, dk,
+            req.context, req.summary, artifacts, user.id, dk, image_gen,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 
@@ -160,4 +167,8 @@ async def summarize(req: SummarizeRequest, user: ApprovedUser) -> dict:
     parts.append(f"Messages to fold in:\n{transcript[:60_000]}")
     agent = Agent(worker_model(), instructions=get_prompt("subagents/summarizer"))
     result = await agent.run("\n\n---\n\n".join(parts))
+    from app import runtime
+    from app.usage import record_llm
+
+    record_llm(runtime.model_for("worker"), result.usage(), user_id=user.id)
     return {"summary": str(result.output).strip()}

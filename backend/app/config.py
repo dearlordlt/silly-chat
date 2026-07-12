@@ -42,6 +42,17 @@ class SearchCfg(BaseModel):
     searxng_url: str = "http://localhost:8080"
 
 
+class ImagesCfg(BaseModel):
+    """Image generation via OpenRouter. The API key is admin-managed at runtime
+    (AppSetting, set in the Admin panel) — never in config or the repo."""
+
+    base_url: str = "https://openrouter.ai/api/v1"
+    # Default image model; admins can pick any image-capable model at runtime.
+    model: str = "x-ai/grok-imagine-image-quality"
+    timeout_s: int = 180
+    max_per_turn: int = 4  # hard cap on generated images per chat turn
+
+
 class MapsCfg(BaseModel):
     # Free OSM ecosystem endpoints (no keys). Self-hostable — just point these elsewhere.
     nominatim_url: str = "https://nominatim.openstreetmap.org"
@@ -127,6 +138,7 @@ class Settings(BaseSettings):
     ollama: OllamaCfg = OllamaCfg()
     models: ModelsCfg
     search: SearchCfg = SearchCfg()
+    images: ImagesCfg = ImagesCfg()
     maps: MapsCfg = MapsCfg()
     limits: LimitsCfg = LimitsCfg()
     db: DbCfg = DbCfg()

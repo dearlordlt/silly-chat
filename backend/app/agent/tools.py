@@ -20,6 +20,7 @@ from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import PartDeltaEvent, PartStartEvent, TextPart, TextPartDelta
 from pydantic_ai.usage import UsageLimits
 
+from app import runtime
 from app.agent import search
 from app.agent.clock import now_str, tz_var
 from app.agent.activity import (
@@ -29,6 +30,7 @@ from app.agent.activity import (
     attachments_var,
     claim_dispatch,
     code_tasks_var,
+    dispatch_var,
     doc_tasks_var,
     docs_var,
     emit_var,
@@ -37,11 +39,13 @@ from app.agent.activity import (
     record_edits,
     record_file,
     record_findings,
+    record_gen_image,
     record_map,
     record_sources,
     status_for_current_agent,
     user_var,
 )
+from app.usage import record_llm
 from app.agent import maps as osm
 from app.embeddings import embed_texts, rank
 from app.schema import BlockStartEvent, EditChange, EditsBlock, MapArea, MapBlock, TextDeltaEvent
@@ -98,6 +102,7 @@ async def _run_worker(subtask: str) -> Finding:
     limit = get_settings().limits.worker_request_limit
     try:
         result = await _worker().run(subtask, usage_limits=UsageLimits(request_limit=limit))
+        record_llm(runtime.model_for("worker"), result.usage())
         agent_update(aid, status="Done", state="done")
         return Finding(subtask=subtask, summary=str(result.output))
     except UsageLimitExceeded as exc:  # hit the search cap — keep going with what we have
@@ -269,6 +274,7 @@ async def _run_coder(prompt_key: str, coder_task: str, live_id: str, live_type: 
                 emit(TextDeltaEvent(block_id=live_id, text=text))
 
     result = await agent.run(coder_task, event_stream_handler=on_events)
+    record_llm(runtime.model_for("coder"), result.usage())
     return str(result.output)
 
 
@@ -439,6 +445,51 @@ async def make_document(title: str, content_markdown: str) -> str:
         return f"(could not create the document: {exc})"
 
 
+async def generate_image(prompt: str, aspect_ratio: str = "") -> str:
+    """Create a brand-new image from a text description (OpenRouter image model).
+    The result is shown in the answer automatically."""
+    user_id = user_var.get()
+    if user_id is None:
+        return "(cannot generate images in this context)"
+    # Exactly-once per prompt + a per-turn cap — models hedge-call generation tools.
+    made = sum(1 for k in (dispatch_var.get() or {}) if k.startswith("imagegen|"))
+    if not claim_dispatch("imagegen|" + " ".join(prompt.lower().split())[:300]):
+        return (
+            "(that exact image was already generated this turn and is shown to the "
+            "user — do not call generate_image again)"
+        )
+    max_per_turn = get_settings().images.max_per_turn
+    if made >= max_per_turn:
+        return f"(REFUSED: already generated {max_per_turn} image(s) this turn — give your final answer)"
+    aid = uuid.uuid4().hex[:8]
+    agent_update(aid, label=f"Image: {prompt[:300]}", status="Generating…", state="running")
+    try:
+        from sqlmodel import Session
+
+        from app import usage
+        from app.agent import imagegen
+        from app.agent.activity import dk_var
+        from app.db import engine
+        from app.documents import store_export
+        from app.schema import GalleryImage
+
+        data, mime = await imagegen.generate(prompt, aspect_ratio)
+        ext = imagegen.ext_for(mime)
+        with Session(engine) as session:
+            uid = store_export(session, user_id, f"image-{aid}.{ext}", data, mime, ext, dk=dk_var.get())
+        usage.record_image(runtime.image_model())
+        record_gen_image(GalleryImage(url=f"/api/uploads/{uid}", caption=prompt[:200]))
+        agent_update(aid, status="Done", state="done")
+        return (
+            "Image generated — it is already shown in your answer. Do not embed links or "
+            "markdown images for it; a one-line intro is enough."
+        )
+    except Exception as exc:
+        agent_update(aid, status="Failed", state="error")
+        log.warning("generate_image failed: %s", exc)
+        return f"(could not generate the image: {exc})"
+
+
 async def _vision_yes(image_url: str, question: str) -> bool:
     try:
         data = await fetch_image_bytes(image_url)
@@ -449,6 +500,7 @@ async def _vision_yes(image_url: str, question: str) -> bool:
         f"Answer with exactly one word, yes or no: {question}",
         BinaryContent(data=data, media_type=guess_media_type(data)),
     ])
+    record_llm(runtime.model_for("vision"), r.usage())
     return r.output.strip().lower().startswith("y")
 
 
@@ -475,6 +527,7 @@ async def look(question: str) -> str:
         content: list = [question]
         content += [BinaryContent(data=data, media_type=mime) for mime, data in atts]
         r = await agent.run(content)
+        record_llm(runtime.model_for("vision"), r.usage())
         agent_update(aid, status="Done", state="done")
         return str(r.output)
     except Exception as exc:
@@ -592,8 +645,8 @@ async def show_map(
         return f"(map failed: {exc})"
 
 
-def build_tools() -> list[Tool]:
-    return [
+def build_tools(image_gen: bool = False) -> list[Tool]:
+    tools = [
         Tool(research, name="research", description=get_prompt("tools/research")),
         Tool(find_images, name="find_images", description=get_prompt("tools/find_images")),
         Tool(write_code, name="write_code", description=get_prompt("tools/write_code")),
@@ -602,3 +655,7 @@ def build_tools() -> list[Tool]:
         Tool(search_document, name="search_document", description=get_prompt("tools/search_document")),
         Tool(show_map, name="show_map", description=get_prompt("tools/show_map")),
     ]
+    # Per-user feature (admin-granted) — only offered to users who may use it.
+    if image_gen:
+        tools.append(Tool(generate_image, name="generate_image", description=get_prompt("tools/generate_image")))
+    return tools

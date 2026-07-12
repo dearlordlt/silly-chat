@@ -1,0 +1,72 @@
+"""Image generation via OpenRouter's Images API.
+
+The API key is admin-managed at runtime (Admin → Images, stored in AppSetting) —
+never in config or env. The default model comes from config.toml ``[images]``;
+admins can pick any model the OpenRouter image catalog offers.
+"""
+
+from __future__ import annotations
+
+import base64
+
+import httpx
+
+from app import runtime
+from app.config import get_settings
+
+_MIME_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg"}
+
+
+class ImageGenError(Exception):
+    """Human-readable failure the tool surfaces back to the model."""
+
+
+def ext_for(mime: str) -> str:
+    return _MIME_EXT.get(mime, "png")
+
+
+def _error_detail(resp: httpx.Response) -> str:
+    try:
+        detail = resp.json().get("error", {}).get("message", "")
+    except ValueError:
+        detail = ""
+    return str(detail or resp.text or resp.reason_phrase)[:200]
+
+
+async def generate(prompt: str, aspect_ratio: str = "") -> tuple[bytes, str]:
+    """Generate one image; returns (bytes, mime). Raises ImageGenError on failure."""
+    cfg = get_settings().images
+    key = runtime.image_api_key()
+    if not key:
+        raise ImageGenError("no OpenRouter API key is configured (Admin → Images)")
+    url = cfg.base_url.rstrip("/") + "/images"
+    body: dict = {"model": runtime.image_model(), "prompt": prompt, "n": 1}
+    if aspect_ratio:
+        body["aspect_ratio"] = aspect_ratio
+    async with httpx.AsyncClient(timeout=float(cfg.timeout_s)) as client:
+        resp = await client.post(url, headers={"Authorization": f"Bearer {key}"}, json=body)
+        if resp.status_code == 400 and aspect_ratio:
+            # Not every model accepts aspect_ratio — retry plain before giving up.
+            body.pop("aspect_ratio")
+            resp = await client.post(url, headers={"Authorization": f"Bearer {key}"}, json=body)
+    if resp.status_code != 200:
+        raise ImageGenError(f"OpenRouter said {resp.status_code}: {_error_detail(resp)}")
+    try:
+        item = resp.json()["data"][0]
+        return base64.b64decode(item["b64_json"]), str(item.get("media_type") or "image/png")
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise ImageGenError(f"unexpected OpenRouter response: {exc}") from exc
+
+
+async def available_image_models() -> list[str]:
+    """Image-capable models on OpenRouter (for the admin picker). Empty on error."""
+    cfg = get_settings().images
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(cfg.base_url.rstrip("/") + "/images/models")
+            resp.raise_for_status()
+            data = resp.json()
+        entries = data.get("data", data) if isinstance(data, dict) else data
+        return sorted(m["id"] for m in entries if isinstance(m, dict) and m.get("id"))
+    except (httpx.HTTPError, KeyError, TypeError, ValueError):
+        return []

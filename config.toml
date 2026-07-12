@@ -34,6 +34,16 @@ osrm_url = "https://routing.openstreetmap.de/routed-{profile}"
 # Public transport routing (community-run MOTIS over open GTFS feeds).
 transitous_url = "https://api.transitous.org"
 
+[images]
+# Image generation via OpenRouter (https://openrouter.ai). The API key is set in the
+# Admin panel (lives in the DB) — NOT here; this file stays secret-free.
+base_url = "https://openrouter.ai/api/v1"
+# Default image model; admins can pick any image-capable model in Admin → Images.
+model = "x-ai/grok-imagine-image-quality"
+# Seconds to wait for one image; hard cap on generated images per chat turn.
+timeout_s = 180
+max_per_turn = 4
+
 [search]
 # SearXNG instance reachable by the backend (json format must be enabled).
 # Override per-environment via SEARCH__SEARXNG_URL in .env (e.g. a private instance).

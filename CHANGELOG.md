@@ -4,6 +4,18 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.8.0 — 2026-07-12
+
+- **Image generation** — ask the assistant to draw or design something ("draw me…",
+  "make an image of…") and it creates the picture with an AI image model via
+  OpenRouter (Grok by default). Per-user switch: admins have it on by default and
+  can enable or disable it for anyone in Admin → Users; the OpenRouter API key and
+  the image model are picked in Admin → Images. Generated images are sealed under
+  your key like any attachment.
+- **Usage statistics** — new Admin → Statistics: tokens used per person and per
+  model, plus images generated, with time filters (today, 2/3 days, week, month,
+  all time). Counts only — message contents are never stored or shown.
+
 ## v1.7.0 — 2026-07-11
 
 - **Attachments encrypted too** — uploaded images, documents (including the text

@@ -52,6 +52,9 @@ def _ensure_columns() -> None:
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN wrapped_dk TEXT DEFAULT ''")
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN wrapped_dk_recovery TEXT DEFAULT ''")
             conn.commit()
+        if "image_gen" not in ucols:
+            conn.exec_driver_sql("ALTER TABLE user ADD COLUMN image_gen BOOLEAN")
+            conn.commit()
         upcols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(upload)").fetchall()}
         if "enc" not in upcols:
             conn.exec_driver_sql("ALTER TABLE upload ADD COLUMN enc INTEGER DEFAULT 0")

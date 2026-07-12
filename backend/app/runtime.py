@@ -13,6 +13,7 @@ ROLES = ("orchestrator", "worker", "vision", "coder", "embed")
 
 _overrides: dict[str, str] = {}
 _chat: dict[str, int] = {}  # runtime chat-behavior overrides (e.g. compact_pct)
+_images: dict[str, str] = {}  # image generation: admin-set OpenRouter api_key + model
 
 
 def load_overrides() -> None:
@@ -24,12 +25,16 @@ def load_overrides() -> None:
     with Session(engine) as session:
         row = session.get(AppSetting, "models")
         chat_row = session.get(AppSetting, "chat")
+        images_row = session.get(AppSetting, "images")
     _overrides.clear()
     if row:
         _overrides.update({k: v for k, v in row.value.items() if k in ROLES and v})
     _chat.clear()
     if chat_row:
         _chat.update({k: int(v) for k, v in chat_row.value.items() if isinstance(v, (int, float))})
+    _images.clear()
+    if images_row:
+        _images.update({k: str(v) for k, v in images_row.value.items() if v})
 
 
 def compact_pct() -> int:
@@ -51,6 +56,37 @@ def set_chat(values: dict[str, int]) -> dict[str, int]:
     _chat.clear()
     _chat.update(clean)
     return {"compact_pct": compact_pct()}
+
+
+def image_model() -> str:
+    return _images.get("model") or get_settings().images.model
+
+
+def image_api_key() -> str:
+    return _images.get("api_key", "")
+
+
+def set_images(values: dict[str, str]) -> None:
+    """Merge-update the image-generation settings (model and/or api_key).
+    Empty values are ignored so saving a model never wipes the key."""
+    from sqlmodel import Session
+
+    from app.db import engine
+    from app.models import AppSetting
+
+    clean = {
+        k: str(v).strip()
+        for k, v in values.items()
+        if k in ("model", "api_key") and str(v or "").strip()
+    }
+    merged = {**_images, **clean}
+    with Session(engine) as session:
+        row = session.get(AppSetting, "images") or AppSetting(key="images", value={})
+        row.value = merged
+        session.add(row)
+        session.commit()
+    _images.clear()
+    _images.update(merged)
 
 
 def model_for(role: str) -> str:

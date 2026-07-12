@@ -21,7 +21,9 @@ from app.schema import Reply
 Mode = Literal["search", "chat", "code"]
 
 
-def build_orchestrator(mode: Mode = "search", timezone: str | None = None) -> Agent[None, Reply]:
+def build_orchestrator(
+    mode: Mode = "search", timezone: str | None = None, image_gen: bool = False
+) -> Agent[None, Reply]:
     from app.meta import genome
 
     limits = get_settings().limits
@@ -30,6 +32,7 @@ def build_orchestrator(mode: Mode = "search", timezone: str | None = None) -> Ag
         mode_bias=get_prompt(f"mode_{mode}"),
         max_agents=limits.max_agents,
         today=now_str(timezone),
+        image_gen=image_gen,
         **genome(),  # version / features / history — the app's self-knowledge
     )
     return Agent(
@@ -40,6 +43,6 @@ def build_orchestrator(mode: Mode = "search", timezone: str | None = None) -> Ag
         # (NativeOutput's constrained decoding breaks tool calling entirely.)
         output_type=PromptedOutput(Reply),
         instructions=instructions,
-        tools=build_tools(),
+        tools=build_tools(image_gen),
         retries=limits.output_retries,
     )

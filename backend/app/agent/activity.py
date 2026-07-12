@@ -37,6 +37,8 @@ maps_var: ContextVar[list[object] | None] = ContextVar("maps", default=None)
 edits_var: ContextVar[list[object] | None] = ContextVar("edits", default=None)
 # Generated files (FileBlock) this turn — e.g. PDFs from make_document.
 files_var: ContextVar[list[object] | None] = ContextVar("files", default=None)
+# Images generated this turn (GalleryImage) — appended as one gallery block.
+gen_images_var: ContextVar[list[object] | None] = ContextVar("gen_images", default=None)
 # The requesting user's id — generated files are stored under their ownership.
 user_var: ContextVar[int | None] = ContextVar("user", default=None)
 # The requester's data key — generated files are sealed with it.
@@ -112,3 +114,9 @@ def record_file(block: object) -> None:
     bucket = files_var.get()
     if bucket is not None:
         bucket.append(block)
+
+
+def record_gen_image(image: object) -> None:
+    bucket = gen_images_var.get()
+    if bucket is not None:
+        bucket.append(image)

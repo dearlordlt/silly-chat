@@ -4,6 +4,8 @@ export type Me = {
   status: string
   role: string
   settings?: { storageMode?: string } & Record<string, unknown>
+  // Per-user image-generation flag; null/undefined = role default (admins yes).
+  image_gen?: boolean | null
 }
 
 // FastAPI errors come back as {detail: string} OR {detail: [{msg, loc}, ...]} (422
@@ -48,6 +50,25 @@ export type AppMeta = {
   context_window: number | null
 }
 
+export type ImagesCfg = { model: string; has_key: boolean; key_hint: string }
+
+export type UsageModelRow = {
+  model: string
+  kind: 'llm' | 'image'
+  input_tokens: number
+  output_tokens: number
+  images: number
+  requests: number
+}
+export type UsageUserRow = {
+  id: number
+  username: string
+  input_tokens: number
+  output_tokens: number
+  images: number
+  models: UsageModelRow[]
+}
+
 export type ServerConvSummary = { id: string; title: string; updated_at: string }
 export type ServerConv = ServerConvSummary & {
   turns: unknown[]
@@ -87,6 +108,18 @@ export const api = {
     req<{ current: Record<string, string>; available: string[] }>('GET', '/api/admin/models'),
   setModels: (models: Record<string, string>) =>
     req<Record<string, string>>('PUT', '/api/admin/models', models),
+
+  // Image generation (OpenRouter): per-user switch, admin-managed key + model, stats.
+  setUserImageGen: (id: number, enabled: boolean) =>
+    req<Me>('PUT', `/api/admin/users/${id}/imagegen`, { enabled }),
+  getImagesCfg: () => req<ImagesCfg & { available: string[] }>('GET', '/api/admin/images'),
+  setImagesCfg: (cfg: { model?: string; api_key?: string }) =>
+    req<ImagesCfg>('PUT', '/api/admin/images', cfg),
+  getStats: (since?: string) =>
+    req<{ users: UsageUserRow[] }>(
+      'GET',
+      '/api/admin/stats' + (since ? `?since=${encodeURIComponent(since)}` : ''),
+    ),
 
   // Server-side conversation store ("save to server" mode).
   listServerConvos: () => req<ServerConvSummary[]>('GET', '/api/conversations'),

@@ -1,16 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, KeyRound, MoreHorizontal, Shield, ShieldOff, Trash2 } from 'lucide-react'
-import { api, type Me } from '@/lib/api'
+import {
+  ArrowLeft,
+  Check,
+  Image as ImageIcon,
+  ImageOff,
+  KeyRound,
+  MoreHorizontal,
+  Shield,
+  ShieldOff,
+  Trash2,
+} from 'lucide-react'
+import { api, type Me, type UsageUserRow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { toast } from '@/components/ui/toast'
 
-type Section = 'users' | 'models'
+type Section = 'users' | 'models' | 'images' | 'stats'
 
 const NAV: { key: Section; label: string }[] = [
   { key: 'users', label: 'Users' },
   { key: 'models', label: 'Models' },
+  { key: 'images', label: 'Images' },
+  { key: 'stats', label: 'Statistics' },
 ]
 
 /** Admin panel (design doc frames 1p/1q) — same floating-card shell as Settings. */
@@ -48,6 +60,8 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           <main className="min-w-0 flex-1">
             {section === 'users' && <UsersSection />}
             {section === 'models' && <ModelsSection />}
+            {section === 'images' && <ImagesSection />}
+            {section === 'stats' && <StatsSection />}
           </main>
         </div>
       </div>
@@ -122,6 +136,15 @@ function UsersSection() {
                     pending
                   </span>
                 )}
+                {(u.image_gen ?? u.role === 'admin') && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+                    title="Can generate images"
+                  >
+                    <ImageIcon className="size-3" />
+                    images
+                  </span>
+                )}
               </span>
               <span className="flex shrink-0 items-center gap-1.5">
                 {u.status === 'approved' ? (
@@ -168,6 +191,23 @@ function UsersSection() {
                       Promote to admin
                     </MenuItem>
                   )}
+                  {(() => {
+                    const imgOn = u.image_gen ?? u.role === 'admin'
+                    return (
+                      <MenuItem
+                        icon={imgOn ? <ImageOff /> : <ImageIcon />}
+                        onClick={() => {
+                          setMenuFor(null)
+                          act(
+                            api.setUserImageGen(u.id, !imgOn),
+                            `Image generation ${imgOn ? 'disabled' : 'enabled'} for ${u.username}`,
+                          )
+                        }}
+                      >
+                        {imgOn ? 'Disable image gen' : 'Enable image gen'}
+                      </MenuItem>
+                    )
+                  })()}
                   <MenuItem
                     icon={<KeyRound />}
                     onClick={() => {
@@ -358,6 +398,218 @@ function ModelsSection() {
       </div>
 
       <CompactionSection />
+    </div>
+  )
+}
+
+// Image generation: OpenRouter API key (stored server-side, shown only as a hint)
+// + which image model to use. Who may use it is per-user, in the Users section.
+function ImagesSection() {
+  const [hasKey, setHasKey] = useState(false)
+  const [keyHint, setKeyHint] = useState('')
+  const [available, setAvailable] = useState<string[]>([])
+  const [model, setModel] = useState('')
+  const [key, setKey] = useState('')
+  const [saved, setSaved] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    api
+      .getImagesCfg()
+      .then((d) => {
+        setModel(d.model)
+        setHasKey(d.has_key)
+        setKeyHint(d.key_hint)
+        setAvailable(d.available)
+      })
+      .catch((e) => toast.error(String(e.message ?? e)))
+  }, [])
+
+  async function save() {
+    setBusy(true)
+    setSaved(false)
+    try {
+      const r = await api.setImagesCfg({ model, ...(key.trim() ? { api_key: key.trim() } : {}) })
+      setModel(r.model)
+      setHasKey(r.has_key)
+      setKeyHint(r.key_hint)
+      setKey('')
+      setSaved(true)
+    } catch (e) {
+      toast.error(String((e as Error).message ?? e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h2 className="text-[15px] font-bold">Image generation</h2>
+        <p className="text-[13px] text-muted-foreground">
+          Powered by OpenRouter. Who can generate is set per user in the Users section
+          (admins can by default).
+        </p>
+      </div>
+      <div className="space-y-2.5">
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold">API key</span>
+            <input
+              type="password"
+              value={key}
+              onChange={(e) => {
+                setSaved(false)
+                setKey(e.target.value)
+              }}
+              placeholder={hasKey ? `saved (${keyHint})` : 'sk-or-…'}
+              autoComplete="off"
+              className="h-9 w-full max-w-[60%] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get one at openrouter.ai → Keys. Stored on the server and never shown again;
+            leave blank to keep the current key.
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold">Image model</span>
+            <select
+              value={model}
+              onChange={(e) => {
+                setSaved(false)
+                setModel(e.target.value)
+              }}
+              className="h-9 max-w-[60%] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {model && !available.includes(model) && <option value={model}>{model}</option>}
+              {available.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Every image-capable model OpenRouter offers, priced per image on your key.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <Button onClick={save} disabled={busy}>
+          Save
+        </Button>
+        {saved && (
+          <span className="flex items-center gap-1 text-sm text-success">
+            <Check className="size-4" />
+            Saved
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const RANGES: { key: string; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: '2d', label: '2 days' },
+  { key: '3d', label: '3 days' },
+  { key: '7d', label: 'Week' },
+  { key: '30d', label: 'Month' },
+  { key: 'all', label: 'All time' },
+]
+
+function sinceFor(range: string): string | undefined {
+  if (range === 'all') return undefined
+  if (range === 'today') {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d.toISOString()
+  }
+  const days = ({ '2d': 2, '3d': 3, '7d': 7, '30d': 30 } as Record<string, number>)[range] ?? 7
+  return new Date(Date.now() - days * 86400_000).toISOString()
+}
+
+const fmtN = (n: number) =>
+  n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n)
+
+// Usage statistics: aggregate counts per user + model. Deliberately counts ONLY —
+// the backend never stores message content, so there is nothing more to show.
+function StatsSection() {
+  const [range, setRange] = useState('7d')
+  const [users, setUsers] = useState<UsageUserRow[] | null>(null)
+
+  useEffect(() => {
+    setUsers(null)
+    api
+      .getStats(sinceFor(range))
+      .then((d) => setUsers(d.users))
+      .catch((e) => toast.error(String(e.message ?? e)))
+  }, [range])
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h2 className="text-[15px] font-bold">Usage statistics</h2>
+        <p className="text-[13px] text-muted-foreground">
+          Tokens and generated images per person. Counts only — what anyone wrote is
+          never stored.
+        </p>
+      </div>
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {RANGES.map((r) => (
+          <button
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            className={cn(
+              'rounded-full border px-3 py-1.5 text-[12.5px] transition-colors',
+              range === r.key
+                ? 'bg-card font-bold shadow-[0_2px_6px_0_oklch(0_0_0/0.04)]'
+                : 'border-transparent font-medium text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+      {!users ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : users.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No usage in this period.</p>
+      ) : (
+        <ul className="space-y-2.5">
+          {users.map((u) => (
+            <li key={u.id} className="rounded-lg border bg-card px-4 py-3">
+              <div className="mb-2 flex items-baseline justify-between gap-3">
+                <span className="truncate text-sm font-semibold">{u.username}</span>
+                <span className="shrink-0 text-xs text-muted-foreground [font-variant-numeric:tabular-nums]">
+                  {fmtN(u.input_tokens + u.output_tokens)} tokens
+                  {u.images > 0 && ` · ${u.images} image${u.images === 1 ? '' : 's'}`}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {u.models.map((m, i) => (
+                  <div
+                    key={i}
+                    className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground"
+                  >
+                    <span className="truncate">
+                      {m.kind === 'image' && <ImageIcon className="mr-1 inline size-3" />}
+                      {m.model || '(unknown model)'}
+                    </span>
+                    <span className="shrink-0 [font-variant-numeric:tabular-nums]">
+                      {m.kind === 'image'
+                        ? `${m.images} image${m.images === 1 ? '' : 's'}`
+                        : `${fmtN(m.input_tokens)} in · ${fmtN(m.output_tokens)} out`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

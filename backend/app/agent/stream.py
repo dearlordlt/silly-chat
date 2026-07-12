@@ -43,6 +43,7 @@ from app.agent.activity import (
     emit_var,
     files_var,
     findings_var,
+    gen_images_var,
     looks_var,
     maps_var,
     sources_var,
@@ -52,7 +53,8 @@ from app.agent.clock import tz_var
 from app.agent.ollama import orchestrator_model
 from app.agent.orchestrator import Mode, build_orchestrator
 from app.logging_setup import get_logger
-from app.schema import CodeBlock, Reply, TextBlock
+from app.schema import CodeBlock, GalleryBlock, Reply, TextBlock
+from app.usage import record_llm
 from app.schema import (
     AgentStatusEvent,
     BlockDataEvent,
@@ -72,6 +74,7 @@ _TOOL_STATUS = {
     "research": "Planning the research…",
     "find_images": "Looking for images…",
     "show_map": "Drawing the map…",
+    "generate_image": "Generating the image…",
 }
 
 # Shown the moment the model STARTS writing a tool call (its arguments can take a
@@ -84,6 +87,7 @@ _TOOL_PREP = {
     "show_map": "Choosing places for the map…",
     "search_document": "Checking your document…",
     "look": "Opening your image…",
+    "generate_image": "Dreaming up the image…",
 }
 _MIN_HISTORY = 4  # newest messages always kept, whatever their size
 
@@ -167,6 +171,7 @@ async def stream_chat(
     artifacts: dict[str, tuple[str, str, str]] | None = None,  # id -> (name, language, content)
     user_id: int | None = None,  # owner for generated files (make_document)
     dk: bytes | None = None,  # requester's data key — seals generated files
+    image_gen: bool = False,  # may this user generate images? (per-user, admin-set)
 ) -> AsyncIterator[StreamEvent]:
     attachments = attachments or []
     doc_chunks = doc_chunks or []
@@ -215,7 +220,7 @@ async def stream_chat(
             + "\n\n".join(chunks)
         )
 
-    agent = build_orchestrator(effective_mode, timezone)
+    agent = build_orchestrator(effective_mode, timezone, image_gen)
     message_history = _build_history(
         history or [],
         "\n\n".join(x for x in (artifact_context, context) if x) or None,
@@ -229,6 +234,7 @@ async def stream_chat(
     built_maps: list = []
     edits: list = []  # EditsBlocks from targeted artifact edits
     files: list = []  # FileBlocks from make_document
+    gen_images: list = []  # GalleryImages from generate_image
     stats: dict[str, int] = {}  # turn telemetry for the status line
 
     def emit(ev: object) -> None:
@@ -319,6 +325,7 @@ async def stream_chat(
         tok_m = maps_var.set(built_maps)
         tok_ed = edits_var.set(edits)
         tok_fi = files_var.set(files)
+        tok_gi = gen_images_var.set(gen_images)
         tok_dt = doc_tasks_var.set({})
         tok_dp = dispatch_var.set({})
         tok_u = user_var.set(user_id)
@@ -343,6 +350,9 @@ async def stream_chat(
                     usage = result.usage() if callable(result.usage) else result.usage
                     if usage and usage.output_tokens:
                         stats["output_tokens"] = usage.output_tokens
+                    from app import runtime
+
+                    record_llm(runtime.model_for("orchestrator"), usage, user_id=user_id)
                 except Exception as primary:
                     # Surface what the model produced, then salvage the research into a
                     # plain-text answer instead of failing the whole turn.
@@ -366,6 +376,7 @@ async def stream_chat(
             maps_var.reset(tok_m)
             edits_var.reset(tok_ed)
             files_var.reset(tok_fi)
+            gen_images_var.reset(tok_gi)
             doc_tasks_var.reset(tok_dt)
             dispatch_var.reset(tok_dp)
             user_var.reset(tok_u)
@@ -388,7 +399,9 @@ async def stream_chat(
                 if kind == "error":
                     yield ErrorEvent(message=str(payload))
                 else:
-                    for ev in _final_events(payload, code, built_maps, sources, edits, artifacts, files):
+                    for ev in _final_events(
+                        payload, code, built_maps, sources, edits, artifacts, files, gen_images
+                    ):
                         yield ev
             else:
                 yield item  # AgentStatusEvent / AgentUpdateEvent / block streaming
@@ -403,6 +416,8 @@ async def stream_chat(
             models.append(runtime.model_for("vision"))
         if code:
             models.append(runtime.model_for("coder"))
+        if gen_images:
+            models.append(runtime.image_model())
         yield DoneEvent(
             input_tokens=stats.get("input_tokens"),
             output_tokens=stats.get("output_tokens"),
@@ -433,6 +448,9 @@ async def _text_fallback(message: str, findings: list[tuple[str, str]], history)
     else:
         prompt = message
     result = await Agent(orchestrator_model()).run(prompt, message_history=history)
+    from app import runtime
+
+    record_llm(runtime.model_for("orchestrator"), result.usage())
     return Reply(blocks=[TextBlock(markdown=str(result.output))])
 
 
@@ -475,6 +493,7 @@ def _final_events(
     edits: list | None = None,
     artifacts: dict[str, tuple[str, str, str]] | None = None,
     files: list | None = None,
+    gen_images: list | None = None,
 ):
     blocks = list(reply.blocks)
     contents = [v[2] for v in (artifacts or {}).values()] + [c for _, c, _, _ in code]
@@ -523,6 +542,12 @@ def _final_events(
         if f.name not in seen_files:
             seen_files.add(f.name)
             blocks.append(f)
+    # Images generated this turn (generate_image) — tool-authored, so the model can't
+    # hallucinate a URL. One gallery, deduped by url.
+    seen_imgs: set[str] = set()
+    made_imgs = [g for g in gen_images or [] if not (g.url in seen_imgs or seen_imgs.add(g.url))]
+    if made_imgs:
+        blocks.append(GalleryBlock(images=made_imgs))
     seen: set[str] = set()
     unique: list[Source] = []
     for s in sources:
