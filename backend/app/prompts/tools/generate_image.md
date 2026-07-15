@@ -22,6 +22,11 @@ generate_image once PER subject — every call's image joins one shared gallery 
 your answer. Up to 4 images per turn; if the user asks for more, generate the first
 4 and say the rest need another message.
 
+NOT for data visualizations: charts, graphs, plots, infographics of numbers, and
+flow/architecture diagrams belong in chart blocks and Mermaid diagrams — they render
+crisper, themed, and free. Generate an image of a chart only when the USER explicitly
+asked for a generated picture of one (then pass user_wants_image=true).
+
 The generated images are attached to your answer automatically: never embed links,
 markdown images, or your own gallery for them, and keep your reply to a short intro.
 For finding real, existing photos use find_images instead.

@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.13.1 — 2026-07-12
+
+- Fixes: data visualizations no longer route to (paid) image generation — charts,
+  graphs, and diagrams always render as the app's own chart/diagram blocks; a
+  generated picture of a chart now requires an explicit ask.
+
 ## v1.13.0 — 2026-07-12
 
 - **Image editing (image-to-image)** — change pictures instead of regenerating:

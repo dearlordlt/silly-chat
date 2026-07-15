@@ -558,13 +558,35 @@ def _load_gen_images(user_id: int, count: int) -> list[tuple[str, bytes, str]]:
     return out
 
 
-async def generate_image(prompt: str, aspect_ratio: str = "", quality: bool = False) -> str:
+# Unambiguous data-viz phrasing — these belong in chart/diagram blocks, not in a
+# paid image-model call (seen live: four generated "line chart" images alongside a
+# perfectly good chart block).
+_DATAVIZ_RE = re.compile(
+    r"\b(line chart|bar chart|pie chart|donut chart|area chart|scatter ?plot|"
+    r"line graph|bar graph|infographic|x[- ]axis|y[- ]axis|data visuali[sz]|"
+    r"flow ?chart|chart (showing|comparing|of)|graph (showing|comparing|of)|"
+    r"break[- ]?even|trend ?line)\b",
+    re.IGNORECASE,
+)
+
+
+async def generate_image(
+    prompt: str, aspect_ratio: str = "", quality: bool = False, user_wants_image: bool = False
+) -> str:
     """Create a brand-new image from a text description (OpenRouter image model).
     quality=True routes to the slower top-quality model for demanding asks.
     The result is shown in the answer automatically."""
     user_id = user_var.get()
     if user_id is None:
         return "(cannot generate images in this context)"
+    if _DATAVIZ_RE.search(prompt) and not user_wants_image:
+        return (
+            "(REFUSED: that's a data visualization — render it as a chart block "
+            "(bar/line/area/pie/donut, with real axes and a legend, free and instant) "
+            "or a Mermaid diagram instead of generating an image. Only if the USER "
+            "explicitly asked for a generated PICTURE of it, call again with "
+            "user_wants_image=true.)"
+        )
     # Exactly-once per prompt + a per-turn cap — models hedge-call generation tools.
     made = _images_made_this_turn()
     if not claim_dispatch("imagegen|" + " ".join(prompt.lower().split())[:300]):

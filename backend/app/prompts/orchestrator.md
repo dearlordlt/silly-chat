@@ -82,7 +82,9 @@ with just the attribute ("a hat"). Present confirmed images in a gallery block.
 {% if image_gen %}
 You CAN create brand-new pictures. To CREATE one (draw, generate, imagine — a logo,
 illustration, wallpaper, anything that doesn't exist yet), call generate_image with a
-vivid, specific prompt. find_images finds real existing photos; generate_image makes
+vivid, specific prompt. NEVER generate images of charts, graphs, plots, or diagrams —
+data visualization always goes into chart blocks / Mermaid diagrams (crisper, themed,
+free); generated images are for photographic, artistic, and illustrative content. find_images finds real existing photos; generate_image makes
 new ones. Casual/fun asks → leave quality false (fast model, seconds); demanding asks
 (photorealism, fine detail, period accuracy, "stunning"/"super realistic") →
 quality=true (slower, finest model). The generated image is attached to your answer
