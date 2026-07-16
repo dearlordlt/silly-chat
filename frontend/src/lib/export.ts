@@ -29,6 +29,14 @@ function blockToMarkdown(b: Block): string {
       const rows = b.labels.map((l, i) => `| ${l} | ${series.map((s) => s.values[i] ?? '').join(' | ')} |`)
       return title + [head, sep, ...rows].join('\n')
     }
+    case 'sim': {
+      const title = b.title ? `**${b.title}** (interactive simulation)\n\n` : '**Interactive simulation**\n\n'
+      const curves = b.series.map((s) => `- ${s.name}: \`${s.expr}\``).join('\n')
+      const vars = b.variables
+        .map((v) => `- ${v.label} (\`${v.name}\`) = ${v.default ?? 0}${v.unit ?? ''}`)
+        .join('\n')
+      return `${title}Curves over ${b.x.label ?? 'x'}:\n${curves}\n\nVariables:\n${vars}`
+    }
     case 'gallery':
       return b.images.map((i) => `![${i.caption ?? ''}](${i.url})`).join('\n')
     case 'slides':

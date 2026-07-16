@@ -10,9 +10,12 @@ Workers return raw data; only the orchestrator wraps data into these blocks.
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from app.schema.simexpr import CONSTANTS, FUNCTIONS, ExprError, parse_expr
 
 
 class TextBlock(BaseModel):
@@ -57,6 +60,124 @@ class ChartBlock(BaseModel):
         description="For comparisons: several named series (each one value per label); rendered with a legend.",
     )
     title: str | None = None
+
+
+_VAR_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,15}$")
+
+
+class SimOption(BaseModel):
+    """One named choice of a select variable — the label the user sees and the
+    numeric value the expressions receive."""
+
+    label: str
+    value: float
+
+
+class SimVariable(BaseModel):
+    """A tunable input of a simulation, rendered as a control.
+
+    Control kinds: slider (bounded continuous range — rates, temperatures,
+    angles), stepper (integers / precise values via − + buttons), select
+    (discrete named choices), toggle (boolean, 0 or 1 in expressions).
+    """
+
+    name: str = Field(description="Identifier used in expressions, e.g. 'r'. Letters/digits/_, must not be 'x'.")
+    label: str = Field(description="Human label shown next to the control, e.g. 'Interest rate'.")
+    control: Literal["slider", "stepper", "select", "toggle"] = "slider"
+    default: float = 0
+    min: float | None = None
+    max: float | None = None
+    step: float | None = None
+    unit: str | None = Field(default=None, description="Shown after the value, e.g. '%', '°C', 'yr'.")
+    options: list[SimOption] | None = Field(
+        default=None, description="Required for control='select': the discrete choices."
+    )
+
+
+class SimAxis(BaseModel):
+    """The continuous input domain the curves are sampled over."""
+
+    label: str | None = None
+    min: float
+    max: float
+    unit: str | None = None
+
+
+class SimSeries(BaseModel):
+    name: str
+    expr: str = Field(
+        description="Math expression over x and the variables, e.g. 'P*(1+r/100)^x'. "
+        "Operators + - * / % ^, functions like sin/cos/exp/ln/sqrt (radians), constants pi/e."
+    )
+
+
+class SimBlock(BaseModel):
+    """An interactive simulation: curves defined by formulas over ``x`` plus
+    user-tunable variables. The frontend turns each variable into a control and
+    re-renders the curves live as the user plays with them."""
+
+    type: Literal["sim"] = "sim"
+    title: str | None = None
+    kind: Literal["line", "area"] = "line"
+    x: SimAxis
+    y_label: str | None = None
+    y_unit: str | None = None
+    variables: list[SimVariable] = Field(min_length=1, max_length=6)
+    series: list[SimSeries] = Field(min_length=1, max_length=6)
+
+    @model_validator(mode="after")
+    def _validate(self) -> "SimBlock":
+        if not self.x.max > self.x.min:
+            raise ValueError("sim x axis needs max > min")
+
+        reserved = {"x"} | set(CONSTANTS) | set(FUNCTIONS)
+        seen: set[str] = set()
+        for v in self.variables:
+            if not _VAR_NAME_RE.match(v.name) or v.name in reserved:
+                raise ValueError(
+                    f"bad variable name {v.name!r}: use a short identifier that is not x/pi/e or a function name"
+                )
+            if v.name in seen:
+                raise ValueError(f"duplicate variable name {v.name!r}")
+            seen.add(v.name)
+
+            if v.control == "select":
+                if not v.options or len(v.options) < 2:
+                    raise ValueError(f"variable {v.name!r} is a select and needs at least 2 options")
+                values = [o.value for o in v.options]
+                if v.default not in values:
+                    v.default = values[0]
+            elif v.control == "toggle":
+                v.default = 1.0 if v.default else 0.0
+                v.min, v.max, v.step, v.options = 0.0, 1.0, 1.0, None
+            else:
+                # Sliders/steppers need a range; repair a missing one around the
+                # default instead of bouncing the whole reply back to the model.
+                if v.min is None:
+                    v.min = min(0.0, v.default)
+                if v.max is None or v.max <= v.min:
+                    v.max = v.default * 2 if v.default > 0 else v.min + 10
+                if v.max <= v.min:
+                    v.max = v.min + 10
+                v.default = min(max(v.default, v.min), v.max)
+                if v.step is None or v.step <= 0:
+                    v.step = (v.max - v.min) / 100
+
+        env = {"x": (self.x.min + self.x.max) / 2}
+        env.update({v.name: v.default for v in self.variables})
+        for s in self.series:
+            try:
+                parsed = parse_expr(s.expr)
+            except ExprError as exc:
+                raise ValueError(f"series {s.name!r}: {exc}") from exc
+            unknown = parsed.identifiers - set(env)
+            if unknown:
+                raise ValueError(
+                    f"series {s.name!r} uses unknown name(s) {sorted(unknown)}; "
+                    f"allowed: x and declared variables {sorted(seen)}"
+                )
+            parsed.eval(env)  # smoke test: must not raise (NaN is fine)
+        return self
 
 
 class CodeBlock(BaseModel):
@@ -193,8 +314,8 @@ class SourcesBlock(BaseModel):
 
 Block = Annotated[
     Union[
-        TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, SlidesBlock,
-        EditsBlock, FileBlock, MapBlock, SourcesBlock
+        TextBlock, TableBlock, GalleryBlock, ChartBlock, SimBlock, CodeBlock, DiagramBlock,
+        SlidesBlock, EditsBlock, FileBlock, MapBlock, SourcesBlock
     ],
     Field(discriminator="type"),
 ]
@@ -205,8 +326,8 @@ Block = Annotated[
 # Diagrams ARE model-authored by design (Mermaid source, not real-world claims).
 ModelBlock = Annotated[
     Union[
-        TextBlock, TableBlock, GalleryBlock, ChartBlock, CodeBlock, DiagramBlock, SlidesBlock,
-        SourcesBlock
+        TextBlock, TableBlock, GalleryBlock, ChartBlock, SimBlock, CodeBlock, DiagramBlock,
+        SlidesBlock, SourcesBlock
     ],
     Field(discriminator="type"),
 ]

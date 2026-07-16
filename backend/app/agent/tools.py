@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import re
 import uuid
+from contextvars import ContextVar
 
 from pydantic import BaseModel
 from pydantic_ai import Agent, BinaryContent, Tool
@@ -81,8 +82,25 @@ class ImageHit(BaseModel):
 
 
 # ---- worker-side web search (streams status, records sources) ----
+
+# Queries already run by the current worker (fresh set per run). Worker models
+# sometimes re-issue the same search over and over instead of answering —
+# seen live: 16 identical "compound interest formula" searches in one run.
+_seen_queries: ContextVar[set[str] | None] = ContextVar("seen_queries", default=None)
+
+
 async def _web_search(query: str) -> list[dict] | str:
     """Search the web and return results (title, url, snippet)."""
+    seen = _seen_queries.get()
+    key = " ".join(query.lower().split())
+    if seen is not None:
+        if key in seen:
+            return (
+                "DUPLICATE SEARCH — you already ran exactly this query and have its "
+                "results above. Do not search again; synthesize your answer from what "
+                "you already found."
+            )
+        seen.add(key)
     status_for_current_agent(f"Searching: {query}")
     results = await search.search_text(query)
     if not results:
@@ -109,6 +127,7 @@ async def _run_worker(subtask: str) -> Finding:
     aid = uuid.uuid4().hex[:8]
     agent_update(aid, label=subtask, status="Researching…", state="running")
     token = agent_var.set(aid)
+    _seen_queries.set(set())  # fresh dedupe scope for this worker's searches
     limit = get_settings().limits.worker_request_limit
     try:
         result = await _worker().run(subtask, usage_limits=UsageLimits(request_limit=limit))

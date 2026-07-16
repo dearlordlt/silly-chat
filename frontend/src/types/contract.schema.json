@@ -83,6 +83,7 @@
               "file": "#/$defs/FileBlock",
               "gallery": "#/$defs/GalleryBlock",
               "map": "#/$defs/MapBlock",
+              "sim": "#/$defs/SimBlock",
               "slides": "#/$defs/SlidesBlock",
               "sources": "#/$defs/SourcesBlock",
               "table": "#/$defs/TableBlock",
@@ -102,6 +103,9 @@
             },
             {
               "$ref": "#/$defs/ChartBlock"
+            },
+            {
+              "$ref": "#/$defs/SimBlock"
             },
             {
               "$ref": "#/$defs/CodeBlock"
@@ -819,6 +823,7 @@
                 "code": "#/$defs/CodeBlock",
                 "diagram": "#/$defs/DiagramBlock",
                 "gallery": "#/$defs/GalleryBlock",
+                "sim": "#/$defs/SimBlock",
                 "slides": "#/$defs/SlidesBlock",
                 "sources": "#/$defs/SourcesBlock",
                 "table": "#/$defs/TableBlock",
@@ -838,6 +843,9 @@
               },
               {
                 "$ref": "#/$defs/ChartBlock"
+              },
+              {
+                "$ref": "#/$defs/SimBlock"
               },
               {
                 "$ref": "#/$defs/CodeBlock"
@@ -861,6 +869,273 @@
         "blocks"
       ],
       "title": "Reply",
+      "type": "object"
+    },
+    "SimAxis": {
+      "description": "The continuous input domain the curves are sampled over.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "min": {
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "title": "Max",
+          "type": "number"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "title": "SimAxis",
+      "type": "object"
+    },
+    "SimBlock": {
+      "description": "An interactive simulation: curves defined by formulas over ``x`` plus\nuser-tunable variables. The frontend turns each variable into a control and\nre-renders the curves live as the user plays with them.",
+      "properties": {
+        "type": {
+          "const": "sim",
+          "default": "sim",
+          "title": "Type",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "kind": {
+          "default": "line",
+          "enum": [
+            "line",
+            "area"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "x": {
+          "$ref": "#/$defs/SimAxis"
+        },
+        "y_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y Label"
+        },
+        "y_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y Unit"
+        },
+        "variables": {
+          "items": {
+            "$ref": "#/$defs/SimVariable"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "title": "Variables",
+          "type": "array"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/SimSeries"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "title": "Series",
+          "type": "array"
+        }
+      },
+      "required": [
+        "x",
+        "variables",
+        "series"
+      ],
+      "title": "SimBlock",
+      "type": "object"
+    },
+    "SimOption": {
+      "description": "One named choice of a select variable \u2014 the label the user sees and the\nnumeric value the expressions receive.",
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "SimOption",
+      "type": "object"
+    },
+    "SimSeries": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "expr": {
+          "description": "Math expression over x and the variables, e.g. 'P*(1+r/100)^x'. Operators + - * / % ^, functions like sin/cos/exp/ln/sqrt (radians), constants pi/e.",
+          "title": "Expr",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "expr"
+      ],
+      "title": "SimSeries",
+      "type": "object"
+    },
+    "SimVariable": {
+      "description": "A tunable input of a simulation, rendered as a control.\n\nControl kinds: slider (bounded continuous range \u2014 rates, temperatures,\nangles), stepper (integers / precise values via \u2212 + buttons), select\n(discrete named choices), toggle (boolean, 0 or 1 in expressions).",
+      "properties": {
+        "name": {
+          "description": "Identifier used in expressions, e.g. 'r'. Letters/digits/_, must not be 'x'.",
+          "title": "Name",
+          "type": "string"
+        },
+        "label": {
+          "description": "Human label shown next to the control, e.g. 'Interest rate'.",
+          "title": "Label",
+          "type": "string"
+        },
+        "control": {
+          "default": "slider",
+          "enum": [
+            "slider",
+            "stepper",
+            "select",
+            "toggle"
+          ],
+          "title": "Control",
+          "type": "string"
+        },
+        "default": {
+          "type": "number",
+          "default": 0,
+          "title": "Default"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shown after the value, e.g. '%', '\u00b0C', 'yr'.",
+          "title": "Unit"
+        },
+        "options": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SimOption"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Required for control='select': the discrete choices.",
+          "title": "Options"
+        }
+      },
+      "required": [
+        "name",
+        "label"
+      ],
+      "title": "SimVariable",
       "type": "object"
     },
     "Slide": {

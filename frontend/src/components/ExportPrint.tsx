@@ -6,6 +6,7 @@ import type { Block } from '@/types/contract'
 import type { Turn } from '@/lib/types'
 import { THEMES } from '@/lib/theme'
 import { ChartBlockView } from '@/components/blocks/ChartBlock'
+import { SimBlockPrint } from '@/components/blocks/SimBlock'
 
 /**
  * PDF export = the browser's print-to-PDF over this dedicated print surface.
@@ -61,6 +62,8 @@ function PrintBlock({ b }: { b: Block }) {
       )
     case 'chart':
       return <ChartBlockView block={b} />
+    case 'sim':
+      return <SimBlockPrint block={b} />
     case 'gallery':
       return (
         <div className="flex flex-wrap gap-2">

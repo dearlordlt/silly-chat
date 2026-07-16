@@ -8,7 +8,7 @@ import type { ChartBlock } from '@/types/contract'
  * legend of percentages. Colors derive from the active theme.
  */
 
-function niceTicks(min: number, max: number, count = 5): number[] {
+export function niceTicks(min: number, max: number, count = 5): number[] {
   if (min === max) max = min + 1
   const span = max - min
   const rawStep = span / count
@@ -22,13 +22,17 @@ function niceTicks(min: number, max: number, count = 5): number[] {
   return ticks
 }
 
-const fmt = (v: number) =>
-  Math.abs(v) >= 1000 ? `${Math.round(v / 100) / 10}k` : `${Math.round(v * 100) / 100}`
+export const fmt = (v: number) =>
+  Math.abs(v) >= 1_000_000
+    ? `${Math.round(v / 100_000) / 10}M`
+    : Math.abs(v) >= 1000
+      ? `${Math.round(v / 100) / 10}k`
+      : `${Math.round(v * 100) / 100}`
 
 // Categorical palette derived from the theme's primary via relative-color hue spins —
 // stays on-brand in every theme, light or dark.
 const HUE_SPINS = [0, 45, -45, 90, -90, 135, 180, -135]
-const seriesColor = (i: number) =>
+export const seriesColor = (i: number) =>
   `oklch(from var(--color-primary) l c calc(h + ${HUE_SPINS[i % HUE_SPINS.length]}))`
 
 type Series = { name: string; values: number[] }

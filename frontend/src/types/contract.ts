@@ -32,7 +32,66 @@ export type Series = ChartSeries[] | null;
 export type Name = string;
 export type Values1 = number[];
 export type Title = string | null;
-export type Type4 = "code";
+export type Type4 = "sim";
+export type Title1 = string | null;
+export type Kind1 = "line" | "area";
+export type Label = string | null;
+export type Min = number;
+export type Max = number;
+export type Unit = string | null;
+export type YLabel = string | null;
+export type YUnit = string | null;
+/**
+ * @minItems 1
+ * @maxItems 6
+ */
+export type Variables =
+  | [SimVariable]
+  | [SimVariable, SimVariable]
+  | [SimVariable, SimVariable, SimVariable]
+  | [SimVariable, SimVariable, SimVariable, SimVariable]
+  | [SimVariable, SimVariable, SimVariable, SimVariable, SimVariable]
+  | [SimVariable, SimVariable, SimVariable, SimVariable, SimVariable, SimVariable];
+/**
+ * Identifier used in expressions, e.g. 'r'. Letters/digits/_, must not be 'x'.
+ */
+export type Name1 = string;
+/**
+ * Human label shown next to the control, e.g. 'Interest rate'.
+ */
+export type Label1 = string;
+export type Control = "slider" | "stepper" | "select" | "toggle";
+export type Default = number;
+export type Min1 = number | null;
+export type Max1 = number | null;
+export type Step = number | null;
+/**
+ * Shown after the value, e.g. '%', '°C', 'yr'.
+ */
+export type Unit1 = string | null;
+/**
+ * Required for control='select': the discrete choices.
+ */
+export type Options = SimOption[] | null;
+export type Label2 = string;
+export type Value = number;
+/**
+ * @minItems 1
+ * @maxItems 6
+ */
+export type Series1 =
+  | [SimSeries]
+  | [SimSeries, SimSeries]
+  | [SimSeries, SimSeries, SimSeries]
+  | [SimSeries, SimSeries, SimSeries, SimSeries]
+  | [SimSeries, SimSeries, SimSeries, SimSeries, SimSeries]
+  | [SimSeries, SimSeries, SimSeries, SimSeries, SimSeries, SimSeries];
+export type Name2 = string;
+/**
+ * Math expression over x and the variables, e.g. 'P*(1+r/100)^x'. Operators + - * / % ^, functions like sin/cos/exp/ln/sqrt (radians), constants pi/e.
+ */
+export type Expr = string;
+export type Type5 = "code";
 export type Language = string;
 export type Content = string;
 /**
@@ -43,26 +102,26 @@ export type Filename = string | null;
  * Stable id of the code artifact this block is the latest version of.
  */
 export type ArtifactId = string | null;
-export type Type5 = "diagram";
+export type Type6 = "diagram";
 /**
  * Valid Mermaid source, e.g. 'graph TD; A-->B'.
  */
 export type Mermaid = string;
-export type Title1 = string | null;
-export type Type6 = "slides";
 export type Title2 = string | null;
-export type Title3 = string;
+export type Type7 = "slides";
+export type Title3 = string | null;
+export type Title4 = string;
 /**
  * Slide body as concise markdown — short bullets, not paragraphs.
  */
 export type Markdown1 = string;
 export type Slides = Slide[];
-export type Type7 = "sources";
-export type Title4 = string;
+export type Type8 = "sources";
+export type Title5 = string;
 export type Url1 = string;
 export type Items = Source[];
 export type Blocks = (
-  TextBlock | TableBlock | GalleryBlock | ChartBlock | CodeBlock | DiagramBlock | SlidesBlock | SourcesBlock
+  TextBlock | TableBlock | GalleryBlock | ChartBlock | SimBlock | CodeBlock | DiagramBlock | SlidesBlock | SourcesBlock
 )[];
 export type Event =
   | TextDeltaEvent
@@ -86,6 +145,7 @@ export type Block =
   | TableBlock
   | GalleryBlock
   | ChartBlock
+  | SimBlock
   | CodeBlock
   | DiagramBlock
   | SlidesBlock
@@ -93,19 +153,19 @@ export type Block =
   | FileBlock
   | MapBlock
   | SourcesBlock;
-export type Type8 = "edits";
+export type Type9 = "edits";
 export type ArtifactId1 = string;
-export type Name1 = string | null;
+export type Name3 = string | null;
 export type Old = string;
 export type New = string;
 export type Changes = EditChange[];
-export type Type9 = "file";
-export type Name2 = string;
+export type Type10 = "file";
+export type Name4 = string;
 export type Url2 = string;
 export type Mime = string;
 export type Size = number;
-export type Type10 = "map";
-export type Name3 = string;
+export type Type11 = "map";
+export type Name5 = string;
 export type Lat = number;
 export type Lon = number;
 export type Points = MapPoint[];
@@ -115,18 +175,18 @@ export type Mode = "car" | "bike" | "foot" | "transit";
 export type Geometry = number[][];
 export type Legs = MapLeg[] | null;
 export type Mode1 = string;
-export type Label = string | null;
+export type Label3 = string | null;
 export type Geometry1 = number[][];
 export type Areas = MapArea[] | null;
-export type Name4 = string;
+export type Name6 = string;
 export type Approximate = boolean;
 export type Polygons = number[][][];
-export type Title5 = string | null;
+export type Title6 = string | null;
 export type Event4 = "agent_status";
 export type Message = string;
 export type Event5 = "agent_update";
 export type Id = string;
-export type Label1 = string;
+export type Label4 = string;
 export type Status = string;
 export type State = "running" | "done" | "error";
 export type Event6 = "image_quota";
@@ -192,8 +252,67 @@ export interface ChartSeries {
   values: Values1;
   [k: string]: unknown;
 }
-export interface CodeBlock {
+/**
+ * An interactive simulation: curves defined by formulas over ``x`` plus
+ * user-tunable variables. The frontend turns each variable into a control and
+ * re-renders the curves live as the user plays with them.
+ */
+export interface SimBlock {
   type?: Type4;
+  title?: Title1;
+  kind?: Kind1;
+  x: SimAxis;
+  y_label?: YLabel;
+  y_unit?: YUnit;
+  variables: Variables;
+  series: Series1;
+  [k: string]: unknown;
+}
+/**
+ * The continuous input domain the curves are sampled over.
+ */
+export interface SimAxis {
+  label?: Label;
+  min: Min;
+  max: Max;
+  unit?: Unit;
+  [k: string]: unknown;
+}
+/**
+ * A tunable input of a simulation, rendered as a control.
+ *
+ * Control kinds: slider (bounded continuous range — rates, temperatures,
+ * angles), stepper (integers / precise values via − + buttons), select
+ * (discrete named choices), toggle (boolean, 0 or 1 in expressions).
+ */
+export interface SimVariable {
+  name: Name1;
+  label: Label1;
+  control?: Control;
+  default?: Default;
+  min?: Min1;
+  max?: Max1;
+  step?: Step;
+  unit?: Unit1;
+  options?: Options;
+  [k: string]: unknown;
+}
+/**
+ * One named choice of a select variable — the label the user sees and the
+ * numeric value the expressions receive.
+ */
+export interface SimOption {
+  label: Label2;
+  value: Value;
+  [k: string]: unknown;
+}
+export interface SimSeries {
+  name: Name2;
+  expr: Expr;
+  [k: string]: unknown;
+}
+export interface CodeBlock {
+  type?: Type5;
   language: Language;
   content: Content;
   filename?: Filename;
@@ -204,22 +323,22 @@ export interface CodeBlock {
  * A Mermaid diagram authored by the model (flowcharts, sequences, ER, etc.).
  */
 export interface DiagramBlock {
-  type?: Type5;
+  type?: Type6;
   mermaid: Mermaid;
-  title?: Title1;
+  title?: Title2;
   [k: string]: unknown;
 }
 /**
  * A presentation (slide deck) authored by the model, viewed slide by slide.
  */
 export interface SlidesBlock {
-  type?: Type6;
-  title?: Title2;
+  type?: Type7;
+  title?: Title3;
   slides: Slides;
   [k: string]: unknown;
 }
 export interface Slide {
-  title: Title3;
+  title: Title4;
   markdown?: Markdown1;
   [k: string]: unknown;
 }
@@ -227,12 +346,12 @@ export interface Slide {
  * Citations — the proof behind a grounded answer.
  */
 export interface SourcesBlock {
-  type?: Type7;
+  type?: Type8;
   items: Items;
   [k: string]: unknown;
 }
 export interface Source {
-  title: Title4;
+  title: Title5;
   url: Url1;
   [k: string]: unknown;
 }
@@ -268,9 +387,9 @@ export interface BlockDataEvent {
  * shows the result.
  */
 export interface EditsBlock {
-  type?: Type8;
+  type?: Type9;
   artifact_id: ArtifactId1;
-  name?: Name1;
+  name?: Name3;
   changes: Changes;
   [k: string]: unknown;
 }
@@ -288,8 +407,8 @@ export interface EditChange {
  * Tool-authored only — the url points into the uploads store (owner-only).
  */
 export interface FileBlock {
-  type?: Type9;
-  name: Name2;
+  type?: Type10;
+  name: Name4;
   url: Url2;
   mime?: Mime;
   size?: Size;
@@ -302,15 +421,15 @@ export interface FileBlock {
  * coordinates and records this block, so positions can't be hallucinated.
  */
 export interface MapBlock {
-  type?: Type10;
+  type?: Type11;
   points: Points;
   route?: MapRoute | null;
   areas?: Areas;
-  title?: Title5;
+  title?: Title6;
   [k: string]: unknown;
 }
 export interface MapPoint {
-  name: Name3;
+  name: Name5;
   lat: Lat;
   lon: Lon;
   [k: string]: unknown;
@@ -328,7 +447,7 @@ export interface MapRoute {
  */
 export interface MapLeg {
   mode: Mode1;
-  label?: Label;
+  label?: Label3;
   geometry: Geometry1;
   [k: string]: unknown;
 }
@@ -337,7 +456,7 @@ export interface MapLeg {
  * approximation (drawn dashed + labeled approximate).
  */
 export interface MapArea {
-  name: Name4;
+  name: Name6;
   approximate?: Approximate;
   polygons: Polygons;
   [k: string]: unknown;
@@ -359,7 +478,7 @@ export interface AgentStatusEvent {
 export interface AgentUpdateEvent {
   event?: Event5;
   id: Id;
-  label?: Label1;
+  label?: Label4;
   status?: Status;
   state?: State;
   [k: string]: unknown;

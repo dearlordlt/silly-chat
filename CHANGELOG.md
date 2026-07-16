@@ -4,6 +4,19 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.14.0 — 2026-07-16
+
+- **Interactive simulations** — ask a "what if" question ("how does an investment
+  grow depending on rate and monthly contribution?", "how does launch angle affect
+  range?") and the answer comes back as a live graph with controls: sliders for
+  ranges, − / + steppers for amounts, choice buttons for options like monthly vs
+  yearly, and on/off switches. Move a control and the curves morph instantly;
+  hovering the graph reads off exact values. Works on phones, prints in exports
+  as a snapshot at the shown settings.
+- Fixes: a research agent could burn its whole search budget re-running the same
+  query over and over (looked like an infinite loop) — repeated identical searches
+  are now refused so it answers from what it already found.
+
 ## v1.13.1 — 2026-07-12
 
 - Fixes: data visualizations no longer route to (paid) image generation — charts,

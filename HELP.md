@@ -86,6 +86,15 @@ Numeric answers can render as bar, line, area, pie, or donut charts with real ax
 legends. Ask for a kind ("pie chart of…") or let the assistant pick; comparisons can
 carry several series.
 
+## Interactive simulations
+
+Ask a "what if" question — "how does an investment grow depending on interest rate and
+monthly contribution?", "how far does a ball fly depending on launch angle?" — and the
+graph comes with controls: sliders for ranges, − / + steppers for exact amounts, choice
+buttons (e.g. monthly vs yearly), and on/off switches. Move a control and the curves
+update instantly; hover (or tap) the graph to read exact values, and Reset restores the
+starting settings. PDF exports include the graph as pictured at its current defaults.
+
 ## Diagrams
 
 Ask for structure and the assistant draws it: "how do I set up my home network?",

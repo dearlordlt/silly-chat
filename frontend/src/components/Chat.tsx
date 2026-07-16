@@ -1107,6 +1107,11 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
             return `[images: ${b.images.map((i) => i.caption || i.url).join('; ')}]`
           case 'chart':
             return `[chart: ${b.title ?? ''}]`
+          case 'sim':
+            // Keep the formulas: follow-up turns ("add inflation to that") need them.
+            return `[interactive simulation: ${b.title ?? ''} — series: ${b.series
+              .map((s) => `${s.name} = ${s.expr}`)
+              .join('; ')}; variables: ${b.variables.map((v) => `${v.name} (${v.label})`).join(', ')}]`
           case 'slides':
             return `[presentation: ${b.title ?? ''} — slides: ${b.slides.map((s) => s.title).join('; ')}]`
           case 'edits':
