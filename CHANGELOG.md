@@ -4,6 +4,18 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.14.1 — 2026-07-16
+
+- Fixes: count-like simulations ("as I connect 1 to 8 units") now sample whole
+  units — points land on the integers and readouts never say "3.06 units" — and
+  the rightmost axis label no longer gets cut off. Research anti-loop hardened:
+  barely-reworded repeat searches were dodging the duplicate guard, so each
+  agent is now hard-capped at 5 searches and an answer gets at most 2 research
+  rounds. The assistant no longer decorates data answers with unrequested (paid)
+  generated images. On phones the chat title no longer collides with the app
+  name in the header; auto-generated chat titles end in a proper "…" at a word
+  boundary instead of a mid-word hard cut.
+
 ## v1.14.0 — 2026-07-16
 
 - **Interactive simulations** — ask a "what if" question ("how does an investment
@@ -13,13 +25,9 @@ from this file.
   yearly, and on/off switches. Move a control and the curves morph instantly;
   hovering the graph reads off exact values. Works on phones, prints in exports
   as a snapshot at the shown settings.
-- Fixes: research could look like an infinite loop — agents re-ran the same (or
-  barely reworded) search endlessly; now duplicates are refused, each agent is
-  capped at 5 searches, and an answer gets at most 2 research rounds. The
-  assistant also no longer decorates data answers with unrequested (paid)
-  generated images. On phones the chat title no longer collides with the app
-  name in the header; auto-generated chat titles end in a proper "…" at a word
-  boundary instead of a mid-word hard cut.
+- Fixes: a research agent could burn its whole search budget re-running the same
+  query over and over (looked like an infinite loop) — repeated identical searches
+  are now refused so it answers from what it already found.
 
 ## v1.13.1 — 2026-07-12
 
