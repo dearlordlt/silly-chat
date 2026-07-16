@@ -100,6 +100,13 @@ async def _web_search(query: str) -> list[dict] | str:
                 "results above. Do not search again; synthesize your answer from what "
                 "you already found."
             )
+        # Exact-dup refusal alone doesn't stop paraphrase-thrash (seen live: 9
+        # rewordings of one question) — hard-cap searches per worker run.
+        if len(seen) >= 5:
+            return (
+                "SEARCH LIMIT — you have already run 5 searches. Stop searching and "
+                "answer now from the results above; note anything you couldn't confirm."
+            )
         seen.add(key)
     status_for_current_agent(f"Searching: {query}")
     results = await search.search_text(query)
@@ -153,6 +160,20 @@ async def research(subtasks: list[str]) -> list[Finding]:
     """Research subtasks in parallel — one worker agent each — and return findings."""
     if not subtasks:
         return []
+    # Anti-hedging: weaker models re-call research with reworded subtasks instead
+    # of answering (seen live: 7 workers for one question). Two calls per turn is
+    # plenty — the second exists for a genuine follow-up gap, not a retry.
+    if not (claim_dispatch("research|call1") or claim_dispatch("research|call2")):
+        return [
+            Finding(
+                subtask="(research refused)",
+                summary=(
+                    "RESEARCH BUDGET SPENT — you already ran research twice this turn. "
+                    "Do not call research again; write your final answer now from the "
+                    "findings you already have."
+                ),
+            )
+        ]
     log.info("research: %d subtask(s): %s", len(subtasks), [s[:40] for s in subtasks])
     findings = list(await asyncio.gather(*(_run_worker(s) for s in subtasks)))
     record_findings([(f.subtask, f.summary) for f in findings])

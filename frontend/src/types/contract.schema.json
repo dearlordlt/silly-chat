@@ -872,7 +872,7 @@
       "type": "object"
     },
     "SimAxis": {
-      "description": "The continuous input domain the curves are sampled over.",
+      "description": "The input domain the curves are sampled over.",
       "properties": {
         "label": {
           "anyOf": [
@@ -905,6 +905,19 @@
           ],
           "default": null,
           "title": "Unit"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sampling step for DISCRETE domains (1 for counts of things); omit for continuous.",
+          "title": "Step"
         }
       },
       "required": [

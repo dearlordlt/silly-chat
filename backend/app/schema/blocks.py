@@ -95,12 +95,16 @@ class SimVariable(BaseModel):
 
 
 class SimAxis(BaseModel):
-    """The continuous input domain the curves are sampled over."""
+    """The input domain the curves are sampled over."""
 
     label: str | None = None
     min: float
     max: float
     unit: str | None = None
+    step: float | None = Field(
+        default=None,
+        description="Sampling step for DISCRETE domains (1 for counts of things); omit for continuous.",
+    )
 
 
 class SimSeries(BaseModel):
@@ -129,6 +133,11 @@ class SimBlock(BaseModel):
     def _validate(self) -> "SimBlock":
         if not self.x.max > self.x.min:
             raise ValueError("sim x axis needs max > min")
+        if self.x.step is not None:
+            if self.x.step <= 0:
+                raise ValueError("sim x.step must be positive")
+            if (self.x.max - self.x.min) / self.x.step > 400:
+                self.x.step = None  # too fine to matter — fall back to continuous sampling
 
         reserved = {"x"} | set(CONSTANTS) | set(FUNCTIONS)
         seen: set[str] = set()

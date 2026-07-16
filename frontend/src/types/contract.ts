@@ -39,6 +39,10 @@ export type Label = string | null;
 export type Min = number;
 export type Max = number;
 export type Unit = string | null;
+/**
+ * Sampling step for DISCRETE domains (1 for counts of things); omit for continuous.
+ */
+export type Step = number | null;
 export type YLabel = string | null;
 export type YUnit = string | null;
 /**
@@ -64,7 +68,7 @@ export type Control = "slider" | "stepper" | "select" | "toggle";
 export type Default = number;
 export type Min1 = number | null;
 export type Max1 = number | null;
-export type Step = number | null;
+export type Step1 = number | null;
 /**
  * Shown after the value, e.g. '%', '°C', 'yr'.
  */
@@ -269,13 +273,14 @@ export interface SimBlock {
   [k: string]: unknown;
 }
 /**
- * The continuous input domain the curves are sampled over.
+ * The input domain the curves are sampled over.
  */
 export interface SimAxis {
   label?: Label;
   min: Min;
   max: Max;
   unit?: Unit;
+  step?: Step;
   [k: string]: unknown;
 }
 /**
@@ -292,7 +297,7 @@ export interface SimVariable {
   default?: Default;
   min?: Min1;
   max?: Max1;
-  step?: Step;
+  step?: Step1;
   unit?: Unit1;
   options?: Options;
   [k: string]: unknown;

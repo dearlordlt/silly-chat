@@ -95,10 +95,16 @@ function SimChart({
   const xMin = block.x.min
   const xMax = block.x.max
 
-  const xs = useMemo(
-    () => Array.from({ length: SAMPLES }, (_, i) => xMin + ((xMax - xMin) * i) / (SAMPLES - 1)),
-    [xMin, xMax],
-  )
+  // Discrete domains (x.step, e.g. "number of units") sample exactly on the
+  // steps so vertices and hover readouts land on real values, never "3.06 units".
+  const xStep = block.x.step ?? null
+  const xs = useMemo(() => {
+    if (xStep && xStep > 0) {
+      const n = Math.floor((xMax - xMin) / xStep + 1e-9)
+      return Array.from({ length: n + 1 }, (_, i) => Math.min(xMin + i * xStep, xMax))
+    }
+    return Array.from({ length: SAMPLES }, (_, i) => xMin + ((xMax - xMin) * i) / (SAMPLES - 1))
+  }, [xMin, xMax, xStep])
   const exprs = useMemo(() => block.series.map((s) => compileExprSafe(s.expr)), [block])
 
   const target = useMemo(
@@ -154,7 +160,8 @@ function SimChart({
 
   const px = (x: number) => PAD.l + ((x - xMin) / (xMax - xMin)) * PLOT_W
   const py = (v: number) => PAD.t + PLOT_H - ((v - lo) / (hi - lo)) * PLOT_H
-  const xTicks = niceTicks(xMin, xMax, 6).filter((t) => t >= xMin && t <= xMax)
+  const xTicks =
+    xStep && xs.length <= 12 ? xs : niceTicks(xMin, xMax, 6).filter((t) => t >= xMin && t <= xMax)
   const y0 = Math.max(PAD.t, Math.min(PAD.t + PLOT_H, py(0)))
 
   const [hover, setHover] = useState<number | null>(null)
@@ -195,6 +202,8 @@ function SimChart({
   }
 
   const xUnit = block.x.unit ?? ''
+  // "3 sparks", not "3sparks" — word-like units get a space; tight for %, °C, yr.
+  const xUnitText = /^[A-Za-z]{3,}/.test(xUnit) ? ` ${xUnit}` : xUnit
   return (
     <div className="relative">
       <svg
@@ -204,8 +213,8 @@ function SimChart({
         onPointerMove={(e) => {
           const rect = e.currentTarget.getBoundingClientRect()
           const sx = ((e.clientX - rect.left) / rect.width) * W
-          const idx = Math.round(((sx - PAD.l) / PLOT_W) * (SAMPLES - 1))
-          setHover(idx >= 0 && idx < SAMPLES ? idx : null)
+          const idx = Math.round(((sx - PAD.l) / PLOT_W) * (xs.length - 1))
+          setHover(idx >= 0 && idx < xs.length ? idx : null)
         }}
         onPointerLeave={() => setHover(null)}
       >
@@ -230,12 +239,24 @@ function SimChart({
             </text>
           </g>
         ))}
-        {xTicks.map((t) => (
-          <text key={t} x={px(t)} y={H - 8} textAnchor="middle" fontSize="10.5" fill="var(--color-muted-foreground)">
-            {fmt(t)}
-            {xUnit}
-          </text>
-        ))}
+        {xTicks.map((t) => {
+          // The rightmost label would center past the viewBox edge and get
+          // clipped ("8 unit") — right-align it against the edge instead.
+          const clipped = px(t) > W - 34
+          return (
+            <text
+              key={t}
+              x={clipped ? W - 2 : px(t)}
+              y={H - 8}
+              textAnchor={clipped ? 'end' : 'middle'}
+              fontSize="10.5"
+              fill="var(--color-muted-foreground)"
+            >
+              {fmt(t)}
+              {xUnitText}
+            </text>
+          )
+        })}
         {block.y_label && (
           <text
             x={12}
@@ -259,6 +280,11 @@ function SimChart({
                   <path d={areaFor(ys)} fill={color} opacity={block.series.length > 1 ? 0.12 : 0.16} />
                 )}
                 <path d={pathFor(ys)} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+                {xStep &&
+                  xs.length <= 40 &&
+                  ys.map((v, i) =>
+                    Number.isFinite(v) ? <circle key={i} cx={px(xs[i])} cy={py(v)} r={2.5} fill={color} /> : null,
+                  )}
               </g>
             )
           })}
@@ -302,7 +328,7 @@ function SimChart({
           <div className="mb-0.5 font-medium tabular-nums">
             {block.x.label ? `${block.x.label}: ` : ''}
             {fmtVal(xs[hover])}
-            {xUnit}
+            {xUnitText}
           </div>
           {block.series.map((s, si) => (
             <div key={si} className="flex items-center gap-1.5 tabular-nums text-muted-foreground">

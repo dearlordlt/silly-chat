@@ -13,11 +13,13 @@ from this file.
   yearly, and on/off switches. Move a control and the curves morph instantly;
   hovering the graph reads off exact values. Works on phones, prints in exports
   as a snapshot at the shown settings.
-- Fixes: a research agent could burn its whole search budget re-running the same
-  query over and over (looked like an infinite loop) — repeated identical searches
-  are now refused so it answers from what it already found; on phones the chat
-  title no longer collides with the app name in the header; auto-generated chat
-  titles end in a proper "…" at a word boundary instead of a mid-word hard cut.
+- Fixes: research could look like an infinite loop — agents re-ran the same (or
+  barely reworded) search endlessly; now duplicates are refused, each agent is
+  capped at 5 searches, and an answer gets at most 2 research rounds. The
+  assistant also no longer decorates data answers with unrequested (paid)
+  generated images. On phones the chat title no longer collides with the app
+  name in the header; auto-generated chat titles end in a proper "…" at a word
+  boundary instead of a mid-word hard cut.
 
 ## v1.13.1 — 2026-07-12
 
