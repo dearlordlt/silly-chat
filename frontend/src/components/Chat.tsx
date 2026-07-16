@@ -590,30 +590,37 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-2 px-3 py-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            {!sidebarOpen && (
-              <span className="flex items-center gap-2 sm:hidden">
-                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
-                  <PanelLeftOpen />
-                </Button>
-                <span className="shrink-0 text-sm font-semibold tracking-tight">silly-chat</span>
-              </span>
-            )}
-            {/* Per-chat title (design doc): quiet, truncating, next to the nav controls. */}
             {(() => {
               const t = conversations.find((c) => c.id === currentId)?.title
-              return t ? (
-                <span
-                  className={cn(
-                    // min-w-0: without it this flex child refuses to shrink and the
-                    // text gets hard-clipped instead of ellipsized.
-                    'min-w-0 truncate text-[13.5px] font-semibold text-muted-foreground',
-                    !sidebarOpen && 'border-l pl-3',
+              return (
+                <>
+                  {!sidebarOpen && (
+                    // shrink-0: without it the flexbox crushes this span and the
+                    // wordmark spills under the title. With a title present the
+                    // title wins the narrow space and the wordmark yields.
+                    <span className="flex shrink-0 items-center gap-2 sm:hidden">
+                      <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
+                        <PanelLeftOpen />
+                      </Button>
+                      {!t && <span className="text-sm font-semibold tracking-tight">silly-chat</span>}
+                    </span>
                   )}
-                  title={t}
-                >
-                  {t}
-                </span>
-              ) : null
+                  {/* Per-chat title (design doc): quiet, truncating, next to the nav controls. */}
+                  {t && (
+                    <span
+                      className={cn(
+                        // min-w-0: without it this flex child refuses to shrink and the
+                        // text gets hard-clipped instead of ellipsized.
+                        'min-w-0 truncate text-[13.5px] font-semibold text-muted-foreground',
+                        !sidebarOpen && 'sm:border-l sm:pl-3',
+                      )}
+                      title={t}
+                    >
+                      {t}
+                    </span>
+                  )}
+                </>
+              )
             })()}
           </div>
           <div className="flex shrink-0 items-center gap-1">
