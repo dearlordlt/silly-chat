@@ -16,7 +16,8 @@ from this file.
 - Fixes: a research agent could burn its whole search budget re-running the same
   query over and over (looked like an infinite loop) — repeated identical searches
   are now refused so it answers from what it already found; on phones the chat
-  title no longer collides with the app name in the header.
+  title no longer collides with the app name in the header; auto-generated chat
+  titles end in a proper "…" at a word boundary instead of a mid-word hard cut.
 
 ## v1.13.1 — 2026-07-12
 

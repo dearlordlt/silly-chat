@@ -55,7 +55,14 @@ export function newId(): string {
 
 export function titleFrom(turns: Turn[]): string {
   const first = turns.find((t) => t.role === 'user')
-  return first && first.role === 'user' ? first.text.slice(0, 60) : 'New chat'
+  if (!first || first.role !== 'user') return 'New chat'
+  const text = first.text.trim().replace(/\s+/g, ' ')
+  if (text.length <= 60) return text
+  // Cut at a word boundary (unless the last word is huge) and say so with an
+  // ellipsis — a mid-word hard slice reads as a rendering glitch.
+  const cut = text.slice(0, 60)
+  const space = cut.lastIndexOf(' ')
+  return `${(space > 40 ? cut.slice(0, space) : cut).trimEnd()}…`
 }
 
 // ---- unified facade ----
