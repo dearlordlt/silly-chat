@@ -189,6 +189,85 @@ class SimBlock(BaseModel):
         return self
 
 
+class TimelineEvent(BaseModel):
+    date: str = Field(description="Display label, e.g. '~3500 BC', 'May 2024'.")
+    t: float | None = Field(
+        default=None,
+        description="Numeric time for positioning on the minimap (year; negative for BC). "
+        "Omit only if unknown — the minimap needs it.",
+    )
+    title: str
+    desc: str | None = Field(default=None, description="One-sentence description.")
+
+
+class TimelineEra(BaseModel):
+    """A named period grouping events (collapsible section in the UI)."""
+
+    name: str
+    range: str | None = Field(default=None, description="Display range, e.g. '4000–1200 BC'.")
+    events: list[TimelineEvent] = Field(min_length=1)
+
+
+class TimelineBlock(BaseModel):
+    """A chronology: events in time, grouped into eras/periods.
+
+    Renders as an interactive card — a minimap of all events on the time axis,
+    era chips for navigation, and a collapsible grouped list. For a short flat
+    chronology emit one era named after the whole span.
+    """
+
+    type: Literal["timeline"] = "timeline"
+    title: str | None = None
+    range: str | None = Field(default=None, description="Overall span label, e.g. '10,000 BC — 500 AD'.")
+    eras: list[TimelineEra] = Field(min_length=1, max_length=8)
+
+    @model_validator(mode="after")
+    def _validate(self) -> "TimelineBlock":
+        total = sum(len(e.events) for e in self.eras)
+        if total > 120:
+            raise ValueError(f"timeline has {total} events — keep it under 120")
+        return self
+
+
+class ChangeBlock(BaseModel):
+    """How a value shifts across segments over time — e.g. opinion by age group
+    per year, adoption per demographic.
+
+    ``data[period][group][option]`` is the value cube. With several options the
+    UI shows 100%-stacked bars per group (with per-period tabs and deltas) plus
+    a trend view of ``trend_option`` over the periods; with a single option the
+    bars scale against the largest value instead.
+    """
+
+    type: Literal["change"] = "change"
+    title: str | None = None
+    subtitle: str | None = Field(default=None, description="e.g. 'By age group · 2023–2026 · % of respondents'.")
+    periods: list[str] = Field(min_length=2, max_length=12, description="Time points, e.g. ['2023','2024'].")
+    groups: list[str] = Field(min_length=1, max_length=8, description="Segments, e.g. age groups.")
+    options: list[str] = Field(min_length=1, max_length=5, description="Answer categories, e.g. ['Support','Neutral','Oppose']; one entry for a plain metric.")
+    data: list[list[list[float]]] = Field(
+        description="data[period][group][option] — same order as the label lists."
+    )
+    trend_option: int = Field(default=0, description="Index into options that the trend view plots.")
+    unit: str = Field(default="%", description="Value unit shown in labels.")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "ChangeBlock":
+        if len(self.data) != len(self.periods):
+            raise ValueError(f"data has {len(self.data)} periods, labels list {len(self.periods)}")
+        for pi, period in enumerate(self.data):
+            if len(period) != len(self.groups):
+                raise ValueError(f"data[{pi}] has {len(period)} groups, labels list {len(self.groups)}")
+            for gi, group in enumerate(period):
+                if len(group) != len(self.options):
+                    raise ValueError(
+                        f"data[{pi}][{gi}] has {len(group)} options, labels list {len(self.options)}"
+                    )
+        if not 0 <= self.trend_option < len(self.options):
+            self.trend_option = 0
+        return self
+
+
 class CodeBlock(BaseModel):
     type: Literal["code"] = "code"
     language: str
@@ -323,8 +402,8 @@ class SourcesBlock(BaseModel):
 
 Block = Annotated[
     Union[
-        TextBlock, TableBlock, GalleryBlock, ChartBlock, SimBlock, CodeBlock, DiagramBlock,
-        SlidesBlock, EditsBlock, FileBlock, MapBlock, SourcesBlock
+        TextBlock, TableBlock, GalleryBlock, ChartBlock, SimBlock, TimelineBlock, ChangeBlock,
+        CodeBlock, DiagramBlock, SlidesBlock, EditsBlock, FileBlock, MapBlock, SourcesBlock
     ],
     Field(discriminator="type"),
 ]
@@ -335,8 +414,8 @@ Block = Annotated[
 # Diagrams ARE model-authored by design (Mermaid source, not real-world claims).
 ModelBlock = Annotated[
     Union[
-        TextBlock, TableBlock, GalleryBlock, ChartBlock, SimBlock, CodeBlock, DiagramBlock,
-        SlidesBlock, SourcesBlock
+        TextBlock, TableBlock, GalleryBlock, ChartBlock, SimBlock, TimelineBlock, ChangeBlock,
+        CodeBlock, DiagramBlock, SlidesBlock, SourcesBlock
     ],
     Field(discriminator="type"),
 ]

@@ -5,6 +5,8 @@ import { TableBlockView } from './TableBlock'
 import { GalleryBlockView } from './GalleryBlock'
 import { ChartBlockView } from './ChartBlock'
 import { SimBlockView } from './SimBlock'
+import { TimelineBlockView } from './TimelineBlock'
+import { ChangeBlockView } from './ChangeBlock'
 import { CodeBlockView } from './CodeBlock'
 import { DiagramBlockView } from './DiagramBlock'
 import { SlidesBlockView } from './SlidesBlock'
@@ -26,6 +28,10 @@ export function BlockView({ block }: { block: Block }) {
       return <ChartBlockView block={block} />
     case 'sim':
       return <SimBlockView block={block} />
+    case 'timeline':
+      return <TimelineBlockView block={block} />
+    case 'change':
+      return <ChangeBlockView block={block} />
     case 'code':
       return <CodeBlockView block={block} />
     case 'diagram':
@@ -72,6 +78,24 @@ export function BlockSkeleton({ blockType }: { blockType: string }) {
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-full" />
           </div>
+        </div>
+      )
+    case 'timeline':
+      return (
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-full" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
+      )
+    case 'change':
+      return (
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-2/3" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 w-full" />
+          ))}
         </div>
       )
     case 'map':

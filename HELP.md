@@ -95,6 +95,20 @@ buttons (e.g. monthly vs yearly), and on/off switches. Move a control and the cu
 update instantly; hover (or tap) the graph to read exact values, and Reset restores the
 starting settings. PDF exports include the graph as pictured at its current defaults.
 
+## Timelines
+
+Ask for a chronology — "major inventions of the ancient world", "history of the
+internet" — and events render as an interactive timeline: an overview strip showing
+every event's position in time, era chips that jump to a period, and collapsible
+era sections with dated, described events.
+
+## Change over time
+
+Questions like "how did different age groups adopt AI over the last 3 years" render
+as a change display: pick a year with tabs and see each group as a proportion bar
+with a change-vs-last-period marker, or flip to the Trend view for the full lines
+across all years.
+
 ## Diagrams
 
 Ask for structure and the assistant draws it: "how do I set up my home network?",

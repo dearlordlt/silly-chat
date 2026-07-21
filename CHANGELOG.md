@@ -4,6 +4,19 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.15.0 — 2026-07-21
+
+- **Timelines** — ask for a chronology ("major inventions of the ancient world")
+  and get an interactive timeline: an overview strip plotting every event in
+  time, clickable era chips, and collapsible era sections with dated, described
+  events. Exports expand the whole thing into a clean document.
+- **Change over time** — "how did different age groups adopt AI in the last 3
+  years?" renders as a change display: flip through periods with tabs and see
+  each group as a proportion bar with a colored change-vs-last-period marker, or
+  switch to the Trend view for lines across all periods. Works for opinions
+  (Support/Neutral/Oppose), plain metrics, incomes — any value by segment over
+  time.
+
 ## v1.14.1 — 2026-07-16
 
 - Fixes: count-like simulations ("as I connect 1 to 8 units") now sample whole

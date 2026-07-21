@@ -7,6 +7,7 @@ what the frontend renders. Frontend TypeScript types are generated from here
 
 from app.schema.blocks import (
     Block,
+    ChangeBlock,
     ChartBlock,
     CodeBlock,
     DiagramBlock,
@@ -29,6 +30,7 @@ from app.schema.blocks import (
     SourcesBlock,
     TableBlock,
     TextBlock,
+    TimelineBlock,
 )
 from app.schema.events import (
     AgentStatusEvent,
@@ -44,6 +46,7 @@ from app.schema.events import (
 
 __all__ = [
     "Block",
+    "ChangeBlock",
     "ChartBlock",
     "CodeBlock",
     "EditChange",
@@ -60,6 +63,7 @@ __all__ = [
     "SourcesBlock",
     "TableBlock",
     "TextBlock",
+    "TimelineBlock",
     "AgentStatusEvent",
     "AgentUpdateEvent",
     "BlockDataEvent",

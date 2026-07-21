@@ -7,6 +7,8 @@ import type { Turn } from '@/lib/types'
 import { THEMES } from '@/lib/theme'
 import { ChartBlockView } from '@/components/blocks/ChartBlock'
 import { SimBlockPrint } from '@/components/blocks/SimBlock'
+import { TimelineBlockPrint } from '@/components/blocks/TimelineBlock'
+import { ChangeBlockPrint } from '@/components/blocks/ChangeBlock'
 
 /**
  * PDF export = the browser's print-to-PDF over this dedicated print surface.
@@ -64,6 +66,10 @@ function PrintBlock({ b }: { b: Block }) {
       return <ChartBlockView block={b} />
     case 'sim':
       return <SimBlockPrint block={b} />
+    case 'timeline':
+      return <TimelineBlockPrint block={b} />
+    case 'change':
+      return <ChangeBlockPrint block={b} />
     case 'gallery':
       return (
         <div className="flex flex-wrap gap-2">

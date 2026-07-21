@@ -37,6 +37,33 @@ function blockToMarkdown(b: Block): string {
         .join('\n')
       return `${title}Curves over ${b.x.label ?? 'x'}:\n${curves}\n\nVariables:\n${vars}`
     }
+    case 'timeline':
+      return (
+        (b.title ? `**${b.title}**` : '**Timeline**') +
+        (b.range ? ` (${b.range})` : '') +
+        '\n\n' +
+        b.eras
+          .map(
+            (era) =>
+              `### ${era.name}${era.range ? ` (${era.range})` : ''}\n\n` +
+              era.events.map((ev) => `- **${ev.date}** — ${ev.title}${ev.desc ? `. ${ev.desc}` : ''}`).join('\n'),
+          )
+          .join('\n\n')
+      )
+    case 'change': {
+      const title = (b.title ? `**${b.title}**` : '**Change over time**') + (b.subtitle ? ` — ${b.subtitle}` : '')
+      const head = `| Group | ${b.periods.join(' | ')} |`
+      const sep = `| --- | ${b.periods.map(() => '---').join(' | ')} |`
+      const rows = b.groups.map(
+        (g, gi) =>
+          `| ${g} | ${b.periods
+            .map((_, pi) =>
+              b.data[pi][gi].map((v, oi) => `${b.options[oi]} ${Math.round(v * 10) / 10}${b.unit ?? '%'}`).join(', '),
+            )
+            .join(' | ')} |`,
+      )
+      return `${title}\n\n${[head, sep, ...rows].join('\n')}`
+    }
     case 'gallery':
       return b.images.map((i) => `![${i.caption ?? ''}](${i.url})`).join('\n')
     case 'slides':

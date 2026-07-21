@@ -1119,6 +1119,15 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
             return `[interactive simulation: ${b.title ?? ''} — series: ${b.series
               .map((s) => `${s.name} = ${s.expr}`)
               .join('; ')}; variables: ${b.variables.map((v) => `${v.name} (${v.label})`).join(', ')}]`
+          case 'timeline':
+            // Keep the events so follow-ups ("add the Middle Ages") can extend it.
+            return `[timeline: ${b.title ?? ''} — ${b.eras
+              .map((e) => `${e.name}: ${e.events.map((ev) => `${ev.date} ${ev.title}`).join('; ')}`)
+              .join(' | ')}]`
+          case 'change':
+            return `[change display: ${b.title ?? ''} — periods ${b.periods.join('/')}, groups ${b.groups.join(
+              '/',
+            )}, options ${b.options.join('/')}; data ${JSON.stringify(b.data)}]`
           case 'slides':
             return `[presentation: ${b.title ?? ''} — slides: ${b.slides.map((s) => s.title).join('; ')}]`
           case 'edits':

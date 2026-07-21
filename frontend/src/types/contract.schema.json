@@ -76,6 +76,7 @@
         "block": {
           "discriminator": {
             "mapping": {
+              "change": "#/$defs/ChangeBlock",
               "chart": "#/$defs/ChartBlock",
               "code": "#/$defs/CodeBlock",
               "diagram": "#/$defs/DiagramBlock",
@@ -87,7 +88,8 @@
               "slides": "#/$defs/SlidesBlock",
               "sources": "#/$defs/SourcesBlock",
               "table": "#/$defs/TableBlock",
-              "text": "#/$defs/TextBlock"
+              "text": "#/$defs/TextBlock",
+              "timeline": "#/$defs/TimelineBlock"
             },
             "propertyName": "type"
           },
@@ -106,6 +108,12 @@
             },
             {
               "$ref": "#/$defs/SimBlock"
+            },
+            {
+              "$ref": "#/$defs/TimelineBlock"
+            },
+            {
+              "$ref": "#/$defs/ChangeBlock"
             },
             {
               "$ref": "#/$defs/CodeBlock"
@@ -162,6 +170,106 @@
         "block_type"
       ],
       "title": "BlockStartEvent",
+      "type": "object"
+    },
+    "ChangeBlock": {
+      "description": "How a value shifts across segments over time \u2014 e.g. opinion by age group\nper year, adoption per demographic.\n\n``data[period][group][option]`` is the value cube. With several options the\nUI shows 100%-stacked bars per group (with per-period tabs and deltas) plus\na trend view of ``trend_option`` over the periods; with a single option the\nbars scale against the largest value instead.",
+      "properties": {
+        "type": {
+          "const": "change",
+          "default": "change",
+          "title": "Type",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "e.g. 'By age group \u00b7 2023\u20132026 \u00b7 % of respondents'.",
+          "title": "Subtitle"
+        },
+        "periods": {
+          "description": "Time points, e.g. ['2023','2024'].",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 2,
+          "title": "Periods",
+          "type": "array"
+        },
+        "groups": {
+          "description": "Segments, e.g. age groups.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Groups",
+          "type": "array"
+        },
+        "options": {
+          "description": "Answer categories, e.g. ['Support','Neutral','Oppose']; one entry for a plain metric.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Options",
+          "type": "array"
+        },
+        "data": {
+          "description": "data[period][group][option] \u2014 same order as the label lists.",
+          "items": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "title": "Data",
+          "type": "array"
+        },
+        "trend_option": {
+          "default": 0,
+          "description": "Index into options that the trend view plots.",
+          "title": "Trend Option",
+          "type": "integer"
+        },
+        "unit": {
+          "default": "%",
+          "description": "Value unit shown in labels.",
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "periods",
+        "groups",
+        "options",
+        "data"
+      ],
+      "title": "ChangeBlock",
       "type": "object"
     },
     "ChartBlock": {
@@ -819,6 +927,7 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "change": "#/$defs/ChangeBlock",
                 "chart": "#/$defs/ChartBlock",
                 "code": "#/$defs/CodeBlock",
                 "diagram": "#/$defs/DiagramBlock",
@@ -827,7 +936,8 @@
                 "slides": "#/$defs/SlidesBlock",
                 "sources": "#/$defs/SourcesBlock",
                 "table": "#/$defs/TableBlock",
-                "text": "#/$defs/TextBlock"
+                "text": "#/$defs/TextBlock",
+                "timeline": "#/$defs/TimelineBlock"
               },
               "propertyName": "type"
             },
@@ -846,6 +956,12 @@
               },
               {
                 "$ref": "#/$defs/SimBlock"
+              },
+              {
+                "$ref": "#/$defs/TimelineBlock"
+              },
+              {
+                "$ref": "#/$defs/ChangeBlock"
               },
               {
                 "$ref": "#/$defs/CodeBlock"
@@ -1320,6 +1436,137 @@
         "text"
       ],
       "title": "TextDeltaEvent",
+      "type": "object"
+    },
+    "TimelineBlock": {
+      "description": "A chronology: events in time, grouped into eras/periods.\n\nRenders as an interactive card \u2014 a minimap of all events on the time axis,\nera chips for navigation, and a collapsible grouped list. For a short flat\nchronology emit one era named after the whole span.",
+      "properties": {
+        "type": {
+          "const": "timeline",
+          "default": "timeline",
+          "title": "Type",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Overall span label, e.g. '10,000 BC \u2014 500 AD'.",
+          "title": "Range"
+        },
+        "eras": {
+          "items": {
+            "$ref": "#/$defs/TimelineEra"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Eras",
+          "type": "array"
+        }
+      },
+      "required": [
+        "eras"
+      ],
+      "title": "TimelineBlock",
+      "type": "object"
+    },
+    "TimelineEra": {
+      "description": "A named period grouping events (collapsible section in the UI).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Display range, e.g. '4000\u20131200 BC'.",
+          "title": "Range"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/TimelineEvent"
+          },
+          "minItems": 1,
+          "title": "Events",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "events"
+      ],
+      "title": "TimelineEra",
+      "type": "object"
+    },
+    "TimelineEvent": {
+      "properties": {
+        "date": {
+          "description": "Display label, e.g. '~3500 BC', 'May 2024'.",
+          "title": "Date",
+          "type": "string"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Numeric time for positioning on the minimap (year; negative for BC). Omit only if unknown \u2014 the minimap needs it.",
+          "title": "T"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "desc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One-sentence description.",
+          "title": "Desc"
+        }
+      },
+      "required": [
+        "date",
+        "title"
+      ],
+      "title": "TimelineEvent",
       "type": "object"
     }
   },

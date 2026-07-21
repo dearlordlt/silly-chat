@@ -95,7 +95,111 @@ export type Name2 = string;
  * Math expression over x and the variables, e.g. 'P*(1+r/100)^x'. Operators + - * / % ^, functions like sin/cos/exp/ln/sqrt (radians), constants pi/e.
  */
 export type Expr = string;
-export type Type5 = "code";
+export type Type5 = "timeline";
+export type Title2 = string | null;
+/**
+ * Overall span label, e.g. '10,000 BC — 500 AD'.
+ */
+export type Range = string | null;
+/**
+ * @minItems 1
+ * @maxItems 8
+ */
+export type Eras =
+  | [TimelineEra]
+  | [TimelineEra, TimelineEra]
+  | [TimelineEra, TimelineEra, TimelineEra]
+  | [TimelineEra, TimelineEra, TimelineEra, TimelineEra]
+  | [TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra]
+  | [TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra]
+  | [TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra]
+  | [TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra, TimelineEra];
+export type Name3 = string;
+/**
+ * Display range, e.g. '4000–1200 BC'.
+ */
+export type Range1 = string | null;
+/**
+ * @minItems 1
+ */
+export type Events = [TimelineEvent, ...TimelineEvent[]];
+/**
+ * Display label, e.g. '~3500 BC', 'May 2024'.
+ */
+export type Date = string;
+/**
+ * Numeric time for positioning on the minimap (year; negative for BC). Omit only if unknown — the minimap needs it.
+ */
+export type T = number | null;
+export type Title3 = string;
+/**
+ * One-sentence description.
+ */
+export type Desc = string | null;
+export type Type6 = "change";
+export type Title4 = string | null;
+/**
+ * e.g. 'By age group · 2023–2026 · % of respondents'.
+ */
+export type Subtitle = string | null;
+/**
+ * Time points, e.g. ['2023','2024'].
+ *
+ * @minItems 2
+ * @maxItems 12
+ */
+export type Periods =
+  | [string, string]
+  | [string, string, string]
+  | [string, string, string, string]
+  | [string, string, string, string, string]
+  | [string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string];
+/**
+ * Segments, e.g. age groups.
+ *
+ * @minItems 1
+ * @maxItems 8
+ */
+export type Groups =
+  | [string]
+  | [string, string]
+  | [string, string, string]
+  | [string, string, string, string]
+  | [string, string, string, string, string]
+  | [string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string];
+/**
+ * Answer categories, e.g. ['Support','Neutral','Oppose']; one entry for a plain metric.
+ *
+ * @minItems 1
+ * @maxItems 5
+ */
+export type Options1 =
+  | [string]
+  | [string, string]
+  | [string, string, string]
+  | [string, string, string, string]
+  | [string, string, string, string, string];
+/**
+ * data[period][group][option] — same order as the label lists.
+ */
+export type Data = number[][][];
+/**
+ * Index into options that the trend view plots.
+ */
+export type TrendOption = number;
+/**
+ * Value unit shown in labels.
+ */
+export type Unit2 = string;
+export type Type7 = "code";
 export type Language = string;
 export type Content = string;
 /**
@@ -106,26 +210,36 @@ export type Filename = string | null;
  * Stable id of the code artifact this block is the latest version of.
  */
 export type ArtifactId = string | null;
-export type Type6 = "diagram";
+export type Type8 = "diagram";
 /**
  * Valid Mermaid source, e.g. 'graph TD; A-->B'.
  */
 export type Mermaid = string;
-export type Title2 = string | null;
-export type Type7 = "slides";
-export type Title3 = string | null;
-export type Title4 = string;
+export type Title5 = string | null;
+export type Type9 = "slides";
+export type Title6 = string | null;
+export type Title7 = string;
 /**
  * Slide body as concise markdown — short bullets, not paragraphs.
  */
 export type Markdown1 = string;
 export type Slides = Slide[];
-export type Type8 = "sources";
-export type Title5 = string;
+export type Type10 = "sources";
+export type Title8 = string;
 export type Url1 = string;
 export type Items = Source[];
 export type Blocks = (
-  TextBlock | TableBlock | GalleryBlock | ChartBlock | SimBlock | CodeBlock | DiagramBlock | SlidesBlock | SourcesBlock
+  | TextBlock
+  | TableBlock
+  | GalleryBlock
+  | ChartBlock
+  | SimBlock
+  | TimelineBlock
+  | ChangeBlock
+  | CodeBlock
+  | DiagramBlock
+  | SlidesBlock
+  | SourcesBlock
 )[];
 export type Event =
   | TextDeltaEvent
@@ -150,6 +264,8 @@ export type Block =
   | GalleryBlock
   | ChartBlock
   | SimBlock
+  | TimelineBlock
+  | ChangeBlock
   | CodeBlock
   | DiagramBlock
   | SlidesBlock
@@ -157,19 +273,19 @@ export type Block =
   | FileBlock
   | MapBlock
   | SourcesBlock;
-export type Type9 = "edits";
+export type Type11 = "edits";
 export type ArtifactId1 = string;
-export type Name3 = string | null;
+export type Name4 = string | null;
 export type Old = string;
 export type New = string;
 export type Changes = EditChange[];
-export type Type10 = "file";
-export type Name4 = string;
+export type Type12 = "file";
+export type Name5 = string;
 export type Url2 = string;
 export type Mime = string;
 export type Size = number;
-export type Type11 = "map";
-export type Name5 = string;
+export type Type13 = "map";
+export type Name6 = string;
 export type Lat = number;
 export type Lon = number;
 export type Points = MapPoint[];
@@ -182,10 +298,10 @@ export type Mode1 = string;
 export type Label3 = string | null;
 export type Geometry1 = number[][];
 export type Areas = MapArea[] | null;
-export type Name6 = string;
+export type Name7 = string;
 export type Approximate = boolean;
 export type Polygons = number[][][];
-export type Title6 = string | null;
+export type Title9 = string | null;
 export type Event4 = "agent_status";
 export type Message = string;
 export type Event5 = "agent_update";
@@ -316,8 +432,59 @@ export interface SimSeries {
   expr: Expr;
   [k: string]: unknown;
 }
-export interface CodeBlock {
+/**
+ * A chronology: events in time, grouped into eras/periods.
+ *
+ * Renders as an interactive card — a minimap of all events on the time axis,
+ * era chips for navigation, and a collapsible grouped list. For a short flat
+ * chronology emit one era named after the whole span.
+ */
+export interface TimelineBlock {
   type?: Type5;
+  title?: Title2;
+  range?: Range;
+  eras: Eras;
+  [k: string]: unknown;
+}
+/**
+ * A named period grouping events (collapsible section in the UI).
+ */
+export interface TimelineEra {
+  name: Name3;
+  range?: Range1;
+  events: Events;
+  [k: string]: unknown;
+}
+export interface TimelineEvent {
+  date: Date;
+  t?: T;
+  title: Title3;
+  desc?: Desc;
+  [k: string]: unknown;
+}
+/**
+ * How a value shifts across segments over time — e.g. opinion by age group
+ * per year, adoption per demographic.
+ *
+ * ``data[period][group][option]`` is the value cube. With several options the
+ * UI shows 100%-stacked bars per group (with per-period tabs and deltas) plus
+ * a trend view of ``trend_option`` over the periods; with a single option the
+ * bars scale against the largest value instead.
+ */
+export interface ChangeBlock {
+  type?: Type6;
+  title?: Title4;
+  subtitle?: Subtitle;
+  periods: Periods;
+  groups: Groups;
+  options: Options1;
+  data: Data;
+  trend_option?: TrendOption;
+  unit?: Unit2;
+  [k: string]: unknown;
+}
+export interface CodeBlock {
+  type?: Type7;
   language: Language;
   content: Content;
   filename?: Filename;
@@ -328,22 +495,22 @@ export interface CodeBlock {
  * A Mermaid diagram authored by the model (flowcharts, sequences, ER, etc.).
  */
 export interface DiagramBlock {
-  type?: Type6;
+  type?: Type8;
   mermaid: Mermaid;
-  title?: Title2;
+  title?: Title5;
   [k: string]: unknown;
 }
 /**
  * A presentation (slide deck) authored by the model, viewed slide by slide.
  */
 export interface SlidesBlock {
-  type?: Type7;
-  title?: Title3;
+  type?: Type9;
+  title?: Title6;
   slides: Slides;
   [k: string]: unknown;
 }
 export interface Slide {
-  title: Title4;
+  title: Title7;
   markdown?: Markdown1;
   [k: string]: unknown;
 }
@@ -351,12 +518,12 @@ export interface Slide {
  * Citations — the proof behind a grounded answer.
  */
 export interface SourcesBlock {
-  type?: Type8;
+  type?: Type10;
   items: Items;
   [k: string]: unknown;
 }
 export interface Source {
-  title: Title5;
+  title: Title8;
   url: Url1;
   [k: string]: unknown;
 }
@@ -392,9 +559,9 @@ export interface BlockDataEvent {
  * shows the result.
  */
 export interface EditsBlock {
-  type?: Type9;
+  type?: Type11;
   artifact_id: ArtifactId1;
-  name?: Name3;
+  name?: Name4;
   changes: Changes;
   [k: string]: unknown;
 }
@@ -412,8 +579,8 @@ export interface EditChange {
  * Tool-authored only — the url points into the uploads store (owner-only).
  */
 export interface FileBlock {
-  type?: Type10;
-  name: Name4;
+  type?: Type12;
+  name: Name5;
   url: Url2;
   mime?: Mime;
   size?: Size;
@@ -426,15 +593,15 @@ export interface FileBlock {
  * coordinates and records this block, so positions can't be hallucinated.
  */
 export interface MapBlock {
-  type?: Type11;
+  type?: Type13;
   points: Points;
   route?: MapRoute | null;
   areas?: Areas;
-  title?: Title6;
+  title?: Title9;
   [k: string]: unknown;
 }
 export interface MapPoint {
-  name: Name5;
+  name: Name6;
   lat: Lat;
   lon: Lon;
   [k: string]: unknown;
@@ -461,7 +628,7 @@ export interface MapLeg {
  * approximation (drawn dashed + labeled approximate).
  */
 export interface MapArea {
-  name: Name6;
+  name: Name7;
   approximate?: Approximate;
   polygons: Polygons;
   [k: string]: unknown;
