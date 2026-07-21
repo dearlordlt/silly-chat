@@ -4,6 +4,13 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.15.1 — 2026-07-21
+
+- Fixes: the conversation now scrolls from anywhere in the window — the scrollbar
+  sits at the window's right edge instead of hugging the chat column, and the
+  mouse wheel no longer needs the pointer parked over the messages (where
+  scrollable components like timelines would swallow it).
+
 ## v1.15.0 — 2026-07-21
 
 - **Timelines** — ask for a chronology ("major inventions of the ancient world")

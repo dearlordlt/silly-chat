@@ -670,17 +670,20 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             edges — a plain full-width border read as a harsh gray bar on warm themes. */}
         <div aria-hidden className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-        <div className="mx-auto flex w-full min-w-0 max-w-[720px] flex-1 flex-col overflow-hidden">
+        {/* The SCROLLER is full-width (scrollbar at the window edge, wheel works
+            anywhere over the conversation); only the content column is centered. */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div
             ref={scrollRef}
             onScroll={(e) => {
               const el = e.currentTarget
               atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
             }}
-            className="flex-1 space-y-6 overflow-y-auto px-4 py-6"
+            className="flex-1 overflow-y-auto"
           >
+            <div className="mx-auto flex min-h-full w-full max-w-[720px] flex-col gap-6 px-4 py-6">
             {turns.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
                 <h1 className="text-2xl font-semibold tracking-tight">Ask me anything</h1>
                 <p className="text-sm text-muted-foreground">
                   I'll search the web and show you the answer.
@@ -844,9 +847,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 </div>
               ),
             )}
+            </div>
           </div>
 
-          <div className="px-4 pb-4">
+          <div className="mx-auto w-full max-w-[720px] px-4 pb-4">
             <div
               onDragOver={(e) => {
                 e.preventDefault()
