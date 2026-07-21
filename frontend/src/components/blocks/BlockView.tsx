@@ -7,6 +7,7 @@ import { ChartBlockView } from './ChartBlock'
 import { SimBlockView } from './SimBlock'
 import { TimelineBlockView } from './TimelineBlock'
 import { ChangeBlockView } from './ChangeBlock'
+import { AskBlockView, type AskResponder } from './AskBlock'
 import { CodeBlockView } from './CodeBlock'
 import { DiagramBlockView } from './DiagramBlock'
 import { SlidesBlockView } from './SlidesBlock'
@@ -15,8 +16,10 @@ import { FileBlockView } from './FileBlock'
 import { MapBlockView } from './MapBlock'
 import { SourcesBlockView } from './SourcesBlock'
 
-/** Render a completed block by dispatching on its discriminant. */
-export function BlockView({ block }: { block: Block }) {
+/** Render a completed block by dispatching on its discriminant.
+ * `ask` wires the permission card's buttons — only Chat passes it, and only
+ * for the latest turn (elsewhere the card renders inert). */
+export function BlockView({ block, ask }: { block: Block; ask?: AskResponder }) {
   switch (block.type) {
     case 'text':
       return <TextBlockView block={block} />
@@ -32,6 +35,8 @@ export function BlockView({ block }: { block: Block }) {
       return <TimelineBlockView block={block} />
     case 'change':
       return <ChangeBlockView block={block} />
+    case 'ask':
+      return <AskBlockView block={block} ask={ask} />
     case 'code':
       return <CodeBlockView block={block} />
     case 'diagram':

@@ -228,6 +228,12 @@ export type Type10 = "sources";
 export type Title8 = string;
 export type Url1 = string;
 export type Items = Source[];
+export type Type11 = "ask";
+/**
+ * Short, concrete description of what you want to do, e.g. 'search the web for current RTX 5090 prices'.
+ */
+export type Action = string;
+export type Kind2 = "search" | "code" | "image" | "document" | "map" | "other";
 export type Blocks = (
   | TextBlock
   | TableBlock
@@ -240,6 +246,7 @@ export type Blocks = (
   | DiagramBlock
   | SlidesBlock
   | SourcesBlock
+  | AskBlock
 )[];
 export type Event =
   | TextDeltaEvent
@@ -272,19 +279,20 @@ export type Block =
   | EditsBlock
   | FileBlock
   | MapBlock
-  | SourcesBlock;
-export type Type11 = "edits";
+  | SourcesBlock
+  | AskBlock;
+export type Type12 = "edits";
 export type ArtifactId1 = string;
 export type Name4 = string | null;
 export type Old = string;
 export type New = string;
 export type Changes = EditChange[];
-export type Type12 = "file";
+export type Type13 = "file";
 export type Name5 = string;
 export type Url2 = string;
 export type Mime = string;
 export type Size = number;
-export type Type13 = "map";
+export type Type14 = "map";
 export type Name6 = string;
 export type Lat = number;
 export type Lon = number;
@@ -527,6 +535,17 @@ export interface Source {
   url: Url1;
   [k: string]: unknown;
 }
+/**
+ * A tool-permission request (chat mode): instead of running a tool
+ * uninvited, the model asks first — the UI renders Allow / Not now buttons
+ * that reply with predefined messages.
+ */
+export interface AskBlock {
+  type?: Type11;
+  action: Action;
+  kind?: Kind2;
+  [k: string]: unknown;
+}
 export interface TextDeltaEvent {
   event?: Event1;
   block_id: BlockId;
@@ -559,7 +578,7 @@ export interface BlockDataEvent {
  * shows the result.
  */
 export interface EditsBlock {
-  type?: Type11;
+  type?: Type12;
   artifact_id: ArtifactId1;
   name?: Name4;
   changes: Changes;
@@ -579,7 +598,7 @@ export interface EditChange {
  * Tool-authored only — the url points into the uploads store (owner-only).
  */
 export interface FileBlock {
-  type?: Type12;
+  type?: Type13;
   name: Name5;
   url: Url2;
   mime?: Mime;
@@ -593,7 +612,7 @@ export interface FileBlock {
  * coordinates and records this block, so positions can't be hallucinated.
  */
 export interface MapBlock {
-  type?: Type13;
+  type?: Type14;
   points: Points;
   route?: MapRoute | null;
   areas?: Areas;

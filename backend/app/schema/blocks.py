@@ -189,6 +189,19 @@ class SimBlock(BaseModel):
         return self
 
 
+class AskBlock(BaseModel):
+    """A tool-permission request (chat mode): instead of running a tool
+    uninvited, the model asks first — the UI renders Allow / Not now buttons
+    that reply with predefined messages."""
+
+    type: Literal["ask"] = "ask"
+    action: str = Field(
+        description="Short, concrete description of what you want to do, e.g. "
+        "'search the web for current RTX 5090 prices'."
+    )
+    kind: Literal["search", "code", "image", "document", "map", "other"] = "other"
+
+
 class TimelineEvent(BaseModel):
     date: str = Field(description="Display label, e.g. '~3500 BC', 'May 2024'.")
     t: float | None = Field(
@@ -403,7 +416,8 @@ class SourcesBlock(BaseModel):
 Block = Annotated[
     Union[
         TextBlock, TableBlock, GalleryBlock, ChartBlock, SimBlock, TimelineBlock, ChangeBlock,
-        CodeBlock, DiagramBlock, SlidesBlock, EditsBlock, FileBlock, MapBlock, SourcesBlock
+        CodeBlock, DiagramBlock, SlidesBlock, EditsBlock, FileBlock, MapBlock, SourcesBlock,
+        AskBlock
     ],
     Field(discriminator="type"),
 ]
@@ -415,7 +429,7 @@ Block = Annotated[
 ModelBlock = Annotated[
     Union[
         TextBlock, TableBlock, GalleryBlock, ChartBlock, SimBlock, TimelineBlock, ChangeBlock,
-        CodeBlock, DiagramBlock, SlidesBlock, SourcesBlock
+        CodeBlock, DiagramBlock, SlidesBlock, SourcesBlock, AskBlock
     ],
     Field(discriminator="type"),
 ]

@@ -37,6 +37,8 @@ function blockToMarkdown(b: Block): string {
         .join('\n')
       return `${title}Curves over ${b.x.label ?? 'x'}:\n${curves}\n\nVariables:\n${vars}`
     }
+    case 'ask':
+      return `*Asked permission to ${b.action}.*`
     case 'timeline':
       return (
         (b.title ? `**${b.title}**` : '**Timeline**') +

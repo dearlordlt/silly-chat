@@ -60,6 +60,40 @@
       "title": "AgentUpdateEvent",
       "type": "object"
     },
+    "AskBlock": {
+      "description": "A tool-permission request (chat mode): instead of running a tool\nuninvited, the model asks first \u2014 the UI renders Allow / Not now buttons\nthat reply with predefined messages.",
+      "properties": {
+        "type": {
+          "const": "ask",
+          "default": "ask",
+          "title": "Type",
+          "type": "string"
+        },
+        "action": {
+          "description": "Short, concrete description of what you want to do, e.g. 'search the web for current RTX 5090 prices'.",
+          "title": "Action",
+          "type": "string"
+        },
+        "kind": {
+          "default": "other",
+          "enum": [
+            "search",
+            "code",
+            "image",
+            "document",
+            "map",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "AskBlock",
+      "type": "object"
+    },
     "BlockDataEvent": {
       "description": "Fills a previously-started block with its validated payload.",
       "properties": {
@@ -76,6 +110,7 @@
         "block": {
           "discriminator": {
             "mapping": {
+              "ask": "#/$defs/AskBlock",
               "change": "#/$defs/ChangeBlock",
               "chart": "#/$defs/ChartBlock",
               "code": "#/$defs/CodeBlock",
@@ -135,6 +170,9 @@
             },
             {
               "$ref": "#/$defs/SourcesBlock"
+            },
+            {
+              "$ref": "#/$defs/AskBlock"
             }
           ],
           "title": "Block"
@@ -927,6 +965,7 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "ask": "#/$defs/AskBlock",
                 "change": "#/$defs/ChangeBlock",
                 "chart": "#/$defs/ChartBlock",
                 "code": "#/$defs/CodeBlock",
@@ -974,6 +1013,9 @@
               },
               {
                 "$ref": "#/$defs/SourcesBlock"
+              },
+              {
+                "$ref": "#/$defs/AskBlock"
               }
             ]
           },

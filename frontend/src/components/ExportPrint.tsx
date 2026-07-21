@@ -66,6 +66,8 @@ function PrintBlock({ b }: { b: Block }) {
       return <ChartBlockView block={b} />
     case 'sim':
       return <SimBlockPrint block={b} />
+    case 'ask':
+      return <p className="text-xs italic text-neutral-500">Asked permission to {b.action}.</p>
     case 'timeline':
       return <TimelineBlockPrint block={b} />
     case 'change':

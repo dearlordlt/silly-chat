@@ -4,6 +4,16 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.16.0 — 2026-07-21
+
+- **Chat mode asks before using tools** — Chat mode is now genuinely
+  conversation-first: the assistant answers from its own knowledge and no longer
+  jumps into web searches or image generation uninvited (asking for help *writing*
+  an image prompt no longer generates the image). When it truly believes a tool
+  would help, it says so with a "silly-chat wants to…" card — **Allow** runs it,
+  **Not now** gets the best tool-free answer instead, and both choices stay
+  visible in the conversation. Asking for the tool directly still just works.
+
 ## v1.15.1 — 2026-07-21
 
 - Fixes: the conversation now scrolls from anywhere in the window — the scrollbar

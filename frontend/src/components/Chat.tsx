@@ -346,6 +346,16 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     runTurn(message, turns, atts)
   }
 
+  // Tool-permission card (chat mode): the buttons answer with predefined
+  // messages — mode_chat.md teaches the model to treat these as grant/refusal.
+  function respondToAsk(allow: boolean) {
+    if (busy) return
+    runTurn(
+      allow ? 'Allowed — go ahead.' : 'Not now — no tools, please answer from what you know.',
+      turns,
+    )
+  }
+
   function startEdit(index: number, text: string) {
     setEditingIndex(index)
     setEditText(text)
@@ -801,7 +811,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                           <BlockView block={{ type: 'text', markdown: slot.text }} />
                         )
                       ) : (
-                        <BlockView block={slot.block} />
+                        <BlockView
+                          block={slot.block}
+                          ask={{ enabled: i === turns.length - 1 && !busy, respond: respondToAsk }}
+                        />
                       )}
                     </div>
                   ))}
@@ -1123,6 +1136,8 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
             return `[interactive simulation: ${b.title ?? ''} — series: ${b.series
               .map((s) => `${s.name} = ${s.expr}`)
               .join('; ')}; variables: ${b.variables.map((v) => `${v.name} (${v.label})`).join(', ')}]`
+          case 'ask':
+            return `[asked permission to: ${b.action}]`
           case 'timeline':
             // Keep the events so follow-ups ("add the Middle Ages") can extend it.
             return `[timeline: ${b.title ?? ''} — ${b.eras

@@ -20,6 +20,13 @@ official docs when the tech is niche or version-specific). If image generation i
 enabled for you, a fourth **Images** pill appears — picture-first: describe anything
 and it gets drawn right away.
 
+In **Chat** mode the assistant works purely from its own knowledge and asks before
+reaching for anything else: if it thinks a web search, image, code, document, or map
+would genuinely help, a small "silly-chat wants to…" card appears with **Allow** and
+**Not now** buttons — nothing runs until you allow it. Telling it directly ("search
+for it", "generate it") skips the card. Other modes are unchanged — there the tools
+are the point.
+
 ## Attachments — images
 
 Paste an image, drag it onto the input, or use the paperclip. The assistant can see
