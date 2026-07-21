@@ -12,7 +12,9 @@ from this file.
   an image prompt no longer generates the image). When it truly believes a tool
   would help, it says so with a "silly-chat wants to…" card — **Allow** runs it,
   **Not now** gets the best tool-free answer instead, and both choices stay
-  visible in the conversation. Asking for the tool directly still just works.
+  visible in the conversation. The card also hints which mode pill (Search,
+  Images, Code) uses that tool freely. Asking for the tool directly still just
+  works.
 
 ## v1.15.1 — 2026-07-21
 

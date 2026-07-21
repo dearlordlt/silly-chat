@@ -20,9 +20,17 @@ const ICONS = {
 
 export type AskResponder = { enabled: boolean; respond: (allow: boolean) => void }
 
+// Which mode pill uses this tool freely — surfaced as a hint on the card.
+const MODE_HINT: Record<string, string> = {
+  search: 'Search',
+  image: 'Images',
+  code: 'Code',
+}
+
 export function AskBlockView({ block, ask }: { block: AskBlock; ask?: AskResponder }) {
   const Icon = ICONS[(block.kind ?? 'other') as keyof typeof ICONS] ?? Wand2
   const active = ask?.enabled ?? false
+  const mode = MODE_HINT[block.kind ?? '']
   return (
     <div
       className={`flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 ${
@@ -49,6 +57,18 @@ export function AskBlockView({ block, ask }: { block: AskBlock; ask?: AskRespond
             <X className="size-3.5" /> Not now
           </Button>
         </span>
+      )}
+      {active && (
+        <p className="w-full text-[11px] text-muted-foreground/80">
+          Tip: only Chat mode asks —{' '}
+          {mode ? (
+            <>
+              the <span className="font-semibold">{mode}</span> mode pill below uses tools freely.
+            </>
+          ) : (
+            'the other mode pills below use tools freely.'
+          )}
+        </p>
       )}
     </div>
   )
