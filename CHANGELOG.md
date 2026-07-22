@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.17.0 — 2026-07-22
+
+- **Pin & rename chats** — a saved chat's ⋯ menu now has Pin (pinned chats live in
+  their own group at the top of the sidebar, wherever they're stored) and Rename
+  (edit the name right in the list — Enter saves, Esc cancels). Custom names are
+  permanent: they survive new messages, moves between local and server, and —
+  for server chats — stay encrypted under your key like the rest of the chat.
+
 ## v1.16.0 — 2026-07-21
 
 - **Chat mode asks before using tools** — Chat mode is now genuinely

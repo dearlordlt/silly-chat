@@ -92,7 +92,7 @@ export type GalleryItem = {
   size: number
 }
 
-export type ServerConvSummary = { id: string; title: string; updated_at: string }
+export type ServerConvSummary = { id: string; title: string; updated_at: string; pinned?: boolean }
 export type ServerConv = ServerConvSummary & {
   turns: unknown[]
   linked?: string[]
@@ -168,8 +168,12 @@ export const api = {
       summary?: string
       summarized_upto?: number
       artifacts?: unknown[]
+      pinned?: boolean
     },
   ) => req<ServerConvSummary>('PUT', `/api/conversations/${id}`, body),
+  // Metadata-only edits (rename / pin) — no content resend, no updated_at bump.
+  patchServerConvo: (id: string, body: { title?: string; pinned?: boolean }) =>
+    req<ServerConvSummary>('PATCH', `/api/conversations/${id}`, body),
 
   // Compaction: merge the prior summary + older messages into one rolling summary.
   summarize: (summary: string, messages: { role: string; content: string }[]) =>

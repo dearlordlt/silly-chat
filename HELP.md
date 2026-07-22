@@ -158,7 +158,10 @@ Each chat can live in one of three places, switchable per chat from its ⋯ menu
 available on any device). The control at the sidebar bottom sets the default for new
 chats. Edit your last message with the pencil, retry failed answers with Retry. The
 sidebar lists the 15 most recent chats — "Load more" reveals older ones, and the
-search box always scans your whole history. Every message carries a subtle
+search box always scans your whole history. A saved chat's ⋯ menu can also **Pin**
+it (pinned chats stay in their own group at the top) and **Rename** it (type the
+new name in place, Enter saves, Esc cancels) — a custom name sticks, it won't be
+overwritten as the chat grows. Every message carries a subtle
 timestamp, and after each answer the header shows which model(s) worked and how
 much of the context window this chat is using. The assistant remembers the whole
 chat: if a very long conversation nears the model's context limit, older messages

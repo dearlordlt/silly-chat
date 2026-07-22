@@ -11,6 +11,9 @@ import {
   MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
+  Pin,
+  PinOff,
   Plus,
   Search,
   Trash2,
@@ -62,6 +65,8 @@ export function Sidebar({
   onOpen,
   onDelete,
   onMove,
+  onRename,
+  onPin,
   onCollapse,
 }: {
   mode: StorageMode
@@ -72,11 +77,15 @@ export function Sidebar({
   onOpen: (id: string, location: Location) => void
   onDelete: (id: string, location: Location) => void
   onMove: (id: string, from: Location, to: Location) => void
+  onRename: (id: string, location: Location, title: string) => void
+  onPin: (id: string, location: Location, pinned: boolean) => void
   onCollapse: () => void
 }) {
   const [query, setQuery] = useState('')
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [movingId, setMovingId] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState('')
   const [version, setVersion] = useState('')
   const [dialog, setDialog] = useState<'about' | 'help' | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -104,7 +113,9 @@ export function Sidebar({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return q ? conversations.filter((c) => c.title.toLowerCase().includes(q)) : conversations
+    const hits = q ? conversations.filter((c) => c.title.toLowerCase().includes(q)) : conversations
+    // Pinned chats float to the top as their own group (list arrives newest-first).
+    return [...hits].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned))
   }, [conversations, query])
 
   // Long histories: render a page at a time (search always scans the full list).
@@ -155,10 +166,16 @@ export function Sidebar({
         ) : (
           <ul className="space-y-0.5">
             {shown.map((c) => {
-              const b = bucket(c.updatedAt)
+              const b = c.pinned ? 'Pinned' : bucket(c.updatedAt)
               const header = b !== lastBucket ? ((lastBucket = b), b) : null
               const active = c.id === currentId
               const moving = c.id === movingId
+              const renaming = c.id === renamingId
+              const commitRename = () => {
+                const t = renameText.trim()
+                setRenamingId(null)
+                if (t && t !== c.title) onRename(c.id, c.location, t)
+              }
               return (
                 <li key={`${c.location}:${c.id}`}>
                   {header && (
@@ -173,18 +190,39 @@ export function Sidebar({
                       moving && 'pointer-events-none opacity-60',
                     )}
                   >
-                    <button
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                      onClick={() => onOpen(c.id, c.location)}
-                      title={c.title}
-                    >
-                      {c.location === 'server' ? (
-                        <Cloud className="size-3.5 shrink-0 text-muted-foreground" />
-                      ) : (
-                        <HardDrive className="size-3.5 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="truncate">{c.title || 'Untitled'}</span>
-                    </button>
+                    {renaming ? (
+                      <span className="flex min-w-0 flex-1 items-center gap-2">
+                        {c.location === 'server' ? (
+                          <Cloud className="size-3.5 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <HardDrive className="size-3.5 shrink-0 text-muted-foreground" />
+                        )}
+                        <input
+                          autoFocus
+                          value={renameText}
+                          onChange={(e) => setRenameText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRename()
+                            if (e.key === 'Escape') setRenamingId(null)
+                          }}
+                          onBlur={commitRename}
+                          className="w-full min-w-0 rounded-sm border border-ring bg-background px-1.5 py-0.5 text-[13px] outline-none"
+                        />
+                      </span>
+                    ) : (
+                      <button
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        onClick={() => onOpen(c.id, c.location)}
+                        title={c.title}
+                      >
+                        {c.location === 'server' ? (
+                          <Cloud className="size-3.5 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <HardDrive className="size-3.5 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className="truncate">{c.title || 'Untitled'}</span>
+                      </button>
+                    )}
                     {moving ? (
                       <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
                         <Loader2 className="size-3 animate-spin" />
@@ -209,6 +247,25 @@ export function Sidebar({
                         ref={menuRef}
                         className="animate-rise absolute right-1 top-full z-50 mt-1 w-44 rounded-lg border bg-card p-1 shadow-lg"
                       >
+                        <RowMenuItem
+                          icon={c.pinned ? <PinOff /> : <Pin />}
+                          onClick={() => {
+                            setMenuFor(null)
+                            onPin(c.id, c.location, !c.pinned)
+                          }}
+                        >
+                          {c.pinned ? 'Unpin' : 'Pin'}
+                        </RowMenuItem>
+                        <RowMenuItem
+                          icon={<Pencil />}
+                          onClick={() => {
+                            setMenuFor(null)
+                            setRenameText(c.title)
+                            setRenamingId(c.id)
+                          }}
+                        >
+                          Rename
+                        </RowMenuItem>
                         {c.location === 'local' ? (
                           <RowMenuItem
                             icon={<CloudUpload />}

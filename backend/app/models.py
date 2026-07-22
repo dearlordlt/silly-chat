@@ -112,5 +112,8 @@ class Conversation(SQLModel, table=True):
     # the sidebar list decrypts cheaply.
     enc_title: str = ""
     enc_data: str = ""
+    # Pinned to the top of the sidebar. Deliberately NOT sealed: it's a sort flag,
+    # not content, and the list must order without unsealing.
+    pinned: bool = False
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)

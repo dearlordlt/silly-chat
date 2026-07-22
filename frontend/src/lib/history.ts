@@ -11,6 +11,7 @@ export interface ConvSummary {
   title: string
   updatedAt: number
   location: Location
+  pinned?: boolean
 }
 
 export interface FullConv {
@@ -21,6 +22,7 @@ export interface FullConv {
   summary?: string // rolling summary of compacted (older) messages
   summarizedUpTo?: number // turns[:this] are covered by the summary
   artifacts?: CodeArtifact[] // code artifacts, latest version each
+  pinned?: boolean
   createdAt: number
   updatedAt: number
 }
@@ -75,12 +77,19 @@ export async function listAll(): Promise<ConvSummary[]> {
     /* not logged in / offline — show local only */
   }
   const merged: ConvSummary[] = [
-    ...local.map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, location: 'local' as const })),
+    ...local.map((c) => ({
+      id: c.id,
+      title: c.title,
+      updatedAt: c.updatedAt,
+      location: 'local' as const,
+      pinned: !!c.pinned,
+    })),
     ...server.map((c) => ({
       id: c.id,
       title: c.title,
       updatedAt: Date.parse(c.updated_at),
       location: 'server' as const,
+      pinned: !!c.pinned,
     })),
   ]
   return merged.sort((a, b) => b.updatedAt - a.updatedAt)
@@ -101,6 +110,7 @@ export async function loadAny(id: string): Promise<(FullConv & { location: Locat
       summary: c.summary ?? '',
       summarizedUpTo: c.summarized_upto ?? 0,
       artifacts: (c.artifacts ?? []) as CodeArtifact[],
+      pinned: !!c.pinned,
       createdAt: ts,
       updatedAt: ts,
       location: 'server',
@@ -121,6 +131,7 @@ export async function loadFull(id: string, location: Location): Promise<FullConv
     summary: c.summary ?? '',
     summarizedUpTo: c.summarized_upto ?? 0,
     artifacts: (c.artifacts ?? []) as CodeArtifact[],
+    pinned: !!c.pinned,
     createdAt: Date.parse(c.updated_at),
     updatedAt: Date.parse(c.updated_at),
   }
@@ -137,8 +148,20 @@ export async function save(conv: FullConv, location: Location): Promise<void> {
       summary: conv.summary ?? '',
       summarized_upto: conv.summarizedUpTo ?? 0,
       artifacts: conv.artifacts ?? [],
+      // undefined is dropped from the JSON → the server keeps the stored flag.
+      pinned: conv.pinned,
     })
   }
+}
+
+export async function rename(id: string, location: Location, title: string): Promise<void> {
+  if (location === 'local') await db.conversations.update(id, { title })
+  else await api.patchServerConvo(id, { title })
+}
+
+export async function setPinned(id: string, location: Location, pinned: boolean): Promise<void> {
+  if (location === 'local') await db.conversations.update(id, { pinned })
+  else await api.patchServerConvo(id, { pinned })
 }
 
 export async function remove(id: string, location: Location): Promise<void> {

@@ -18,6 +18,8 @@ import {
   remove,
   save,
   setMode,
+  rename as renameConv,
+  setPinned as setPinnedConv,
   titleFrom,
 } from '@/lib/history'
 import { Button } from '@/components/ui/button'
@@ -73,6 +75,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const createdAt = useRef<number | null>(null)
+  // Sidebar metadata that must survive saves: a custom (renamed) title and the pin.
+  const titleRef = useRef<string | null>(null)
+  const pinnedRef = useRef(false)
   const dirty = useRef(false) // true only when the user changed THIS chat's content
   const session = useRef(0) // bumps on every chat switch; invalidates in-flight streams
   const abort = useRef<AbortController | null>(null)
@@ -116,6 +121,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         setLinked(c.linked ?? [])
         setCurrentMode(c.location)
         createdAt.current = c.createdAt
+        titleRef.current = c.title || null
+        pinnedRef.current = !!c.pinned
         summaryRef.current = c.summary ?? ''
         summarizedUpTo.current = Math.min(c.summarizedUpTo ?? 0, c.turns.length)
         artifactsRef.current = c.artifacts ?? []
@@ -129,6 +136,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         summarizedUpTo.current = 0
         artifactsRef.current = []
         createdAt.current = null
+        titleRef.current = null
+        pinnedRef.current = false
       }
     })
     return () => {
@@ -154,15 +163,19 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   function persistNow(t: Turn[], l: string[]): Promise<void> {
     const made = createdAt.current ?? Date.now()
     createdAt.current = made
+    // A loaded or user-renamed title survives saves; only untitled chats derive
+    // their name from the first message.
+    titleRef.current = titleRef.current || titleFrom(t)
     return save(
       {
         id: currentId,
-        title: titleFrom(t),
+        title: titleRef.current,
         turns: t,
         linked: l,
         summary: summaryRef.current,
         summarizedUpTo: summarizedUpTo.current,
         artifacts: artifactsRef.current,
+        pinned: pinnedRef.current,
         createdAt: made,
         updatedAt: Date.now(),
       },
@@ -224,6 +237,22 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
   function openConversation(id: string) {
     navigate(`/c/${id}`)
+  }
+
+  async function renameConversation(id: string, location: Location, title: string) {
+    await renameConv(id, location, title).catch(() => {})
+    if (id === currentId) titleRef.current = title
+    setConversations((list) =>
+      list.map((c) => (c.id === id && c.location === location ? { ...c, title } : c)),
+    )
+  }
+
+  async function pinConversation(id: string, location: Location, pinned: boolean) {
+    await setPinnedConv(id, location, pinned).catch(() => {})
+    if (id === currentId) pinnedRef.current = pinned
+    setConversations((list) =>
+      list.map((c) => (c.id === id && c.location === location ? { ...c, pinned } : c)),
+    )
   }
 
   async function confirmDelete() {
@@ -590,6 +619,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             onOpen={openConversation}
             onDelete={(id, location) => setPendingDelete({ id, location })}
             onMove={moveConversation}
+            onRename={renameConversation}
+            onPin={pinConversation}
             onCollapse={() => setSidebarOpen(false)}
           />
         </div>

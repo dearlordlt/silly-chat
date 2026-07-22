@@ -66,12 +66,23 @@ class ConvIn(BaseModel):
     summary: str = ""  # rolling summary of compacted older messages
     summarized_upto: int = 0  # turns[:this] are covered by the summary
     artifacts: list[Any] = []  # code artifacts, latest version each
+    # None = leave as is (regular saves omit it); set only when moving a chat in.
+    pinned: bool | None = None
+
+
+class ConvPatch(BaseModel):
+    """Metadata-only edits: rename and pin/unpin. Neither bumps updated_at —
+    housekeeping shouldn't reorder the sidebar."""
+
+    title: str | None = None
+    pinned: bool | None = None
 
 
 class ConvSummary(BaseModel):
     id: str
     title: str
     updated_at: datetime
+    pinned: bool = False
 
 
 class ConvOut(ConvSummary):
@@ -102,7 +113,10 @@ def list_conversations(user: ApprovedUser, session: SessionDep, dk: SessionKey) 
         .where(Conversation.user_id == user.id)
         .order_by(Conversation.updated_at.desc())
     ).all()
-    return [ConvSummary(id=c.id, title=_unseal_title(c, dk), updated_at=_utc(c.updated_at)) for c in rows]
+    return [
+        ConvSummary(id=c.id, title=_unseal_title(c, dk), updated_at=_utc(c.updated_at), pinned=c.pinned)
+        for c in rows
+    ]
 
 
 @router.get("/{cid}")
@@ -115,7 +129,7 @@ def get_conversation(cid: str, user: ApprovedUser, session: SessionDep, dk: Sess
         id=c.id, title=_unseal_title(c, dk), turns=data.get("turns", []),
         linked=data.get("linked", []), summary=data.get("summary", ""),
         summarized_upto=data.get("summarized_upto", 0), artifacts=data.get("artifacts", []),
-        updated_at=_utc(c.updated_at),
+        updated_at=_utc(c.updated_at), pinned=c.pinned,
     )
 
 
@@ -137,12 +151,35 @@ def upsert_conversation(
     c.summary = body.summary
     c.summarized_upto = body.summarized_upto
     c.artifacts = body.artifacts
+    if body.pinned is not None:
+        c.pinned = body.pinned
     c.enc_title = c.enc_data = ""
     if dk is not None:
         seal_conv(c, dk)
     session.add(c)
     session.commit()
-    return ConvSummary(id=c.id, title=body.title, updated_at=_utc(c.updated_at))
+    return ConvSummary(id=c.id, title=body.title, updated_at=_utc(c.updated_at), pinned=c.pinned)
+
+
+@router.patch("/{cid}")
+def patch_conversation(
+    cid: str, body: ConvPatch, user: ApprovedUser, session: SessionDep, dk: SessionKey
+) -> ConvSummary:
+    c = _own(session, user, cid)
+    if body.pinned is not None:
+        c.pinned = body.pinned
+    title = _unseal_title(c, dk)
+    if body.title is not None:
+        title = body.title
+        if c.enc_title:
+            if dk is None:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "log in again to rename this chat")
+            c.enc_title = crypto.encrypt_json(dk, body.title)
+        else:
+            c.title = body.title
+    session.add(c)
+    session.commit()
+    return ConvSummary(id=c.id, title=title, updated_at=_utc(c.updated_at), pinned=c.pinned)
 
 
 @router.delete("/{cid}")

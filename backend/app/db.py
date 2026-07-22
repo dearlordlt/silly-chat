@@ -47,6 +47,9 @@ def _ensure_columns() -> None:
             conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN enc_title TEXT DEFAULT ''")
             conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN enc_data TEXT DEFAULT ''")
             conn.commit()
+        if "pinned" not in cols:
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN pinned BOOLEAN DEFAULT 0")
+            conn.commit()
         ucols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()}
         if "wrapped_dk" not in ucols:
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN wrapped_dk TEXT DEFAULT ''")
