@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.19.2 — 2026-07-25
+
+- Fixes: the Admin → Images model pickers now group "Direct — your own API keys"
+  (the Grok direct models) above the OpenRouter catalog, so the direct models
+  are findable instead of drowning in a 40-entry list with lookalike names.
+
 ## v1.19.1 — 2026-07-25
 
 - Fixes: image uploads over 1 MB were rejected by the app's own web server no

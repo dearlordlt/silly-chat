@@ -682,6 +682,11 @@ function ModelSelect({
   onChange: (v: string) => void
   emptyLabel?: string
 }) {
+  // Direct-API models (your own keys) get their own group at the top — otherwise
+  // they drown in OpenRouter's huge catalog, which even has similarly-named
+  // entries for the same underlying models.
+  const direct = options.filter((m) => m.id.startsWith('xai:'))
+  const routed = options.filter((m) => !m.id.startsWith('xai:'))
   return (
     <select
       value={value}
@@ -690,11 +695,22 @@ function ModelSelect({
     >
       {emptyLabel && <option value="">{emptyLabel}</option>}
       {value && !options.some((m) => m.id === value) && <option value={value}>{value}</option>}
-      {options.map((m) => (
-        <option key={m.id} value={m.id}>
-          {m.name}
-        </option>
-      ))}
+      {direct.length > 0 && (
+        <optgroup label="Direct — your own API keys">
+          {direct.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      <optgroup label={direct.length > 0 ? 'Via OpenRouter' : 'Models'}>
+        {routed.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.name}
+          </option>
+        ))}
+      </optgroup>
     </select>
   )
 }
