@@ -11,7 +11,9 @@ from this file.
   of the same prompt. And when you ask for a picture matching an image you
   attached ("same uniform as in my photo"), your actual image is now sent to the
   image model as a visual reference instead of being paraphrased into a text
-  description (which is how blue №11 kept turning into purple №24).
+  description (which is how blue №11 kept turning into purple №24). The chat also
+  remembers images you attached earlier: follow-up questions and edits use your
+  most recent image automatically — no more "please re-attach the photo".
 
 ## v1.17.0 — 2026-07-22
 

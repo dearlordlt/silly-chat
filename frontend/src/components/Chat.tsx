@@ -439,6 +439,12 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         history,
         timezone: effectiveTz(),
         attachments: ids,
+        prior_attachments: base
+          .flatMap((t) => (t.role === 'user' ? (t.attachments ?? []) : []))
+          .filter((a) => a.kind === 'image')
+          .map((a) => a.id)
+          .reverse()
+          .slice(0, 3),
         context,
         summary: summaryRef.current || undefined,
         artifacts: artifactsRef.current.map(({ id, name, language, content }) => ({ id, name, language, content })),

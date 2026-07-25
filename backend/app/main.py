@@ -79,6 +79,10 @@ class ChatRequest(BaseModel):
     history: list[HistoryMessage] = []
     timezone: str | None = None  # IANA tz, only if the user opted to share it
     attachments: list[str] = []  # upload ids to attach to this message (images)
+    # Upload ids of images from EARLIER user messages in this chat (newest first).
+    # Used as a fallback when the current message has no image, so "the picture I
+    # sent before" works without re-attaching. Expired/deleted ids resolve to nothing.
+    prior_attachments: list[str] = []
     # Flattened content of @-linked conversations, prepended as background context
     # (kept outside the recent-history trim so long chats don't push it out).
     context: str | None = None
@@ -124,6 +128,12 @@ async def chat(
     images, doc_chunks = resolve_attachments(
         session, req.attachments, user.id, include_docs=req.mode == "chat", dk=dk
     )
+    if not images and req.prior_attachments:
+        # No image on THIS message — fall back to the newest image(s) the user
+        # attached earlier in the chat, so tools can still see "the image I sent".
+        images, _ = resolve_attachments(
+            session, req.prior_attachments[:3], user.id, include_docs=False, dk=dk
+        )
 
     artifacts = {a.id: (a.name, a.language, a.content[:200_000]) for a in req.artifacts[:12]}
 

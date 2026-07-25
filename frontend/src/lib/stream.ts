@@ -15,6 +15,10 @@ export type ChatParams = {
   history: HistoryMessage[]
   timezone?: string
   attachments: string[]
+  // Upload ids of images from EARLIER user messages (newest first) — the backend
+  // falls back to these when the current message has no attachment, so "the image
+  // I sent before" keeps working without re-attaching.
+  prior_attachments?: string[]
   context?: string // flattened @-linked chats
   summary?: string // rolling summary of this chat's compacted messages
   artifacts?: { id: string; name: string; language: string; content: string }[]
