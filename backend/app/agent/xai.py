@@ -8,8 +8,10 @@ The API key is admin-managed (Admin → Images, stored in AppSetting) with the
 Kept deliberately generic: ``_get``/``_post`` handle auth + errors for ANY xAI
 endpoint, so future uses (chat models, grok-imagine-video) are one function away.
 Verified against the live API: POST /images/generations accepts ``prompt``,
-``image_url`` (data URL, for reference/img2img — both image models take image
-input), ``aspect_ratio``, and returns ``data[{b64_json, mime_type}]``.
+``image_url`` (data URL, for loose reference/img2img), ``aspect_ratio``; POST
+/images/edits takes ``image: {url: <data URL>}`` and actually PRESERVES the
+source (true editing — reference generation reinvents the subject). Both return
+``data[{b64_json, mime_type}]``.
 """
 
 from __future__ import annotations
@@ -94,6 +96,30 @@ async def generate_image(
         data, mime = reference
         body["image_url"] = f"data:{mime or 'image/png'};base64,{base64.b64encode(data).decode()}"
     out = await _post("/images/generations", body)
+    try:
+        item = out["data"][0]
+        return base64.b64decode(item["b64_json"]), str(item.get("mime_type") or "image/jpeg")
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise XaiError(f"unexpected xAI response: {exc}") from exc
+
+
+async def edit_image(
+    prompt: str,
+    model: str,
+    image: bytes,
+    mime: str,
+) -> tuple[bytes, str]:
+    """True image editing via /images/edits — the source is preserved and only the
+    requested change applied (unlike generate_image with a reference, which treats
+    the image as loose inspiration). Returns (bytes, mime)."""
+    body: dict[str, Any] = {
+        "model": model.removeprefix(PREFIX),
+        "prompt": prompt,
+        "n": 1,
+        "response_format": "b64_json",
+        "image": {"url": f"data:{mime or 'image/png'};base64,{base64.b64encode(image).decode()}"},
+    }
+    out = await _post("/images/edits", body)
     try:
         item = out["data"][0]
         return base64.b64decode(item["b64_json"]), str(item.get("mime_type") or "image/jpeg")

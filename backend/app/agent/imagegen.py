@@ -89,7 +89,7 @@ async def edit(instruction: str, image: bytes, mime: str, model: str | None = No
     model = model or runtime.image_model_edit()
     if xai.is_xai(model):
         try:
-            return await xai.generate_image(instruction, model, reference=(image, mime))
+            return await xai.edit_image(instruction, model, image, mime)
         except xai.XaiError as exc:
             raise ImageGenError(str(exc)) from exc
     data_url = f"data:{mime or 'image/png'};base64,{base64.b64encode(image).decode()}"

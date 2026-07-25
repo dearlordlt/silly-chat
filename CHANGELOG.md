@@ -4,6 +4,13 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.19.4 — 2026-07-25
+
+- Fixes: Grok direct edits now use xAI's real image-edit endpoint — the source
+  photo is preserved and only the asked change applied. Before, the photo was
+  sent as loose "inspiration" to the generation endpoint, which reinvented the
+  person instead of editing them.
+
 ## v1.19.3 — 2026-07-25
 
 - Fixes: asking to edit an attached photo ("edit image: …", restyle, relight,
