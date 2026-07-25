@@ -40,8 +40,23 @@ export async function* chatStream(params: ChatParams): AsyncGenerator<StreamEven
   const decoder = new TextDecoder()
   let buffer = ''
 
+  // Stall watchdog: the backend sends keepalive pings every 15s, so a healthy
+  // connection is never byte-silent for long. 60s of nothing = the connection
+  // died somewhere without telling us (half-open socket, proxy swallowing the
+  // reset) — fail fast with a clear error instead of hanging the turn forever.
+  const STALL_MS = 60_000
+
   while (true) {
-    const { done, value } = await reader.read()
+    let stallTimer: ReturnType<typeof setTimeout> | undefined
+    const { done, value } = await Promise.race([
+      reader.read(),
+      new Promise<never>((_, reject) => {
+        stallTimer = setTimeout(() => {
+          reader.cancel().catch(() => {})
+          reject(new Error('the connection went quiet for 60s and was closed — check your network and retry'))
+        }, STALL_MS)
+      }),
+    ]).finally(() => clearTimeout(stallTimer))
     if (done) break
     // Normalize CRLF (sse-starlette uses \r\n) so frame/line splitting is simple.
     buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n')

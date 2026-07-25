@@ -79,7 +79,9 @@ The frontend binds to **127.0.0.1:8080 only** (docker's iptables bypass ufw, so 
 0.0.0.0 bind would expose plain HTTP to the internet regardless of your firewall).
 
 - **Box already runs nginx/apache on 80/443?** Leave `DOMAIN` unset (Caddy stays
-  off) and add your own vhost + cert proxying to `127.0.0.1:8080`.
+  off) and add your own vhost + cert proxying to `127.0.0.1:8080`. For nginx, set
+  `client_max_body_size 15m;` (the 1 MB default silently rejects image uploads) and
+  keep SSE alive: `proxy_buffering off; proxy_read_timeout 300s;`.
 - **Tailscale-only, no domain?** Set `HTTP_BIND=0.0.0.0` in `.env` (and firewall
   8080 on the public interface), don't set `AUTH__COOKIE_SECURE`, and reach the
   app over your tailnet on :8080.

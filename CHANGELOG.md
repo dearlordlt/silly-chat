@@ -4,6 +4,15 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.18.1 — 2026-07-25
+
+- Fixes: interrupted answers can no longer masquerade as finished ones — a stream
+  that dies mid-answer now shows a clear error with Retry ("the connection closed
+  before the answer finished") instead of a silently truncated reply, a connection
+  that goes fully quiet is cut after 60s instead of hanging the turn forever, and
+  a failed image turn reminds you that finished images are saved in your Gallery.
+  Deploy docs now warn nginx-fronted setups about the 1 MB upload default.
+
 ## v1.18.0 — 2026-07-22
 
 - **Vision memory** — everything the vision model reports about your images now

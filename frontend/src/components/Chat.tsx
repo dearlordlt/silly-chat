@@ -430,6 +430,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       { role: 'assistant', status: 'Thinking…', agents: [], slots: [] },
     ])
 
+    // A turn must end with a done (or error) event. A stream that just stops —
+    // proxy timeout, dropped connection surfacing as a clean close — would
+    // otherwise leave a silently truncated answer that looks finished.
+    let turnSettled = false
     try {
       const ids = attachments.map((a) => a.id)
       const context = await linkedContext()
@@ -544,9 +548,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             break
           }
           case 'error':
+            turnSettled = true
             patchLast((t) => ({ ...t, status: null, error: ev.message }))
             break
           case 'done': {
+            turnSettled = true
             const turnStats: TurnStats = {
               inputTokens: ev.input_tokens ?? undefined,
               outputTokens: ev.output_tokens ?? undefined,
@@ -570,13 +576,26 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           }
         }
       }
+      if (!turnSettled && session.current === mySession && !controller.signal.aborted) {
+        throw new Error('the connection closed before the answer finished — it may be incomplete')
+      }
     } catch (e) {
       if (session.current === mySession) {
         if (controller.signal.aborted) {
           // The user hit Stop — keep whatever already streamed, no error box.
           patchLast((t) => ({ ...t, status: null, stopped: true, ts: Date.now() }))
         } else {
-          patchLast((t) => ({ ...t, status: null, error: String(e), ts: Date.now() }))
+          patchLast((t) => ({
+            ...t,
+            status: null,
+            // A died image turn isn't a total loss — finished images are stored.
+            error:
+              String(e) +
+              (t.agents?.some((a) => a.label?.startsWith('Image:'))
+                ? ' — any images that finished generating are saved in your Gallery.'
+                : ''),
+            ts: Date.now(),
+          }))
         }
       }
     } finally {
