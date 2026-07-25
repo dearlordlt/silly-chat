@@ -70,6 +70,14 @@ class ImageQuotaEvent(BaseModel):
     resets_at: str  # ISO 8601 UTC — when the weekly window resets
 
 
+class VisionNote(BaseModel):
+    """One vision Q&A from this turn — persisted with the chat so later turns
+    inherit what the vision model already reported instead of re-looking."""
+
+    q: str
+    a: str
+
+
 class DoneEvent(BaseModel):
     event: Literal["done"] = "done"
     # Turn telemetry for the status line (None/empty when unknown, e.g. on errors).
@@ -77,6 +85,7 @@ class DoneEvent(BaseModel):
     output_tokens: int | None = None  # tokens generated across the whole turn
     context_window: int | None = None  # configured model context size
     models: list[str] = Field(default_factory=list)  # models that worked this turn
+    vision_notes: list[VisionNote] = Field(default_factory=list)
 
 
 class ErrorEvent(BaseModel):

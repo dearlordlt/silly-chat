@@ -43,6 +43,7 @@ from app.schema.events import (
     ImageQuotaEvent,
     StreamEvent,
     TextDeltaEvent,
+    VisionNote,
 )
 
 __all__ = [
@@ -75,4 +76,5 @@ __all__ = [
     "ImageQuotaEvent",
     "StreamEvent",
     "TextDeltaEvent",
+    "VisionNote",
 ]

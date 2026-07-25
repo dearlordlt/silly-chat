@@ -128,6 +128,7 @@ async def chat(
     images, doc_chunks = resolve_attachments(
         session, req.attachments, user.id, include_docs=req.mode == "chat", dk=dk
     )
+    attachments_current = bool(images)
     if not images and req.prior_attachments:
         # No image on THIS message — fall back to the newest image(s) the user
         # attached earlier in the chat, so tools can still see "the image I sent".
@@ -157,6 +158,7 @@ async def chat(
         async for event in stream_chat(
             req.message, mode, history, req.timezone, images, doc_chunks,
             req.context, req.summary, artifacts, user.id, dk, image_gen, image_quota,
+            attachments_current=attachments_current,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 

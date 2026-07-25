@@ -534,6 +534,13 @@
           },
           "title": "Models",
           "type": "array"
+        },
+        "vision_notes": {
+          "items": {
+            "$ref": "#/$defs/VisionNote"
+          },
+          "title": "Vision Notes",
+          "type": "array"
         }
       },
       "title": "DoneEvent",
@@ -1609,6 +1616,25 @@
         "title"
       ],
       "title": "TimelineEvent",
+      "type": "object"
+    },
+    "VisionNote": {
+      "description": "One vision Q&A from this turn \u2014 persisted with the chat so later turns\ninherit what the vision model already reported instead of re-looking.",
+      "properties": {
+        "q": {
+          "title": "Q",
+          "type": "string"
+        },
+        "a": {
+          "title": "A",
+          "type": "string"
+        }
+      },
+      "required": [
+        "q",
+        "a"
+      ],
+      "title": "VisionNote",
       "type": "object"
     }
   },

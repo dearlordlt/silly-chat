@@ -553,6 +553,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               contextWindow: ev.context_window ?? undefined,
               models: ev.models ?? [],
             }
+            const visionNotes = (ev.vision_notes ?? []).map((n) => ({ q: n.q, a: n.a }))
             // Transitional slots (live code stream, unfilled skeletons) end with the
             // turn — every real block got its block_data by now. Stats ride on the
             // turn so the status line survives reloads and chat switches.
@@ -562,6 +563,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               ts: Date.now(),
               stats: turnStats,
               slots: t.slots.filter((s) => s.kind === 'filled'),
+              ...(visionNotes.length > 0 ? { visionNotes } : {}),
             }))
             setStats(turnStats)
             break
@@ -1195,6 +1197,16 @@ function toHistory(turns: Turn[]): HistoryMessage[] {
         }
       })
       .filter(Boolean)
+    // Vision answers ride along as durable knowledge: the orchestrator can't see
+    // images, so what the vision model already reported must stay in its context —
+    // it only needs to look again for details these notes don't cover.
+    if (t.visionNotes?.length) {
+      parts.push(
+        t.visionNotes
+          .map((n) => `[vision model examined the image — Q: ${n.q} A: ${n.a}]`)
+          .join('\n'),
+      )
+    }
     const content = parts.join('\n\n').trim()
     if (content) out.push({ role: 'assistant', content })
   }

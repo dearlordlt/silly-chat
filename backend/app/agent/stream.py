@@ -47,6 +47,7 @@ from app.agent.activity import (
     gen_images_var,
     image_quota_var,
     looks_var,
+    vision_notes_var,
     maps_var,
     sources_var,
     user_var,
@@ -67,6 +68,7 @@ from app.schema import (
     SourcesBlock,
     StreamEvent,
     TextDeltaEvent,
+    VisionNote,
 )
 
 log = get_logger("chat")
@@ -175,10 +177,14 @@ async def stream_chat(
     dk: bytes | None = None,  # requester's data key — seals generated files
     image_gen: bool = False,  # may this user generate images? (per-user, admin-set)
     image_quota: int | None = None,  # weekly image allowance; None = unlimited
+    attachments_current: bool = True,  # False = images are a fallback from earlier messages
 ) -> AsyncIterator[StreamEvent]:
     attachments = attachments or []
     doc_chunks = doc_chunks or []
-    has_img, has_doc = bool(attachments), bool(doc_chunks)
+    # The "use the look tool first" nudge is only for images attached to THIS
+    # message. Fallback images from earlier turns stay quietly available — the
+    # history's vision notes usually already answer the question.
+    has_img, has_doc = bool(attachments) and attachments_current, bool(doc_chunks)
     # The orchestrator's own model can't see images and shouldn't answer about a document
     # from memory — nudge it to the right tools.
     prompt = message
@@ -238,6 +244,7 @@ async def stream_chat(
     edits: list = []  # EditsBlocks from targeted artifact edits
     files: list = []  # FileBlocks from make_document
     gen_images: list = []  # (GalleryImage, model) pairs from generate_image
+    vision_notes: list[tuple[str, str]] = []  # (question, answer) from look tools
     found_images: set[str] = set()  # image URLs find_images actually returned
     stats: dict[str, int] = {}  # turn telemetry for the status line
 
@@ -325,6 +332,7 @@ async def stream_chat(
         tok_c = code_var.set(code)
         tok_ct = code_tasks_var.set({})
         tok_lk = looks_var.set([])
+        tok_vn = vision_notes_var.set(vision_notes)
         tok_art = artifacts_var.set(artifacts or {})
         tok_m = maps_var.set(built_maps)
         tok_ed = edits_var.set(edits)
@@ -378,6 +386,7 @@ async def stream_chat(
             code_var.reset(tok_c)
             code_tasks_var.reset(tok_ct)
             looks_var.reset(tok_lk)
+            vision_notes_var.reset(tok_vn)
             artifacts_var.reset(tok_art)
             maps_var.reset(tok_m)
             edits_var.reset(tok_ed)
@@ -421,7 +430,7 @@ async def stream_chat(
         models = [runtime.model_for("orchestrator")]
         if findings:
             models.append(runtime.model_for("worker"))
-        if attachments:
+        if vision_notes:  # the vision model is listed only when it actually looked
             models.append(runtime.model_for("vision"))
         if code:
             models.append(runtime.model_for("coder"))
@@ -432,6 +441,7 @@ async def stream_chat(
             # From Ollama's own model metadata (cached) — never hardcoded.
             context_window=await context_window(models[0]),
             models=list(dict.fromkeys(models)),
+            vision_notes=[VisionNote(q=q, a=a) for q, a in vision_notes],
         )
     finally:
         # Client gone (stop button / closed tab) or normal end: make sure the agent

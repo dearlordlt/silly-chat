@@ -33,6 +33,7 @@ from app.agent.activity import (
     code_tasks_var,
     dispatch_var,
     doc_tasks_var,
+    record_vision_note,
     docs_var,
     emit_var,
     image_quota_var,
@@ -760,6 +761,7 @@ async def look_generated(question: str, count: int = 1) -> str:
         content += [BinaryContent(data=d, media_type=m) for m, d, _ in imgs]
         r = await agent.run(content)
         record_llm(runtime.model_for("vision"), r.usage)
+        record_vision_note(f"(generated image) {question}", str(r.output))
         agent_update(aid, status="Done", state="done")
         prompts = "; ".join(f"«{p[:100]}»" for _, _, p in imgs if p)
         return str(r.output) + (f"\n\n(Generation prompt(s), newest first: {prompts})" if prompts else "")
@@ -807,6 +809,7 @@ async def look(question: str) -> str:
         content += [BinaryContent(data=data, media_type=mime) for mime, data in atts]
         r = await agent.run(content)
         record_llm(runtime.model_for("vision"), r.usage)
+        record_vision_note(question, str(r.output))
         agent_update(aid, status="Done", state="done")
         return str(r.output)
     except Exception as exc:

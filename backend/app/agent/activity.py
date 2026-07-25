@@ -56,6 +56,16 @@ code_tasks_var: ContextVar[dict[str, str] | None] = ContextVar("code_tasks", def
 # look-tool invocations this turn — capped, since re-examining a pre-change
 # screenshot to "verify" an edit is pure waste (seen live in a look/edit loop).
 looks_var: ContextVar[list[str] | None] = ContextVar("looks", default=None)
+
+# Vision Q&A from this turn: (question, answer) pairs. Persisted with the chat so
+# later turns inherit what the vision model already said instead of re-looking.
+vision_notes_var: ContextVar[list[tuple[str, str]] | None] = ContextVar("vision_notes", default=None)
+
+
+def record_vision_note(question: str, answer: str) -> None:
+    notes = vision_notes_var.get()
+    if notes is not None:
+        notes.append((question[:300], answer[:700]))
 # Documents generated this turn (by title) — make_document refuses duplicates
 # (models hedge-call generation tools twice; seen live with write_code AND here).
 doc_tasks_var: ContextVar[dict[str, str] | None] = ContextVar("doc_tasks", default=None)

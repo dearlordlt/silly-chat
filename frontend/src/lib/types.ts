@@ -44,4 +44,7 @@ export type Turn =
       stopped?: boolean
       ts?: number
       stats?: TurnStats // persisted with the chat — restores the status line on load
+      // Vision Q&A from this turn — persisted so later turns inherit what the
+      // vision model already reported instead of re-examining the image.
+      visionNotes?: { q: string; a: string }[]
     }

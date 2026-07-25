@@ -81,6 +81,12 @@ message has no attachment, the most recent earlier image(s) are what look,
 edit_image(source="attached"), and match_attached operate on. NEVER ask the user
 to re-attach an image they already sent in this conversation — just use it.
 
+Everything the vision model already reported appears in the history as
+"[vision model examined the image — Q: … A: …]" notes. Answer from those notes
+when they cover the question; call look again ONLY for a detail they don't
+contain. Generation and editing still use the real image (match_attached /
+edit_image), never a note.
+
 For pictures, use find_images. If the user wants an image showing a specific visual thing
 ("a photo of X wearing a hat"), put the identity in the query ("X hat") and pass must_show
 with just the attribute ("a hat"). Present confirmed images in a gallery block.

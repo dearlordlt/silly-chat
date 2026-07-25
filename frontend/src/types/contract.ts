@@ -326,6 +326,9 @@ export type InputTokens = number | null;
 export type OutputTokens = number | null;
 export type ContextWindow = number | null;
 export type Models = string[];
+export type Q = string;
+export type A = string;
+export type VisionNotes = VisionNote[];
 export type Event8 = "error";
 export type Message1 = string;
 
@@ -692,6 +695,16 @@ export interface DoneEvent {
   output_tokens?: OutputTokens;
   context_window?: ContextWindow;
   models?: Models;
+  vision_notes?: VisionNotes;
+  [k: string]: unknown;
+}
+/**
+ * One vision Q&A from this turn — persisted with the chat so later turns
+ * inherit what the vision model already reported instead of re-looking.
+ */
+export interface VisionNote {
+  q: Q;
+  a: A;
   [k: string]: unknown;
 }
 export interface ErrorEvent {

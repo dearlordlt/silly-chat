@@ -31,7 +31,10 @@ are the point.
 
 Paste an image, drag it onto the input, or use the paperclip. The assistant can see
 attached images: ask about screenshots, photos, places, text in pictures. Sending an
-image with no text just describes it.
+image with no text just describes it. Attach once, ask forever: the image stays
+available for the rest of the chat (follow-up questions, edits, "generate one like
+it") and what the assistant already learned about it is remembered — it only
+re-examines the picture when you ask about something new.
 
 ## Attachments — documents
 

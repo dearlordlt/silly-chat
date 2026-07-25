@@ -4,6 +4,15 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.18.0 — 2026-07-22
+
+- **Vision memory** — everything the vision model reports about your images now
+  stays in the conversation permanently. Follow-up questions that the earlier
+  answers already cover are answered instantly from memory (no vision call at
+  all); the image itself is examined again only when you ask about a detail
+  nobody has looked at yet. The models chip now also only lists the vision model
+  on turns where it actually looked.
+
 ## v1.17.1 — 2026-07-22
 
 - Fixes: "make me two images to choose from — fast AND quality" now actually
