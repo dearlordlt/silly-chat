@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.19.1 — 2026-07-25
+
+- Fixes: image uploads over 1 MB were rejected by the app's own web server no
+  matter how the host proxy was configured — the shipped nginx now allows 15 MB,
+  matching the deploy docs.
+
 ## v1.19.0 — 2026-07-25
 
 - **Grok, direct from xAI** — a second image provider next to OpenRouter: paste an
