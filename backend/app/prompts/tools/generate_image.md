@@ -17,10 +17,18 @@ Two models sit behind this tool — pick with `quality`:
   "super realistic", "make it perfect", a logo they'll actually use), or a fast
   attempt disappointed and they want it better.
 
+When the result must MATCH something the user attached ("same outfit as in this
+image", "in this style", "like this but…"), set match_attached=true — their image
+is sent to the image model as a visual reference. Describing an attachment in
+words instead loses the design (colors, numbers, cut all drift); never rely on a
+prose description when the actual image is available.
+
 For several distinct subjects (e.g. one portrait per party member), call
 generate_image once PER subject — every call's image joins one shared gallery in
 your answer. Up to 4 images per turn; if the user asks for more, generate the first
-4 and say the rest need another message.
+4 and say the rest need another message. "Make me two to choose from" with both
+models = two calls with the same prompt: one quality=false, one quality=true —
+that is allowed and not a duplicate.
 
 NOT for data visualizations: charts, graphs, plots, infographics of numbers, and
 flow/architecture diagrams belong in chart blocks and Mermaid diagrams — they render

@@ -4,6 +4,15 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.17.1 — 2026-07-22
+
+- Fixes: "make me two images to choose from — fast AND quality" now actually
+  produces two — the duplicate-image guard wrongly refused the second model's run
+  of the same prompt. And when you ask for a picture matching an image you
+  attached ("same uniform as in my photo"), your actual image is now sent to the
+  image model as a visual reference instead of being paraphrased into a text
+  description (which is how blue №11 kept turning into purple №24).
+
 ## v1.17.0 — 2026-07-22
 
 - **Pin & rename chats** — a saved chat's ⋯ menu now has Pin (pinned chats live in

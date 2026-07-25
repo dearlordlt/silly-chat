@@ -55,11 +55,24 @@ async def _request_image(body: dict, retry_without: str = "") -> tuple[bytes, st
         raise ImageGenError(f"unexpected OpenRouter response: {exc}") from exc
 
 
-async def generate(prompt: str, aspect_ratio: str = "", model: str | None = None) -> tuple[bytes, str]:
-    """Generate one image; returns (bytes, mime). Raises ImageGenError on failure."""
+async def generate(
+    prompt: str,
+    aspect_ratio: str = "",
+    model: str | None = None,
+    reference: tuple[bytes, str] | None = None,
+) -> tuple[bytes, str]:
+    """Generate one image; returns (bytes, mime). Raises ImageGenError on failure.
+
+    ``reference`` = (bytes, mime) of an image the model should match (the user's
+    attachment) — sent as an input_reference so the actual pixels reach the model
+    instead of a lossy prose description of them."""
     body: dict = {"model": model or runtime.image_model(), "prompt": prompt, "n": 1}
     if aspect_ratio:
         body["aspect_ratio"] = aspect_ratio
+    if reference is not None:
+        data, mime = reference
+        data_url = f"data:{mime or 'image/png'};base64,{base64.b64encode(data).decode()}"
+        body["input_references"] = [{"type": "image_url", "image_url": {"url": data_url}}]
     return await _request_image(body, retry_without="aspect_ratio")
 
 

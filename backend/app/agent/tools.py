@@ -611,14 +611,30 @@ _DATAVIZ_RE = re.compile(
 
 
 async def generate_image(
-    prompt: str, aspect_ratio: str = "", quality: bool = False, user_wants_image: bool = False
+    prompt: str,
+    aspect_ratio: str = "",
+    quality: bool = False,
+    user_wants_image: bool = False,
+    match_attached: bool = False,
 ) -> str:
     """Create a brand-new image from a text description (OpenRouter image model).
     quality=True routes to the slower top-quality model for demanding asks.
+    match_attached=True also sends the user's attached image as a visual reference
+    (use when the result must match something they showed you).
     The result is shown in the answer automatically."""
     user_id = user_var.get()
     if user_id is None:
         return "(cannot generate images in this context)"
+    reference: tuple[bytes, str] | None = None
+    if match_attached:
+        atts = attachments_var.get() or []
+        if not atts:
+            return (
+                "(match_attached=true but no image is attached to this message — "
+                "generate without it or ask the user to attach the reference)"
+            )
+        ref_mime, ref_bytes = atts[0]
+        reference = (ref_bytes, ref_mime)
     if _DATAVIZ_RE.search(prompt) and not user_wants_image:
         return (
             "(REFUSED: that's a data visualization — render it as a chart block "
@@ -627,9 +643,12 @@ async def generate_image(
             "explicitly asked for a generated PICTURE of it, call again with "
             "user_wants_image=true.)"
         )
-    # Exactly-once per prompt + a per-turn cap — models hedge-call generation tools.
+    # Exactly-once per (prompt, model tier) + a per-turn cap — models hedge-call
+    # generation tools. The tier is part of the key: the same prompt on fast AND
+    # quality is a legitimate ask ("make me two to choose from"), not a duplicate.
     made = _images_made_this_turn()
-    if not claim_dispatch("imagegen|" + " ".join(prompt.lower().split())[:300]):
+    tier = "q" if quality else "f"
+    if not claim_dispatch(f"imagegen|{tier}|" + " ".join(prompt.lower().split())[:300]):
         return (
             "(that exact image was already generated this turn and is shown to the "
             "user — do not call generate_image again)"
@@ -646,7 +665,7 @@ async def generate_image(
         from app.agent import imagegen
 
         model = runtime.image_model_quality() if quality else runtime.image_model()
-        data, mime = await imagegen.generate(prompt, aspect_ratio, model=model)
+        data, mime = await imagegen.generate(prompt, aspect_ratio, model=model, reference=reference)
         _store_gen_image(user_id, data, mime, prompt, model, aid)
         _image_quota_notify(quota, used_before)
         agent_update(aid, status="Done", state="done")
