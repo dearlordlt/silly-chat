@@ -24,11 +24,15 @@ Two models sit behind this tool — pick with `quality`:
   "super realistic", "make it perfect", a logo they'll actually use), or a fast
   attempt disappointed and they want it better.
 
-When the result must MATCH something the user attached ("same outfit as in this
-image", "in this style", "like this but…"), set match_attached=true — their image
-is sent to the image model as a visual reference. Describing an attachment in
-words instead loses the design (colors, numbers, cut all drift); never rely on a
-prose description when the actual image is available.
+When a NEW picture must MATCH something the user attached ("same outfit as in
+this image", "a knight in this style", "a scene like this but underwater"), set
+match_attached=true — their image is sent to the image model as a visual
+reference. Describing an attachment in words instead loses the design (colors,
+numbers, cut all drift); never rely on a prose description when the actual image
+is available. But when the user wants their OWN picture transformed — "edit
+image: …", same person/subject relocated, restyled, reframed, relit — that is
+NOT a reference generation: use edit_image(source="attached") instead, which
+preserves the identity in the photo.
 
 For several distinct subjects (e.g. one portrait per party member), call
 generate_image once PER subject — every call's image joins one shared gallery in

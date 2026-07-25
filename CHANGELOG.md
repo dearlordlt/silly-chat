@@ -4,6 +4,13 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.19.3 — 2026-07-25
+
+- Fixes: asking to edit an attached photo ("edit image: …", restyle, relight,
+  new setting, full-height reframe) now actually uses the image-edit model on
+  the photo itself — before, it wasted a vision look and generated a brand-new
+  picture instead of editing yours.
+
 ## v1.19.2 — 2026-07-25
 
 - Fixes: the Admin → Images model pickers now group "Direct — your own API keys"

@@ -192,12 +192,16 @@ async def stream_chat(
     if has_img or has_doc:
         hints = []
         if has_img:
-            hints.append(f"use the look tool to see the {len(attachments)} image(s)")
+            hints.append(
+                f"use the look tool to see the {len(attachments)} image(s) first — UNLESS the "
+                "message asks to edit/change/restyle/extend the picture itself, then skip look "
+                'and call edit_image(source="attached") directly'
+            )
         if has_doc:
-            hints.append("use the search_document tool to find relevant passages in the attached document(s)")
+            hints.append("use the search_document tool to find relevant passages in the attached document(s) first")
         hint = "; ".join(hints)
         if message.strip():
-            prompt = f"[The user attached file(s); their message below most likely refers to them — {hint} first.]\n\n{message}"
+            prompt = f"[The user attached file(s); their message below most likely refers to them — {hint}.]\n\n{message}"
         else:
             # No text: the attachment IS the request. Neutral mode so a code/search pill bias
             # + prior-task history can't make it "continue" instead of addressing the file.
