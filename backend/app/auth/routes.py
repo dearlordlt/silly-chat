@@ -57,7 +57,7 @@ def _user_out(user: User, admin: bool = False) -> UserOut:
         data["image_quota"] = None
     return UserOut(
         **data,
-        can_generate_images=image_gen_enabled(user) and bool(runtime.image_api_key()),
+        can_generate_images=image_gen_enabled(user) and runtime.any_image_key(),
     )
 
 
@@ -403,6 +403,7 @@ def _key_hint(key: str) -> str:
 class ImagesCfgIn(BaseModel):
     model: str = ""  # empty = keep
     api_key: str = ""  # empty = keep the stored key
+    xai_api_key: str = ""  # direct xAI (Grok) key; empty = keep
     # None = keep; "" = clear (fall back to the fast model); value = set.
     model_quality: str | None = None
     model_edit: str | None = None
@@ -412,20 +413,28 @@ def _images_cfg() -> dict[str, Any]:
     from app import runtime
 
     key = runtime.image_api_key()
+    xkey = runtime.xai_api_key()
     return {
         "model": runtime.image_model(),
         "model_quality": runtime.image_model_quality_setting(),
         "model_edit": runtime.image_model_edit_setting(),
         "has_key": bool(key),
         "key_hint": _key_hint(key),
+        "has_xai_key": bool(xkey),
+        "xai_key_hint": _key_hint(xkey),
     }
 
 
 @admin_router.get("/images")
 async def get_images_cfg(_: AdminUser) -> dict[str, Any]:
+    from app import runtime
+    from app.agent import xai
     from app.agent.imagegen import available_image_models
 
-    return {**_images_cfg(), "available": await available_image_models()}
+    available = await available_image_models()
+    if runtime.xai_api_key():
+        available = await xai.image_models() + available
+    return {**_images_cfg(), "available": available}
 
 
 @admin_router.put("/images")
@@ -436,6 +445,7 @@ def set_images_cfg(body: ImagesCfgIn, _: AdminUser) -> dict[str, Any]:
         {
             "model": body.model,
             "api_key": body.api_key,
+            "xai_api_key": body.xai_api_key,
             "model_quality": body.model_quality,
             "model_edit": body.model_edit,
         }

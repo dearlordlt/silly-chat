@@ -38,6 +38,9 @@ transitous_url = "https://api.transitous.org"
 # Image generation via OpenRouter (https://openrouter.ai). The API key is set in the
 # Admin panel (lives in the DB) — NOT here; this file stays secret-free.
 base_url = "https://openrouter.ai/api/v1"
+# Direct xAI (Grok) API — pick "xai:" models in Admin → Images to use it; the key
+# is pasted in the Admin panel (or XAI_API_KEY env), never stored here.
+xai_base_url = "https://api.x.ai/v1"
 # Fast/default image model; admins can pick any image-capable model in Admin → Images.
 model = "x-ai/grok-imagine-image-quality"
 # Optional quality model for demanding asks (photorealism, fine detail) — the

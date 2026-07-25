@@ -617,15 +617,22 @@ async def generate_image(
     quality: bool = False,
     user_wants_image: bool = False,
     match_attached: bool = False,
+    model: str = "",
 ) -> str:
-    """Create a brand-new image from a text description (OpenRouter image model).
+    """Create a brand-new image from a text description.
     quality=True routes to the slower top-quality model for demanding asks.
-    match_attached=True also sends the user's attached image as a visual reference
-    (use when the result must match something they showed you).
-    The result is shown in the answer automatically."""
+    model: exact model id when the USER names a provider/model ("use grok") —
+    normally left empty. match_attached=True also sends the user's attached image
+    as a visual reference (use when the result must match something they showed
+    you). The result is shown in the answer automatically."""
     user_id = user_var.get()
     if user_id is None:
         return "(cannot generate images in this context)"
+    model = model.strip()
+    from app.agent import xai as _xai
+
+    if model and _xai.is_xai(model) and not runtime.xai_api_key():
+        return "(that model needs the xAI key, which is not configured — use the default models)"
     reference: tuple[bytes, str] | None = None
     if match_attached:
         atts = attachments_var.get() or []
@@ -646,9 +653,9 @@ async def generate_image(
         )
     # Exactly-once per (prompt, model tier) + a per-turn cap — models hedge-call
     # generation tools. The tier is part of the key: the same prompt on fast AND
-    # quality is a legitimate ask ("make me two to choose from"), not a duplicate.
+    # quality (or an explicitly named model) is a legitimate ask, not a duplicate.
     made = _images_made_this_turn()
-    tier = "q" if quality else "f"
+    tier = model or ("q" if quality else "f")
     if not claim_dispatch(f"imagegen|{tier}|" + " ".join(prompt.lower().split())[:300]):
         return (
             "(that exact image was already generated this turn and is shown to the "
@@ -665,7 +672,7 @@ async def generate_image(
     try:
         from app.agent import imagegen
 
-        model = runtime.image_model_quality() if quality else runtime.image_model()
+        model = model or (runtime.image_model_quality() if quality else runtime.image_model())
         data, mime = await imagegen.generate(prompt, aspect_ratio, model=model, reference=reference)
         _store_gen_image(user_id, data, mime, prompt, model, aid)
         _image_quota_notify(quota, used_before)
@@ -939,7 +946,18 @@ def build_tools(image_gen: bool = False) -> list[Tool]:
     ]
     # Per-user feature (admin-granted) — only offered to users who may use it.
     if image_gen:
-        tools.append(Tool(generate_image, name="generate_image", description=get_prompt("tools/generate_image")))
+        tools.append(
+            Tool(
+                generate_image,
+                name="generate_image",
+                description=get_prompt(
+                    "tools/generate_image",
+                    fast=runtime.image_model(),
+                    quality=runtime.image_model_quality(),
+                    xai=bool(runtime.xai_api_key()),
+                ),
+            )
+        )
         tools.append(Tool(edit_image, name="edit_image", description=get_prompt("tools/edit_image")))
         tools.append(Tool(look_generated, name="look_generated", description=get_prompt("tools/look_generated")))
     return tools

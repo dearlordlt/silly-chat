@@ -62,6 +62,8 @@ export type ImagesCfg = {
   model_edit: string
   has_key: boolean
   key_hint: string
+  has_xai_key: boolean
+  xai_key_hint: string
 }
 export type ImageModelOption = { id: string; name: string; edits: boolean }
 
@@ -143,6 +145,7 @@ export const api = {
   setImagesCfg: (cfg: {
     model?: string
     api_key?: string
+    xai_api_key?: string
     model_quality?: string
     model_edit?: string
   }) => req<ImagesCfg>('PUT', '/api/admin/images', cfg),

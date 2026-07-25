@@ -143,7 +143,7 @@ async def chat(
     from app import runtime
     from app.models import image_gen_enabled
 
-    image_gen = image_gen_enabled(user) and bool(runtime.image_api_key())
+    image_gen = image_gen_enabled(user) and runtime.any_image_key()
     # The Images pill is only shown to users who can generate, but never trust the
     # client: without the permission the mode quietly degrades to plain chat.
     mode: Mode = req.mode if req.mode != "images" or image_gen else "chat"

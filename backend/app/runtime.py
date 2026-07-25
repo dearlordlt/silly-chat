@@ -98,6 +98,19 @@ def image_api_key() -> str:
     return _images.get("api_key", "")
 
 
+def xai_api_key() -> str:
+    """Direct xAI (Grok) key: admin-pasted (AppSetting) wins, XAI_API_KEY env as
+    fallback so it can also live in .env on the box."""
+    import os
+
+    return _images.get("xai_api_key", "") or os.environ.get("XAI_API_KEY", "")
+
+
+def any_image_key() -> bool:
+    """Is at least one image provider usable? Gates the whole image-gen feature."""
+    return bool(image_api_key() or xai_api_key())
+
+
 def set_images(values: dict[str, str | None]) -> None:
     """Merge-update the image-generation settings. model/api_key: empty values are
     ignored so saving one never wipes the other. model_quality: an explicit empty
@@ -108,7 +121,7 @@ def set_images(values: dict[str, str | None]) -> None:
     from app.models import AppSetting
 
     merged = {**_images}
-    for k in ("model", "api_key"):
+    for k in ("model", "api_key", "xai_api_key"):
         v = str(values.get(k) or "").strip()
         if v:
             merged[k] = v

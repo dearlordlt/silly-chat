@@ -47,9 +47,11 @@ day; what the assistant learned stays available in that chat for a week.
 
 Ask the assistant to draw or design a picture — "draw a cozy cabin in the woods",
 "make a logo for my bakery" — and it generates one with an AI image model (via
-OpenRouter). Two models work behind the scenes: a fast one for casual asks (seconds)
-and a top-quality one the assistant switches to when your request demands it —
-photorealism, fine detail, "make it stunning". The image appears right in the answer:
+OpenRouter, or straight from xAI when a Grok key is configured). Two models work
+behind the scenes: a fast one for casual asks (seconds) and a top-quality one the
+assistant switches to when your request demands it — photorealism, fine detail,
+"make it stunning". Naming a provider works too: say "use grok" and that
+generation goes to the direct Grok models regardless of the defaults. The image appears right in the answer:
 click it to view fullscreen and use the download button there to save it. The
 **Images** pill under the input switches to picture-first mode where every idea you
 type gets drawn. It's a per-user feature: admins have it by default and can switch it

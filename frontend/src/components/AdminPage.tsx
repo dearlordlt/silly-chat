@@ -486,6 +486,10 @@ function ImagesSection() {
   const [modelE, setModelE] = useState('')
   const [key, setKey] = useState('')
   const [savedKey, setSavedKey] = useState(false)
+  const [hasXaiKey, setHasXaiKey] = useState(false)
+  const [xaiKeyHint, setXaiKeyHint] = useState('')
+  const [xaiKey, setXaiKey] = useState('')
+  const [savedXaiKey, setSavedXaiKey] = useState(false)
   const [savedModel, setSavedModel] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -498,6 +502,8 @@ function ImagesSection() {
         setModelE(d.model_edit)
         setHasKey(d.has_key)
         setKeyHint(d.key_hint)
+        setHasXaiKey(d.has_xai_key)
+        setXaiKeyHint(d.xai_key_hint)
         setAvailable(d.available)
       })
       .catch((e) => toast.error(String(e.message ?? e)))
@@ -506,7 +512,13 @@ function ImagesSection() {
   // Key and model save SEPARATELY — a combined save let browser autofill in the
   // password field silently overwrite the stored key on an unrelated model change.
   async function save(
-    patch: { model?: string; api_key?: string; model_quality?: string; model_edit?: string },
+    patch: {
+      model?: string
+      api_key?: string
+      xai_api_key?: string
+      model_quality?: string
+      model_edit?: string
+    },
     after: () => void,
   ) {
     setBusy(true)
@@ -517,6 +529,8 @@ function ImagesSection() {
       setModelE(r.model_edit)
       setHasKey(r.has_key)
       setKeyHint(r.key_hint)
+      setHasXaiKey(r.has_xai_key)
+      setXaiKeyHint(r.xai_key_hint)
       after()
     } catch (e) {
       toast.error(String((e as Error).message ?? e))
@@ -559,6 +573,37 @@ function ImagesSection() {
           </div>
           <p className="text-xs text-muted-foreground">
             Get one at openrouter.ai → Keys. Stored on the server and never shown again.
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-semibold">xAI (Grok) API key</span>
+            <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+              <input
+                type="password"
+                name="xai-api-key"
+                value={xaiKey}
+                onChange={(e) => {
+                  setSavedXaiKey(false)
+                  setXaiKey(e.target.value)
+                }}
+                placeholder={hasXaiKey ? `saved (${xaiKeyHint})` : 'xai-…'}
+                autoComplete="new-password"
+                className="h-9 w-full max-w-[420px] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <Button
+                size="sm"
+                onClick={() => save({ xai_api_key: xaiKey.trim() }, () => { setXaiKey(''); setSavedXaiKey(true) })}
+                disabled={busy || !xaiKey.trim()}
+              >
+                Save key
+              </Button>
+              {savedXaiKey && <Check className="size-4 shrink-0 text-success" />}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Optional — talks to xAI directly. Get one at console.x.ai; saving it adds the
+            "Grok direct" models to the pickers below (reload after saving).
           </p>
         </div>
         <div className="rounded-lg border bg-card px-4 py-3">

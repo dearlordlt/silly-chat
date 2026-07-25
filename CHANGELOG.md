@@ -4,6 +4,17 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.19.0 — 2026-07-25
+
+- **Grok, direct from xAI** — a second image provider next to OpenRouter: paste an
+  xAI API key in Admin → Images (or set `XAI_API_KEY` in `.env`) and "Grok
+  direct" models appear in the model pickers — faster and cheaper than the same
+  models through a middleman, with reference images and portrait/landscape
+  ratios fully supported. Saying "use grok" in a request routes that generation
+  to it explicitly, whatever the default models are. Built on a general xAI API
+  wrapper, so future Grok abilities (video generation is already in their
+  catalog) are a small step away.
+
 ## v1.18.1 — 2026-07-25
 
 - Fixes: interrupted answers can no longer masquerade as finished ones — a stream

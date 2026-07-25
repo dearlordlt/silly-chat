@@ -12,6 +12,7 @@ import base64
 import httpx
 
 from app import runtime
+from app.agent import xai
 from app.config import get_settings
 
 _MIME_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg"}
@@ -66,7 +67,13 @@ async def generate(
     ``reference`` = (bytes, mime) of an image the model should match (the user's
     attachment) — sent as an input_reference so the actual pixels reach the model
     instead of a lossy prose description of them."""
-    body: dict = {"model": model or runtime.image_model(), "prompt": prompt, "n": 1}
+    model = model or runtime.image_model()
+    if xai.is_xai(model):
+        try:
+            return await xai.generate_image(prompt, model, aspect_ratio, reference)
+        except xai.XaiError as exc:
+            raise ImageGenError(str(exc)) from exc
+    body: dict = {"model": model, "prompt": prompt, "n": 1}
     if aspect_ratio:
         body["aspect_ratio"] = aspect_ratio
     if reference is not None:
@@ -79,9 +86,15 @@ async def generate(
 async def edit(instruction: str, image: bytes, mime: str, model: str | None = None) -> tuple[bytes, str]:
     """Image-to-image: apply an edit instruction to a source image (sent as a base64
     data URL via input_references). Returns (bytes, mime)."""
+    model = model or runtime.image_model_edit()
+    if xai.is_xai(model):
+        try:
+            return await xai.generate_image(instruction, model, reference=(image, mime))
+        except xai.XaiError as exc:
+            raise ImageGenError(str(exc)) from exc
     data_url = f"data:{mime or 'image/png'};base64,{base64.b64encode(image).decode()}"
     body: dict = {
-        "model": model or runtime.image_model_edit(),
+        "model": model,
         "prompt": instruction,
         "n": 1,
         "input_references": [{"type": "image_url", "image_url": {"url": data_url}}],

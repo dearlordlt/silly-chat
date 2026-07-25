@@ -47,6 +47,9 @@ class ImagesCfg(BaseModel):
     (AppSetting, set in the Admin panel) — never in config or the repo."""
 
     base_url: str = "https://openrouter.ai/api/v1"
+    # Direct xAI (Grok) API — a second image provider; models with an "xai:"
+    # prefix route here. Key is admin-managed (or XAI_API_KEY env), never here.
+    xai_base_url: str = "https://api.x.ai/v1"
     # Fast/default image model; admins can pick any image-capable model at runtime.
     model: str = "x-ai/grok-imagine-image-quality"
     # Optional slower top-quality model — the orchestrator picks it for demanding

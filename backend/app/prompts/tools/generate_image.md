@@ -8,6 +8,13 @@ Write prompt as one vivid, specific description of the desired image: subject, s
 work best. Optionally set aspect_ratio to a common ratio — "1:1" (default), "16:9"
 wide, "9:16" tall, "4:3", "3:4".
 
+Configured models: fast = `{{ fast }}`, quality = `{{ quality }}`. Normally leave
+`model` empty and just set the `quality` flag. But when the USER names a provider
+or model ("use grok", "with the direct grok", "gpt image please"), pass `model`
+with the exact id — one of the two above{% if xai %}, or the direct Grok (xAI)
+models: `xai:grok-imagine-image` (fast) and `xai:grok-imagine-image-quality`
+(finest){% endif %}.
+
 Two models sit behind this tool — pick with `quality`:
 - quality=false (default): the FAST model, back in seconds. Right for casual, fun,
   simple asks — memes, doodles, quick illustrations, "show me a cat in a hat".
