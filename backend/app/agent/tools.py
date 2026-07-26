@@ -686,7 +686,13 @@ async def generate_image(
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
         log.warning("generate_image failed: %s", exc)
-        return f"(could not generate the image: {exc})"
+        return (
+            f"IMAGE GENERATION FAILED — no image was created and the user sees NOTHING. "
+            f"Reason: {exc}. Tell the user plainly that the image failed and why. Do NOT "
+            "describe the image or say 'here it is' — it does not exist. If the reason "
+            "is fixable (content policy, bad parameter), you may retry ONCE with an "
+            "adjusted prompt; otherwise just report the failure."
+        )
 
 
 async def edit_image(instruction: str, source: str = "generated") -> str:
@@ -743,7 +749,13 @@ async def edit_image(instruction: str, source: str = "generated") -> str:
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
         log.warning("edit_image failed: %s", exc)
-        return f"(could not edit the image: {exc})"
+        return (
+            f"IMAGE EDIT FAILED — no image was created and the user sees NOTHING. "
+            f"Reason: {exc}. Tell the user plainly that the edit failed and why. Do NOT "
+            "describe the result or say 'here it is' — it does not exist. If the reason "
+            "is fixable (content policy, bad parameter), you may retry ONCE with an "
+            "adjusted instruction; otherwise just report the failure."
+        )
 
 
 async def look_generated(question: str, count: int = 1) -> str:

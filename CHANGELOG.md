@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.19.5 — 2026-07-26
+
+- Fixes: when image generation or editing fails (e.g. the provider declines the
+  content), the assistant now says so plainly instead of describing a picture
+  that was never made.
+
 ## v1.19.4 — 2026-07-25
 
 - Fixes: Grok direct edits now use xAI's real image-edit endpoint — the source
