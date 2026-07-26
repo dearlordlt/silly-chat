@@ -59,7 +59,10 @@ weekly_quota = 50
 [search]
 # SearXNG instance reachable by the backend (json format must be enabled).
 # Override per-environment via SEARCH__SEARXNG_URL in .env (e.g. a private instance).
+# When a Brave Search API key is configured (Admin → Search or BRAVE_API_KEY in
+# .env), Brave becomes the primary provider and SearXNG the fallback.
 searxng_url = "http://localhost:8080"
+brave_base_url = "https://api.search.brave.com/res/v1"
 
 [limits]
 # Caps for the image-verify flow (vision calls are the budget sink).

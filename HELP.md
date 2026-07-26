@@ -203,7 +203,9 @@ fine print: messages are necessarily readable by the server *while it answers yo
 New registrations wait for an admin's approval. Admins manage users (approve, promote,
 demote, delete, toggle image generation) and choose which Ollama models power each
 role — main, research agents, vision, coding, and embeddings — from the Admin panel,
-applied instantly. Admin → Statistics shows how much each person has used: tokens per
+applied instantly. Admin → Search holds the Brave Search API key that powers web
+research (with SearXNG as the automatic fallback when no key is set or Brave is
+unavailable). Admin → Statistics shows how much each person has used: tokens per
 model and images generated, filterable by period (today, last days, week, month) —
 counts only, never what anyone wrote.
 

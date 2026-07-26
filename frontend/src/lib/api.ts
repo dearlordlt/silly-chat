@@ -67,6 +67,12 @@ export type ImagesCfg = {
 }
 export type ImageModelOption = { id: string; name: string; edits: boolean }
 
+export type SearchCfg = {
+  has_brave_key: boolean
+  brave_key_hint: string
+  provider: 'brave' | 'searxng'
+}
+
 export type UsageModelRow = {
   model: string
   kind: 'llm' | 'image'
@@ -149,6 +155,9 @@ export const api = {
     model_quality?: string
     model_edit?: string
   }) => req<ImagesCfg>('PUT', '/api/admin/images', cfg),
+  getSearchCfg: () => req<SearchCfg>('GET', '/api/admin/search'),
+  setSearchCfg: (cfg: { brave_api_key?: string }) =>
+    req<SearchCfg>('PUT', '/api/admin/search', cfg),
   // The user's own generated-images gallery.
   getGallery: () => req<GalleryItem[]>('GET', '/api/gallery'),
   deleteGalleryImage: (id: string) => req<{ ok: boolean }>('DELETE', `/api/gallery/${id}`),

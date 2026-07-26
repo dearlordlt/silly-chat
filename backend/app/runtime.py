@@ -14,6 +14,7 @@ ROLES = ("orchestrator", "worker", "vision", "coder", "embed")
 _overrides: dict[str, str] = {}
 _chat: dict[str, int] = {}  # runtime chat-behavior overrides (e.g. compact_pct)
 _images: dict[str, str] = {}  # image generation: admin-set OpenRouter api_key + model
+_search: dict[str, str] = {}  # web search: admin-set Brave Search API key
 
 
 def load_overrides() -> None:
@@ -26,6 +27,7 @@ def load_overrides() -> None:
         row = session.get(AppSetting, "models")
         chat_row = session.get(AppSetting, "chat")
         images_row = session.get(AppSetting, "images")
+        search_row = session.get(AppSetting, "search")
     _overrides.clear()
     if row:
         _overrides.update({k: v for k, v in row.value.items() if k in ROLES and v})
@@ -42,6 +44,9 @@ def load_overrides() -> None:
                 if v or k in ("model_quality", "model_edit")
             }
         )
+    _search.clear()
+    if search_row:
+        _search.update({k: str(v) for k, v in search_row.value.items() if v})
 
 
 def compact_pct() -> int:
@@ -136,6 +141,36 @@ def set_images(values: dict[str, str | None]) -> None:
         session.commit()
     _images.clear()
     _images.update(merged)
+
+
+def brave_api_key() -> str:
+    """Brave Search API key: admin-pasted (AppSetting) wins, BRAVE_API_KEY env as
+    fallback so it can also live in .env on the box. Empty = SearXNG only."""
+    import os
+
+    return _search.get("brave_api_key", "") or os.environ.get("BRAVE_API_KEY", "")
+
+
+def set_search(values: dict[str, str | None]) -> None:
+    """Merge-update the web-search settings. Empty values are ignored so saving
+    never wipes a stored key by accident."""
+    from sqlmodel import Session
+
+    from app.db import engine
+    from app.models import AppSetting
+
+    merged = {**_search}
+    for k in ("brave_api_key",):
+        v = str(values.get(k) or "").strip()
+        if v:
+            merged[k] = v
+    with Session(engine) as session:
+        row = session.get(AppSetting, "search") or AppSetting(key="search", value={})
+        row.value = merged
+        session.add(row)
+        session.commit()
+    _search.clear()
+    _search.update(merged)
 
 
 def model_for(role: str) -> str:

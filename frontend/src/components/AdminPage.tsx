@@ -17,12 +17,13 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { toast } from '@/components/ui/toast'
 
-type Section = 'users' | 'models' | 'images' | 'stats'
+type Section = 'users' | 'models' | 'images' | 'search' | 'stats'
 
 const NAV: { key: Section; label: string }[] = [
   { key: 'users', label: 'Users' },
   { key: 'models', label: 'Models' },
   { key: 'images', label: 'Images' },
+  { key: 'search', label: 'Search' },
   { key: 'stats', label: 'Statistics' },
 ]
 
@@ -62,6 +63,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
             {section === 'users' && <UsersSection />}
             {section === 'models' && <ModelsSection />}
             {section === 'images' && <ImagesSection />}
+            {section === 'search' && <SearchSection />}
             {section === 'stats' && <StatsSection />}
           </main>
         </div>
@@ -477,6 +479,92 @@ function ModelsSection() {
 
 // Image generation: OpenRouter API key (stored server-side, shown only as a hint)
 // + which image model to use. Who may use it is per-user, in the Users section.
+function SearchSection() {
+  const [hasKey, setHasKey] = useState(false)
+  const [keyHint, setKeyHint] = useState('')
+  const [provider, setProvider] = useState<'brave' | 'searxng'>('searxng')
+  const [key, setKey] = useState('')
+  const [savedKey, setSavedKey] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    api
+      .getSearchCfg()
+      .then((d) => {
+        setHasKey(d.has_brave_key)
+        setKeyHint(d.brave_key_hint)
+        setProvider(d.provider)
+      })
+      .catch((e) => toast.error(String(e.message ?? e)))
+  }, [])
+
+  async function saveKey() {
+    setBusy(true)
+    try {
+      const r = await api.setSearchCfg({ brave_api_key: key.trim() })
+      setHasKey(r.has_brave_key)
+      setKeyHint(r.brave_key_hint)
+      setProvider(r.provider)
+      setKey('')
+      setSavedKey(true)
+    } catch (e) {
+      toast.error(String((e as Error).message ?? e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h2 className="text-[15px] font-bold">Web search</h2>
+        <p className="text-[13px] text-muted-foreground">
+          Where the research agents look things up. With a Brave Search API key they use
+          Brave directly (reliable, no CAPTCHAs); without one — or if Brave is
+          unavailable or over its monthly cap — they fall back to SearXNG.
+        </p>
+      </div>
+      <div className="space-y-2.5">
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-semibold">Active provider</span>
+            <span className="text-sm text-muted-foreground">
+              {provider === 'brave' ? 'Brave Search API (SearXNG as fallback)' : 'SearXNG only'}
+            </span>
+          </div>
+        </div>
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-semibold">Brave Search API key</span>
+            <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+              <input
+                type="password"
+                name="brave-api-key"
+                value={key}
+                onChange={(e) => {
+                  setSavedKey(false)
+                  setKey(e.target.value)
+                }}
+                placeholder={hasKey ? `saved (${keyHint})` : 'BSA…'}
+                autoComplete="new-password"
+                className="h-9 w-full max-w-[420px] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <Button size="sm" onClick={saveKey} disabled={busy || !key.trim()}>
+                Save key
+              </Button>
+              {savedKey && <Check className="size-4 shrink-0 text-success" />}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get one at api-dashboard.search.brave.com (the "Search" plan has a free
+            monthly credit). Stored on the server and never shown again.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ImagesSection() {
   const [hasKey, setHasKey] = useState(false)
   const [keyHint, setKeyHint] = useState('')

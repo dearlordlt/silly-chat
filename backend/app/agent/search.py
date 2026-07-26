@@ -1,15 +1,24 @@
-"""SearXNG client — text and image search via the JSON API.
+"""Web search — Brave Search API primary, SearXNG fallback.
 
-Requires a SearXNG instance with ``json`` enabled in formats. Degrades gracefully:
-if SearXNG is unreachable, returns an empty list so the agent can still respond.
+When an admin configures a Brave key (Admin → Search, or BRAVE_API_KEY in .env),
+text and image searches go to Brave's API — built for programmatic use, so no
+CAPTCHAs or engine suspensions. Without a key, or whenever Brave errors or
+returns nothing (e.g. the monthly spend cap paused the subscription), the query
+falls back to SearXNG exactly as before. Degrades gracefully: if everything is
+unreachable, returns an empty list so the agent can still respond.
+
+SearXNG requires an instance with ``json`` enabled in formats.
 """
 
 from __future__ import annotations
 
+import html
+import re
 from dataclasses import dataclass
 
 import httpx
 
+from app import runtime
 from app.config import get_settings
 from app.logging_setup import get_logger
 
@@ -28,6 +37,30 @@ class ImageResult:
     title: str
     image_url: str
     source_url: str
+
+
+def _clean(text: str) -> str:
+    """Brave snippets carry <strong> highlighting and entities — plain text out."""
+    return html.unescape(re.sub(r"<[^>]+>", "", text or ""))
+
+
+async def _brave(path: str, params: dict) -> dict | None:
+    """One Brave API call; None = unusable (no key, error, or capped) → fall back."""
+    key = runtime.brave_api_key()
+    if not key:
+        return None
+    base = get_settings().search.brave_base_url.rstrip("/")
+    headers = {"X-Subscription-Token": key, "Accept": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(f"{base}{path}", params=params, headers=headers)
+        resp.raise_for_status()
+        return resp.json()
+    except httpx.HTTPError as exc:
+        # 429/403 = rate/spend cap reached — expected near month's end on the
+        # free tier; SearXNG picks up the slack.
+        log.warning("brave search failed (%s): %s — falling back to searxng", path, exc)
+        return None
 
 
 async def _query(params: dict) -> dict:
@@ -55,6 +88,19 @@ async def _query(params: dict) -> dict:
 
 
 async def search_text(query: str, limit: int = 8) -> list[TextResult]:
+    data = await _brave("/web/search", {"q": query, "count": limit})
+    if data is not None:
+        out = [
+            TextResult(
+                title=_clean(r.get("title", "")),
+                url=r.get("url", ""),
+                snippet=_clean(r.get("description", "")),
+            )
+            for r in (data.get("web") or {}).get("results", [])[:limit]
+            if r.get("url")
+        ]
+        if out:
+            return out
     try:
         data = await _query({"q": query})
     except httpx.HTTPError as exc:
@@ -71,6 +117,19 @@ async def search_text(query: str, limit: int = 8) -> list[TextResult]:
 
 
 async def search_images(query: str, limit: int = 12) -> list[ImageResult]:
+    data = await _brave("/images/search", {"q": query, "count": limit})
+    if data is not None:
+        out = [
+            ImageResult(
+                title=_clean(r.get("title", "")),
+                image_url=(r.get("properties") or {}).get("url") or (r.get("thumbnail") or {}).get("src", ""),
+                source_url=r.get("url", ""),
+            )
+            for r in data.get("results", [])[:limit]
+        ]
+        out = [r for r in out if r.image_url]
+        if out:
+            return out
     try:
         data = await _query({"q": query, "categories": "images"})
     except httpx.HTTPError as exc:

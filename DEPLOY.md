@@ -55,7 +55,22 @@ so register yourself immediately after deploying.
   Restore = untar into the volume (stop the stack first).
 - **Logs**: `./logs.sh [service]` — rotation is capped (10 MB × 3 per service).
 
-## Better search via a home SearXNG (optional)
+## Reliable search via the Brave Search API (recommended)
+
+Scraping-based search (SearXNG) gets CAPTCHA'd at agent speeds no matter whose IP
+it uses. The Brave Search API is built for programmatic use: subscribe to the
+"Search" plan at api-dashboard.search.brave.com (it includes a free monthly
+credit and lets you cap spending at $0), then paste the key in **Admin → Search**
+— or set it in `.env`:
+
+```env
+BRAVE_API_KEY=BSA...
+```
+
+The Admin-pasted key wins over the env one. SearXNG remains the automatic
+fallback whenever Brave is unavailable or a monthly spend cap pauses it.
+
+## Better fallback search via a home SearXNG (optional)
 
 Search engines throttle datacenter IPs. If you run SearXNG at home (e.g. on a Pi)
 and both machines share a tailnet, prefer it with the bundled one as fallback:

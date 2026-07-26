@@ -40,6 +40,9 @@ class ModelsCfg(BaseModel):
 
 class SearchCfg(BaseModel):
     searxng_url: str = "http://localhost:8080"
+    # Brave Search API — the primary provider when an admin configures a key
+    # (Admin → Search, or BRAVE_API_KEY in .env); SearXNG becomes the fallback.
+    brave_base_url: str = "https://api.search.brave.com/res/v1"
 
 
 class ImagesCfg(BaseModel):

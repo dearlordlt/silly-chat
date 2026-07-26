@@ -453,6 +453,34 @@ def set_images_cfg(body: ImagesCfgIn, _: AdminUser) -> dict[str, Any]:
     return _images_cfg()
 
 
+class SearchCfgIn(BaseModel):
+    brave_api_key: str = ""  # empty = keep the stored key
+
+
+def _search_cfg() -> dict[str, Any]:
+    from app import runtime
+
+    key = runtime.brave_api_key()
+    return {
+        "has_brave_key": bool(key),
+        "brave_key_hint": _key_hint(key),
+        "provider": "brave" if key else "searxng",
+    }
+
+
+@admin_router.get("/search")
+def get_search_cfg(_: AdminUser) -> dict[str, Any]:
+    return _search_cfg()
+
+
+@admin_router.put("/search")
+def set_search_cfg(body: SearchCfgIn, _: AdminUser) -> dict[str, Any]:
+    from app import runtime
+
+    runtime.set_search({"brave_api_key": body.brave_api_key})
+    return _search_cfg()
+
+
 @admin_router.get("/stats")
 def usage_stats(_: AdminUser, session: SessionDep, since: str | None = None) -> dict[str, Any]:
     """Aggregated usage per user/model — counts only, never any message content."""

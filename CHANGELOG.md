@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.20.0 — 2026-07-26
+
+- Brave Search API as the primary web-search provider: paste a key in
+  Admin → Search (or `BRAVE_API_KEY` in `.env`) and all research and image
+  searches use Brave's machine-grade API — no more CAPTCHA'd metasearch engines
+  returning keyword sludge. SearXNG stays as the automatic fallback whenever no
+  key is set, Brave errors, or the monthly spend cap pauses the subscription.
+
 ## v1.19.5 — 2026-07-26
 
 - Fixes: when image generation or editing fails (e.g. the provider declines the
