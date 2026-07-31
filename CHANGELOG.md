@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.20.1 — 2026-07-26
+
+- Fixes: the assistant could delegate writing its own reply to the coding agent,
+  dumping its internal answer-JSON on the user as a bogus code artifact — the
+  coding tool is now fenced to code the user actually asked for.
+
 ## v1.20.0 — 2026-07-26
 
 - Brave Search API as the primary web-search provider: paste a key in
