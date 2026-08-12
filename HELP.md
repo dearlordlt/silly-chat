@@ -94,6 +94,11 @@ prompt"). That instruction is sent with every message in the project, so you nev
 it. Folders start collapsed; click one to see its recent chats, and **Show all →** (or
 ⋯ → Open project) to open the project's own page.
 
+To start a chat inside a project, click the **+** on its row in the sidebar (or the
+**New chat** button on the project page). The new chat opens with the project's master
+prompt, its storage mode and its mode pills already applied — the header shows the
+project's name so you can tell at a glance where you are.
+
 The project page holds everything else: the master prompt (edit it and press **Save**),
 what new chats there start as — where they're saved (Off / Local / Server) and which mode
 pills they offer — the project's files, and all its chats with their own search. Rename a

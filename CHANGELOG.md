@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.2 — 2026-08-12
+
+- Every project row in the sidebar now has a **+** button that starts a new chat there.
+  It used to be buried in the hover-only ⋯ menu, which made the most common thing you
+  do with a project the hardest one to find.
+
 ## v1.21.1 — 2026-08-12
 
 - Deleting a project now deletes what's in it — its chats and its files — instead of

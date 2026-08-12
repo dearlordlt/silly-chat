@@ -148,6 +148,17 @@ export function SidebarProjects({
                       <span className="truncate font-medium">{p.name}</span>
                     </button>
                   )}
+                  {/* Starting a chat is what a project is FOR — it stays visible instead
+                      of hiding in the ⋯ menu. Sits left of the count/⋯ slot so nothing
+                      shifts when the row is hovered. */}
+                  <button
+                    onClick={() => onProject({ kind: 'newChat', id: p.id })}
+                    aria-label={`New chat in ${p.name}`}
+                    title="New chat here"
+                    className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-primary [&_svg]:size-4"
+                  >
+                    <Plus />
+                  </button>
                   <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground sm:group-hover:hidden">
                     {searching && !nameHit ? `${hits.length} / ${all.length}` : all.length || ''}
                   </span>
@@ -168,15 +179,6 @@ export function SidebarProjects({
                         }}
                       >
                         Open project
-                      </MenuItem>
-                      <MenuItem
-                        icon={<Plus />}
-                        onClick={() => {
-                          setMenuFor(null)
-                          onProject({ kind: 'newChat', id: p.id })
-                        }}
-                      >
-                        New chat here
                       </MenuItem>
                       <MenuItem
                         icon={<Pencil />}
