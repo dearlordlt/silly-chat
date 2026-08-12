@@ -4,6 +4,27 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.0 — 2026-08-12
+
+- Projects: folders in the sidebar that group chats and carry a standing instruction.
+  Give a project a master prompt ("in this project you help me craft image prompts")
+  and every chat in it follows that without you retyping it. Each project also sets
+  what new chats there start as: where they're saved (off / local / server) and which
+  mode pills they offer.
+- Project files: upload documents to a project — campaign rules, character sheets,
+  product docs — and every chat in it can consult them, no re-attaching. Each person
+  gets 100 MB for project files (admins unlimited, and can change anyone's allowance
+  in Admin → Users → ⋯ → File quota); unlike chat attachments these are never swept.
+- Project memory (off by default): switch it on and a new chat in the project already
+  knows what the other chats there settled — a short auto-summary of each, refreshed
+  as they change. Ask for "the warlock" in a fresh chat and he's still a half-orc.
+- Each project has a home page (its name in the sidebar → Open project) with the
+  master prompt, the defaults, its files with a storage meter, and all its chats with
+  their own search. Chats move in and out of projects from the ⋯ menu, and deleting a
+  project keeps its chats — they simply return to the plain list.
+- Fixes: the ⋯ menu on sidebar chats was hover-only, so it could not be reached on a
+  phone or tablet at all; it is now always visible on touch screens.
+
 ## v1.20.1 — 2026-07-26
 
 - Fixes: the assistant could delegate writing its own reply to the coding agent,

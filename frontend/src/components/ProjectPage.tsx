@@ -297,7 +297,9 @@ export function ProjectPage({
       </p>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="order-2 space-y-5 lg:order-1">
+        {/* min-w-0: grid items default to min-width:auto, so without it the textarea
+            and file names push the column past the viewport on a phone. */}
+        <div className="order-2 min-w-0 space-y-5 lg:order-1">
           <Section title="Master prompt">
             <p className="mb-2 text-[12.5px] text-muted-foreground">
               Sent with every message in this project.
@@ -428,7 +430,7 @@ export function ProjectPage({
           </Section>
         </div>
 
-        <div className="order-1 lg:order-2">
+        <div className="order-1 min-w-0 lg:order-2">
           <Section title="Files">
             <p className="mb-2 text-[12.5px] text-muted-foreground">
               Every chat in this project can read these.

@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Check,
   Gauge,
+  HardDrive,
   Image as ImageIcon,
   ImageOff,
   KeyRound,
@@ -77,7 +78,8 @@ function UsersSection() {
   const [menuFor, setMenuFor] = useState<number | null>(null)
   const [confirm, setConfirm] = useState<{ user: Me; action: 'delete' | 'demote' | 'reset' } | null>(null)
   const [tempPw, setTempPw] = useState<{ username: string; password: string } | null>(null)
-  const [quotaFor, setQuotaFor] = useState<Me | null>(null)
+  // One dialog for both allowances — images per week and project-file megabytes.
+  const [quotaFor, setQuotaFor] = useState<{ user: Me; kind: 'image' | 'files' } | null>(null)
   const [quotaVal, setQuotaVal] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -217,16 +219,28 @@ function UsersSection() {
                     )
                   })()}
                   {u.role !== 'admin' && (
-                    <MenuItem
-                      icon={<Gauge />}
-                      onClick={() => {
-                        setMenuFor(null)
-                        setQuotaVal(u.image_quota != null ? String(u.image_quota) : '')
-                        setQuotaFor(u)
-                      }}
-                    >
-                      Image quota…
-                    </MenuItem>
+                    <>
+                      <MenuItem
+                        icon={<Gauge />}
+                        onClick={() => {
+                          setMenuFor(null)
+                          setQuotaVal(u.image_quota != null ? String(u.image_quota) : '')
+                          setQuotaFor({ user: u, kind: 'image' })
+                        }}
+                      >
+                        Image quota…
+                      </MenuItem>
+                      <MenuItem
+                        icon={<HardDrive />}
+                        onClick={() => {
+                          setMenuFor(null)
+                          setQuotaVal(u.project_quota_mb != null ? String(u.project_quota_mb) : '')
+                          setQuotaFor({ user: u, kind: 'files' })
+                        }}
+                      >
+                        File quota…
+                      </MenuItem>
+                    </>
                   )}
                   <MenuItem
                     icon={<KeyRound />}
@@ -313,10 +327,14 @@ function UsersSection() {
             className="animate-rise w-full max-w-sm rounded-xl border bg-card p-5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-1 text-[15px] font-bold">Image quota for {quotaFor.username}</h3>
+            <h3 className="mb-1 text-[15px] font-bold">
+              {quotaFor.kind === 'image' ? 'Image quota' : 'File quota'} for{' '}
+              {quotaFor.user.username}
+            </h3>
             <p className="mb-3 text-[13px] text-muted-foreground">
-              Images per week. Leave empty for the server default, 0 for unlimited. They
-              won't see the limit until it's nearly used up.
+              {quotaFor.kind === 'image'
+                ? "Images per week. Leave empty for the server default, 0 for unlimited. They won't see the limit until it's nearly used up."
+                : 'Megabytes of project files, across all their projects. Leave empty for the server default, 0 for unlimited.'}
             </p>
             <input
               type="number"
@@ -340,15 +358,26 @@ function UsersSection() {
                     toast.error('Quota must be a whole number (or empty for the default)')
                     return
                   }
-                  const who = quotaFor
+                  const { user: who, kind } = quotaFor
                   setQuotaFor(null)
+                  if (kind === 'image') {
+                    act(
+                      api.setUserImageQuota(who.id, quota),
+                      quota === null
+                        ? `${who.username} back on the default quota`
+                        : quota === 0
+                          ? `${who.username}: unlimited images`
+                          : `${who.username}: ${quota} images/week`,
+                    )
+                    return
+                  }
                   act(
-                    api.setUserImageQuota(who.id, quota),
+                    api.setUserProjectQuota(who.id, quota),
                     quota === null
-                      ? `${who.username} back on the default quota`
+                      ? `${who.username} back on the default file quota`
                       : quota === 0
-                        ? `${who.username}: unlimited images`
-                        : `${who.username}: ${quota} images/week`,
+                        ? `${who.username}: unlimited project files`
+                        : `${who.username}: ${quota} MB of project files`,
                   )
                 }}
               >

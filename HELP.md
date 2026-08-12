@@ -84,6 +84,45 @@ fullscreen (arrow keys / space navigate, Esc closes). The assistant researches f
 when the topic needs current facts, and may offer slides on its own when a
 walkthrough teaches better than prose.
 
+## Projects
+
+A project is a folder in the sidebar that groups chats around one thing — a campaign, a
+trip, a piece of work — and remembers how you want the assistant to behave there. Create
+one with the **+** next to PROJECTS: give it a name and, optionally, a **master prompt**
+("in this project you help me craft image prompts — I describe a picture, you write the
+prompt"). That instruction is sent with every message in the project, so you never retype
+it. Folders start collapsed; click one to see its recent chats, and **Show all →** (or
+⋯ → Open project) to open the project's own page.
+
+The project page holds everything else: the master prompt (edit it and press **Save**),
+what new chats there start as — where they're saved (Off / Local / Server) and which mode
+pills they offer — the project's files, and all its chats with their own search. Rename a
+project by clicking its name; the ⋯ menu deletes it. **Deleting a project keeps its
+chats** — they just return to the normal list — but its files are removed.
+
+A chat lives in exactly one place: chats inside a project appear in its folder rather than
+in the date list below. Searching still finds everything — matching folders open
+themselves so you can see where a chat lives. Move a chat in or out from its ⋯ menu
+(**Move to project**), and pinned chats stay pinned at the top with a small folder label.
+
+## Project files
+
+Drop documents on a project — PDF, Word, Excel, PowerPoint, or text formats — and every
+chat in that project can read them without you attaching anything. Ask about your rules
+document or a spec in any chat there and the assistant looks it up. Each person has
+100 MB for project files, shown as a meter on the project page (admins are unlimited, and
+can change anyone's allowance). Unlike chat attachments, project files stay until you
+delete them.
+
+## Project memory
+
+Switch **Project memory** on (it's off by default) and new chats in that project start
+knowing what the other chats there were about: after each chat settles, a short summary of
+it is written and quietly kept up to date. So if you decided in one chat that the party's
+warlock is a half-orc, a fresh chat that says "create the warlock" already knows. It only
+runs for projects where you turn it on, and only summaries travel — never the whole
+conversation.
+
 ## Linking chats as context
 
 Type `@` in the message box and a picker of your other chats appears — keep typing
@@ -205,9 +244,11 @@ demote, delete, toggle image generation) and choose which Ollama models power ea
 role — main, research agents, vision, coding, and embeddings — from the Admin panel,
 applied instantly. Admin → Search holds the Brave Search API key that powers web
 research (with SearXNG as the automatic fallback when no key is set or Brave is
-unavailable). Admin → Statistics shows how much each person has used: tokens per
-model and images generated, filterable by period (today, last days, week, month) —
-counts only, never what anyone wrote.
+unavailable). Each person's project-file allowance can be
+changed in Users → ⋯ → File quota (blank = the server default of 100 MB, 0 = unlimited;
+admins are always unlimited). Admin → Statistics shows how much each person has used:
+tokens per model and images generated, filterable by period (today, last days, week,
+month) — counts only, never what anyone wrote.
 
 ## Install as an app
 
