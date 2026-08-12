@@ -46,6 +46,8 @@ class UserOut(BaseModel):
     # Weekly image quota override — surfaced only through admin endpoints; the
     # /me and login payloads keep it None (quotas stay invisible to users).
     image_quota: int | None = None
+    # Project-file storage override in MB. Admin-only, same reasoning.
+    project_quota_mb: int | None = None
 
 
 def _user_out(user: User, admin: bool = False) -> UserOut:
@@ -55,6 +57,7 @@ def _user_out(user: User, admin: bool = False) -> UserOut:
     data = user.model_dump()
     if not admin:
         data["image_quota"] = None
+        data["project_quota_mb"] = None
     return UserOut(
         **data,
         can_generate_images=image_gen_enabled(user) and runtime.any_image_key(),
@@ -299,12 +302,16 @@ def delete_user(user_id: int, admin: AdminUser, session: SessionDep) -> dict:
         admins = session.exec(select(func.count()).select_from(User).where(User.role == "admin")).one()
         if admins <= 1:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "there must be at least one admin")
-    # Take the user's data with them (conversations, uploads + doc chunks, usage rows).
-    from app.models import Conversation, DocChunk, Upload, UsageEvent
+    # Take the user's data with them (conversations, projects, uploads + doc chunks,
+    # usage rows). Project files are ordinary uploads owned by the user, so the upload
+    # loop below already covers them.
+    from app.models import Conversation, DocChunk, Project, Upload, UsageEvent
     from app.uploads import _gc_orphan_files
 
     for conv in session.exec(select(Conversation).where(Conversation.user_id == user.id)).all():
         session.delete(conv)
+    for proj in session.exec(select(Project).where(Project.user_id == user.id)).all():
+        session.delete(proj)
     for ev in session.exec(select(UsageEvent).where(UsageEvent.user_id == user.id)).all():
         session.delete(ev)
     for up in session.exec(select(Upload).where(Upload.user_id == user.id)).all():
@@ -339,7 +346,8 @@ def admin_reset_password(user_id: int, admin: AdminUser, session: SessionDep) ->
     admin reset can never expose or restore encrypted data."""
     import secrets as _secrets
 
-    from app.models import Conversation
+    from app.models import Conversation, Project, Upload
+    from app.uploads import _delete_upload, _gc_orphan_files
 
     user = session.get(User, user_id)
     if user is None:
@@ -357,9 +365,21 @@ def admin_reset_password(user_id: int, admin: AdminUser, session: SessionDep) ->
         if c.enc_data:
             session.delete(c)
             deleted += 1
+    # Sealed projects go the same way, files included — their name, master prompt and
+    # document text were all sealed under the key that just died.
+    projects = 0
+    for p in session.exec(select(Project).where(Project.user_id == user.id)).all():
+        if not p.enc_name and not p.enc_data:
+            continue
+        for up in session.exec(select(Upload).where(Upload.project_id == p.id)).all():
+            _delete_upload(session, up)
+        session.delete(p)
+        projects += 1
     session.add(user)
     session.commit()
-    return {"temp_password": temp, "deleted_chats": deleted}
+    if projects:
+        _gc_orphan_files(session)
+    return {"temp_password": temp, "deleted_chats": deleted, "deleted_projects": projects}
 
 
 class ImageGenIn(BaseModel):
@@ -389,6 +409,25 @@ def set_user_image_quota(user_id: int, body: ImageQuotaIn, _: AdminUser, session
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such user")
     user.image_quota = body.quota
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return _user_out(user, admin=True)
+
+
+class ProjectQuotaIn(BaseModel):
+    # None = back to the config default; 0 = unlimited for this user.
+    quota_mb: int | None = Field(default=None, ge=0, le=1_000_000)
+
+
+@admin_router.put("/users/{user_id}/projectquota")
+def set_user_project_quota(
+    user_id: int, body: ProjectQuotaIn, _: AdminUser, session: SessionDep
+) -> UserOut:
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such user")
+    user.project_quota_mb = body.quota_mb
     session.add(user)
     session.commit()
     session.refresh(user)

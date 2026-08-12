@@ -113,6 +113,16 @@ class LimitsCfg(BaseModel):
     doc_chunk_overlap: int = 200
     doc_max_chars: int = 400_000  # cap extracted text so a huge file can't explode RAG
     rag_top_k: int = 6  # passages returned per search_document call
+    # Projects (folders of chats with a standing prompt and shared reference files).
+    # Project files are permanent — no TTL, never LRU-evicted — so they get their own
+    # per-user pool, separate from the TTL'd chat-attachment quota above.
+    project_user_quota_mb: int = 100  # across all of a user's projects; admins exempt
+    project_max_per_user: int = 50
+    project_max_files: int = 25  # per project
+    project_max_chunks: int = 3000  # per project — bounds the per-turn ranking cost
+    project_prompt_max_chars: int = 4000  # master prompt cap
+    project_memory_max_chars: int = 6000  # sibling-digest text sent per turn
+    project_digest_every_turns: int = 3  # refresh a chat's digest this often
 
 
 class DbCfg(BaseModel):

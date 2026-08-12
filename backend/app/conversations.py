@@ -40,6 +40,24 @@ def seal_conv(c: Conversation, dk: bytes) -> None:
     c.title, c.turns, c.linked, c.summary, c.summarized_upto, c.artifacts = "", [], [], "", 0, []
 
 
+def seal_digest(c: Conversation, dk: bytes | None, text: str, upto: int) -> None:
+    """Store this chat's project-memory digest, sealed under the owner's key. Its own
+    blob (not part of enc_data) so gathering a project's memory unseals ~200 bytes per
+    chat instead of every chat in full. Without a key the digest is simply not kept —
+    it's an optimization, not content the user would miss."""
+    c.enc_digest = crypto.encrypt_json(dk, {"text": text, "upto": upto}) if dk else ""
+
+
+def _unseal_digest(c: Conversation, dk: bytes | None) -> tuple[str, int]:
+    if not c.enc_digest or dk is None:
+        return "", 0
+    data = crypto.decrypt_json(dk, c.enc_digest)
+    if not isinstance(data, dict):
+        return "", 0
+    text = data.get("text", "")
+    return (text if isinstance(text, str) else ""), int(data.get("upto", 0) or 0)
+
+
 def _unseal_title(c: Conversation, dk: bytes | None) -> str:
     if not c.enc_title:
         return c.title
@@ -68,14 +86,22 @@ class ConvIn(BaseModel):
     artifacts: list[Any] = []  # code artifacts, latest version each
     # None = leave as is (regular saves omit it); set only when moving a chat in.
     pinned: bool | None = None
+    # Project membership. None = leave as is; "" = not in a project. Carrying it here
+    # is what keeps a chat in its folder when it moves between local and server.
+    project_id: str | None = None
+    digest: str | None = None  # project-memory digest of this chat
+    digest_upto: int | None = None  # how many turns the digest covers
 
 
 class ConvPatch(BaseModel):
-    """Metadata-only edits: rename and pin/unpin. Neither bumps updated_at —
-    housekeeping shouldn't reorder the sidebar."""
+    """Metadata-only edits: rename, pin/unpin, file into a project, refresh the digest.
+    None of it bumps updated_at — housekeeping shouldn't reorder the sidebar."""
 
     title: str | None = None
     pinned: bool | None = None
+    project_id: str | None = None  # "" removes the chat from its project
+    digest: str | None = None
+    digest_upto: int | None = None
 
 
 class ConvSummary(BaseModel):
@@ -83,6 +109,7 @@ class ConvSummary(BaseModel):
     title: str
     updated_at: datetime
     pinned: bool = False
+    project_id: str | None = None  # the sidebar groups on this
 
 
 class ConvOut(ConvSummary):
@@ -91,6 +118,8 @@ class ConvOut(ConvSummary):
     summary: str = ""
     summarized_upto: int = 0
     artifacts: list[Any] = []
+    digest: str = ""
+    digest_upto: int = 0
 
 
 def _utc(dt: datetime) -> datetime:
@@ -114,7 +143,10 @@ def list_conversations(user: ApprovedUser, session: SessionDep, dk: SessionKey) 
         .order_by(Conversation.updated_at.desc())
     ).all()
     return [
-        ConvSummary(id=c.id, title=_unseal_title(c, dk), updated_at=_utc(c.updated_at), pinned=c.pinned)
+        ConvSummary(
+            id=c.id, title=_unseal_title(c, dk), updated_at=_utc(c.updated_at),
+            pinned=c.pinned, project_id=c.project_id,
+        )
         for c in rows
     ]
 
@@ -125,11 +157,13 @@ def get_conversation(cid: str, user: ApprovedUser, session: SessionDep, dk: Sess
     data = _unseal_data(c, dk)
     if data is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "log in again to unlock this chat")
+    digest, digest_upto = _unseal_digest(c, dk)
     return ConvOut(
         id=c.id, title=_unseal_title(c, dk), turns=data.get("turns", []),
         linked=data.get("linked", []), summary=data.get("summary", ""),
         summarized_upto=data.get("summarized_upto", 0), artifacts=data.get("artifacts", []),
-        updated_at=_utc(c.updated_at), pinned=c.pinned,
+        updated_at=_utc(c.updated_at), pinned=c.pinned, project_id=c.project_id,
+        digest=digest, digest_upto=digest_upto,
     )
 
 
@@ -153,12 +187,20 @@ def upsert_conversation(
     c.artifacts = body.artifacts
     if body.pinned is not None:
         c.pinned = body.pinned
+    if body.project_id is not None:
+        c.project_id = body.project_id or None
     c.enc_title = c.enc_data = ""
     if dk is not None:
         seal_conv(c, dk)
+    # A save carries the digest the client already had, so it survives a local↔server move.
+    if body.digest is not None:
+        seal_digest(c, dk, body.digest, body.digest_upto or 0)
     session.add(c)
     session.commit()
-    return ConvSummary(id=c.id, title=body.title, updated_at=_utc(c.updated_at), pinned=c.pinned)
+    return ConvSummary(
+        id=c.id, title=body.title, updated_at=_utc(c.updated_at), pinned=c.pinned,
+        project_id=c.project_id,
+    )
 
 
 @router.patch("/{cid}")
@@ -168,6 +210,18 @@ def patch_conversation(
     c = _own(session, user, cid)
     if body.pinned is not None:
         c.pinned = body.pinned
+    if body.project_id is not None:
+        # Filing a chat is an explicit action — a project that isn't there is a bug
+        # worth surfacing, not something to swallow.
+        if body.project_id:
+            from app.models import Project
+
+            p = session.get(Project, body.project_id)
+            if not p or p.user_id != user.id:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "no such project")
+        c.project_id = body.project_id or None
+    if body.digest is not None:
+        seal_digest(c, dk, body.digest, body.digest_upto or 0)
     title = _unseal_title(c, dk)
     if body.title is not None:
         title = body.title
@@ -179,7 +233,10 @@ def patch_conversation(
             c.title = body.title
     session.add(c)
     session.commit()
-    return ConvSummary(id=c.id, title=title, updated_at=_utc(c.updated_at), pinned=c.pinned)
+    return ConvSummary(
+        id=c.id, title=title, updated_at=_utc(c.updated_at), pinned=c.pinned,
+        project_id=c.project_id,
+    )
 
 
 @router.delete("/{cid}")

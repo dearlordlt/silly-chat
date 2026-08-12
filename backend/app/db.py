@@ -50,6 +50,16 @@ def _ensure_columns() -> None:
         if "pinned" not in cols:
             conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN pinned BOOLEAN DEFAULT 0")
             conn.commit()
+        if "project_id" not in cols:
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN project_id TEXT")
+            # create_all only indexes tables it creates, so existing DBs need this by hand.
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_conversation_project_id ON conversation (project_id)"
+            )
+            conn.commit()
+        if "enc_digest" not in cols:
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN enc_digest TEXT DEFAULT ''")
+            conn.commit()
         ucols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()}
         if "wrapped_dk" not in ucols:
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN wrapped_dk TEXT DEFAULT ''")
@@ -61,12 +71,21 @@ def _ensure_columns() -> None:
         if "image_quota" not in ucols:
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN image_quota INTEGER")
             conn.commit()
+        if "project_quota_mb" not in ucols:
+            conn.exec_driver_sql("ALTER TABLE user ADD COLUMN project_quota_mb INTEGER")
+            conn.commit()
         upcols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(upload)").fetchall()}
         if "enc" not in upcols:
             conn.exec_driver_sql("ALTER TABLE upload ADD COLUMN enc INTEGER DEFAULT 0")
             conn.commit()
         if "gen_meta" not in upcols:
             conn.exec_driver_sql("ALTER TABLE upload ADD COLUMN gen_meta TEXT DEFAULT ''")
+            conn.commit()
+        if "project_id" not in upcols:
+            conn.exec_driver_sql("ALTER TABLE upload ADD COLUMN project_id TEXT")
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_upload_project_id ON upload (project_id)"
+            )
             conn.commit()
 
 

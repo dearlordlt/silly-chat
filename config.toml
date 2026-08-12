@@ -99,6 +99,15 @@ doc_chunk_chars = 1200
 doc_chunk_overlap = 200
 doc_max_chars = 400000
 rag_top_k = 6
+# Projects: files attached to a project are permanent (no TTL, never evicted), so they
+# have their own per-user pool separate from the chat-attachment quota above.
+project_user_quota_mb = 100
+project_max_per_user = 50
+project_max_files = 25
+project_max_chunks = 3000
+project_prompt_max_chars = 4000
+project_memory_max_chars = 6000
+project_digest_every_turns = 3
 
 [db]
 path = "data/silly.db"

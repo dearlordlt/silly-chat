@@ -18,6 +18,7 @@ from app.auth.routes import admin_router, auth_router
 from app.config import get_settings
 from app.conversations import router as conversations_router
 from app.preview import router as preview_router
+from app.projects import router as projects_router
 from app.uploads import gallery_router, resolve_attachments, router as uploads_router
 from app.meta import router as meta_router
 from app.db import init_db
@@ -55,6 +56,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(conversations_router)
+app.include_router(projects_router)
 app.include_router(preview_router)
 app.include_router(uploads_router)
 app.include_router(gallery_router)

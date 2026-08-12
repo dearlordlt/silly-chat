@@ -28,6 +28,9 @@ class User(SQLModel, table=True):
     # Weekly image quota override (admin-set). None = the config default; admins
     # are always unlimited. Invisible to the user until it nearly runs out.
     image_quota: int | None = Field(default=None)
+    # Project-file storage override in MB (admin-set). None = the config default;
+    # 0 = unlimited for this user; admins are always unlimited.
+    project_quota_mb: int | None = Field(default=None)
     # Chat-encryption data key, wrapped under the password / the recovery key.
     # Empty until the user's first login after encryption shipped.
     wrapped_dk: str = ""
@@ -79,6 +82,11 @@ class Upload(SQLModel, table=True):
     # Generated images (kind="genimage"): the generation prompt + model as JSON,
     # sealed under the owner's key when enc=1 — powers the user's Gallery.
     gen_meta: str = ""
+    # Set = this file belongs to a project and is permanent: exempt from the TTL sweep
+    # and from LRU eviction, and counted against the project pool instead of the chat
+    # one. No FK on purpose — create_all would add the constraint on fresh databases
+    # while the ALTER in db.py can't, and SQLite isn't enforcing FKs here anyway.
+    project_id: str | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=_utcnow)
     last_used_at: datetime = Field(default_factory=_utcnow)
 
@@ -115,5 +123,37 @@ class Conversation(SQLModel, table=True):
     # Pinned to the top of the sidebar. Deliberately NOT sealed: it's a sort flag,
     # not content, and the list must order without unsealing.
     pinned: bool = False
+    # Which project (folder) this chat sits in. Unsealed for the same reason as
+    # `pinned` — the sidebar must group without a key. It's an opaque id; the name
+    # it groups under is sealed on the project itself.
+    project_id: str | None = Field(default=None, index=True)
+    # Short digest of this chat for project memory, sealed under the owner's key as
+    # {"text": ..., "upto": n}. Its own blob rather than a key inside enc_data, so
+    # gathering a project's memory unseals ~200 bytes per chat, not every chat in full.
+    enc_digest: str = ""
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+
+class Project(SQLModel, table=True):
+    """A folder of chats with a standing instruction, defaults and shared files.
+
+    Sealed like a conversation: the name and master prompt are user content, so they
+    live encrypted under the owner's data key. The behaviour flags stay plaintext —
+    they're settings, not content, and the sidebar/composer must configure themselves
+    without a key.
+    """
+
+    id: str = Field(primary_key=True)  # client-generated uuid, like Conversation.id
+    user_id: int = Field(index=True, foreign_key="user.id")
+    name: str = ""  # plaintext placeholder; empty once sealed
+    prompt: str = ""  # master prompt; ditto
+    enc_name: str = ""
+    enc_data: str = ""  # {"prompt": ...}
+    storage_mode: str = "local"  # off | local | server — default for NEW chats here
+    # Which composer pills this project offers; [] = all of them. A new chat starts in
+    # the first of these in canonical order — one control, one decision.
+    modes: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    memory: bool = False  # feed digests of this project's other chats into new ones
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)

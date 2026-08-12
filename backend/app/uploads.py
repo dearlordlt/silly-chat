@@ -167,7 +167,32 @@ def _chunk(text: str, size: int, overlap: int) -> list[str]:
 # ---- quotas / lifecycle -------------------------------------------------------------
 
 def _user_used(session: Session, uid: int) -> int:
-    return session.exec(select(func.coalesce(func.sum(Upload.size), 0)).where(Upload.user_id == uid)).one()
+    """Bytes this user holds in the TTL'd chat-attachment pool (project files excluded —
+    they're permanent and have their own allowance)."""
+    return session.exec(
+        select(func.coalesce(func.sum(Upload.size), 0)).where(
+            Upload.user_id == uid, Upload.project_id.is_(None)
+        )
+    ).one()
+
+
+def project_used(session: Session, uid: int) -> int:
+    """Bytes this user holds in project files, across all their projects."""
+    return session.exec(
+        select(func.coalesce(func.sum(Upload.size), 0)).where(
+            Upload.user_id == uid, Upload.project_id.is_not(None)
+        )
+    ).one()
+
+
+def project_quota_bytes(user) -> int | None:
+    """This user's project-file allowance in bytes; None = unlimited (admins, or 0)."""
+    if user.role == "admin":
+        return None
+    mb = user.project_quota_mb
+    if mb is None:
+        mb = get_settings().limits.project_user_quota_mb
+    return None if mb <= 0 else mb * 1024 * 1024
 
 
 def _global_used(session: Session) -> int:
@@ -191,16 +216,26 @@ def _gc_orphan_files(session: Session) -> None:
 
 
 def _evict_until_room(session: Session, incoming: int, limit: int) -> None:
+    """Free global disk by dropping least-recently-used uploads. Project files are never
+    evicted — someone's campaign rules must not disappear to make room for a screenshot —
+    so the pool can genuinely run dry; that raises rather than silently overshooting."""
     used = _global_used(session)
     if used + incoming <= limit:
         return
-    for up in session.exec(select(Upload).order_by(Upload.last_used_at)).all():
+    for up in session.exec(
+        select(Upload).where(Upload.project_id.is_(None)).order_by(Upload.last_used_at)
+    ).all():
         if used + incoming <= limit:
             break
         used -= up.size
         _delete_upload(session, up)
     session.commit()
     _gc_orphan_files(session)
+    if used + incoming > limit:
+        raise HTTPException(
+            status.HTTP_507_INSUFFICIENT_STORAGE,
+            "the server is out of file space — an admin needs to free some",
+        )
 
 
 def sweep_expired() -> int:
@@ -212,14 +247,25 @@ def sweep_expired() -> int:
     full_cutoff = now - timedelta(days=cfg.upload_ttl_days)
     with Session(engine) as session:
         # 1) drop the heavy original doc files; keep the row + chunks (context survives).
+        # Project files keep their original too — they're reference material the user
+        # expects to re-download months later.
         for up in session.exec(
-            select(Upload).where(Upload.kind == "doc", Upload.created_at < doc_file_cutoff)
+            select(Upload).where(
+                Upload.kind == "doc",
+                Upload.created_at < doc_file_cutoff,
+                Upload.project_id.is_(None),
+            )
         ).all():
             _path(up).unlink(missing_ok=True)
         # 2) fully expire old uploads — except generated images, which live in the
-        # user's Gallery until they delete them (quota LRU still applies).
+        # user's Gallery until they delete them (quota LRU still applies), and project
+        # files, which live until the user deletes them or their project.
         expired = session.exec(
-            select(Upload).where(Upload.created_at < full_cutoff, Upload.kind != "genimage")
+            select(Upload).where(
+                Upload.created_at < full_cutoff,
+                Upload.kind != "genimage",
+                Upload.project_id.is_(None),
+            )
         ).all()
         for up in expired:
             _delete_upload(session, up)
@@ -228,6 +274,69 @@ def sweep_expired() -> int:
     if expired:
         log.info("upload sweep: removed %d expired", len(expired))
     return len(expired)
+
+
+# ---- ingest -------------------------------------------------------------------------
+
+async def ingest_doc(
+    session: Session, user_id: int, raw: bytes, name: str, content_type: str,
+    dk: bytes | None, project_id: str | None = None,
+) -> tuple[Upload, int]:
+    """Store a document and turn it into sealed text chunks + embeddings.
+
+    Shared by chat attachments and project files; quota decisions belong to the caller
+    (the two pools have different rules). Returns (upload, chunk_count).
+    """
+    cfg = get_settings().limits
+    mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else "txt"
+    up = Upload(
+        id=uuid.uuid4().hex, user_id=user_id, sha256=hashlib.sha256(raw).hexdigest(),
+        kind="doc", mime=mime, ext=ext, size=len(raw), name=name,
+        enc=1 if dk is not None else 0, project_id=project_id,
+    )
+    text = _extract_text(raw, content_type, name)
+    chunks = _chunk(text, cfg.doc_chunk_chars, cfg.doc_chunk_overlap)
+    if not chunks:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "no readable text in that document")
+
+    path = _path(up)
+    if up.enc:
+        path.write_bytes(crypto.encrypt_bytes(dk, raw))
+    elif not path.exists():
+        path.write_bytes(raw)
+    session.add(up)
+    session.commit()
+
+    vecs = await embed_texts(chunks)
+    for i, (ctext, vec) in enumerate(zip(chunks, vecs)):
+        emb = pack(vec)
+        if up.enc:
+            ctext = crypto.encrypt_json(dk, ctext)
+            emb = crypto.encrypt_bytes(dk, emb)
+        session.add(DocChunk(upload_id=up.id, idx=i, text=ctext, embedding=emb))
+    session.commit()
+    log.info("doc %s: %d chunks embedded", name, len(chunks))
+    return up, len(chunks)
+
+
+def unseal_chunks(session: Session, up: Upload, dk: bytes | None) -> list[tuple[str, bytes]]:
+    """This upload's chunks as (text, embedding_bytes), unsealed with the owner's key.
+    A sealed upload with no key aboard yields nothing rather than failing the turn."""
+    if up.enc and dk is None:
+        return []
+    out: list[tuple[str, bytes]] = []
+    for ch in session.exec(
+        select(DocChunk).where(DocChunk.upload_id == up.id).order_by(DocChunk.idx)
+    ).all():
+        if up.enc:
+            text = crypto.decrypt_json(dk, ch.text)
+            emb = crypto.decrypt_bytes(dk, ch.embedding)
+            if isinstance(text, str) and emb is not None:
+                out.append((text, emb))
+        else:
+            out.append((ch.text, ch.embedding))
+    return out
 
 
 # ---- endpoints ----------------------------------------------------------------------
@@ -255,21 +364,21 @@ async def create_upload(
             data = _process_image(raw, cfg.upload_image_max_dim)
         except Exception:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "could not read that image")
-        kind, mime, ext = "image", "image/jpeg", "jpg"
     else:
         data = raw
-        kind = "doc"
-        mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
-        ext = name.rsplit(".", 1)[-1].lower() if "." in name else "txt"
 
     if _user_used(session, user.id) + len(data) > cfg.upload_user_quota_mb * 1024 * 1024:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "You've reached your upload quota")
     _evict_until_room(session, len(data), cfg.upload_global_quota_mb * 1024 * 1024)
 
-    sha = hashlib.sha256(data).hexdigest()
+    if not is_image:
+        up, chunks = await ingest_doc(session, user.id, raw, name, file.content_type or "", dk)
+        return {"id": up.id, "kind": "doc", "name": name, "mime": up.mime, "chunks": chunks}
+
     up = Upload(
-        id=uuid.uuid4().hex, user_id=user.id, sha256=sha, kind=kind,
-        mime=mime, ext=ext, size=len(data), name=name, enc=1 if dk is not None else 0,
+        id=uuid.uuid4().hex, user_id=user.id, sha256=hashlib.sha256(data).hexdigest(),
+        kind="image", mime="image/jpeg", ext="jpg", size=len(data), name=name,
+        enc=1 if dk is not None else 0,
     )
     path = _path(up)
     if up.enc:
@@ -278,24 +387,7 @@ async def create_upload(
         path.write_bytes(data)
     session.add(up)
     session.commit()
-
-    if kind == "doc":
-        text = _extract_text(raw, file.content_type or "", name)
-        chunks = _chunk(text, cfg.doc_chunk_chars, cfg.doc_chunk_overlap)
-        if not chunks:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "no readable text in that document")
-        vecs = await embed_texts(chunks)
-        for i, (ctext, vec) in enumerate(zip(chunks, vecs)):
-            emb = pack(vec)
-            if up.enc:
-                ctext = crypto.encrypt_json(dk, ctext)
-                emb = crypto.encrypt_bytes(dk, emb)
-            session.add(DocChunk(upload_id=up.id, idx=i, text=ctext, embedding=emb))
-        session.commit()
-        log.info("doc %s: %d chunks embedded", name, len(chunks))
-        return {"id": up.id, "kind": kind, "name": name, "mime": mime, "chunks": len(chunks)}
-
-    return {"id": up.id, "kind": kind, "name": name, "mime": mime}
+    return {"id": up.id, "kind": up.kind, "name": name, "mime": up.mime}
 
 
 @router.get("/{uid}")
