@@ -5,6 +5,28 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** "1 chat" / "3 chats" — counts read out loud, not as "chat(s)". */
+export function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`
+}
+
+/** What a project delete is about to take. Irreversible, so it names real numbers. */
+export function deleteSummary(chats: number, files: number): string {
+  const parts = [chats && plural(chats, 'chat'), files && plural(files, 'file')].filter(
+    Boolean,
+  ) as string[]
+  if (!parts.length) return "It's empty — nothing else will be deleted."
+  return `This also deletes ${parts.join(' and ')}, for good. This can't be undone.`
+}
+
+/** What it actually took, for the toast afterwards. */
+export function deletedSummary(chats: number, files: number): string {
+  const parts = [chats && plural(chats, 'chat'), files && plural(files, 'file')].filter(
+    Boolean,
+  ) as string[]
+  return parts.length ? `Project deleted, with ${parts.join(' and ')}` : 'Project deleted'
+}
+
 /** Compact file size for lists and quota meters. */
 export function prettySize(n?: number): string {
   if (n == null) return ''

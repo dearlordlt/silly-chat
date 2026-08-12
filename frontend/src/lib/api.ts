@@ -256,9 +256,10 @@ export const api = {
   createProject: (body: NewProject) => req<Project>('POST', '/api/projects', body),
   updateProject: (id: string, body: Partial<NewProject>) =>
     req<Project>('PATCH', `/api/projects/${id}`, body),
-  // Its chats survive and fall back to the plain list; its files are deleted.
+  // Takes everything in it: the project's server chats and its files. Local chats
+  // are the client's to delete — the server never sees them.
   deleteProject: (id: string) =>
-    req<{ ok: boolean; unassigned: number; files_deleted: number }>(
+    req<{ ok: boolean; deleted_chats: number; files_deleted: number }>(
       'DELETE',
       `/api/projects/${id}`,
     ),

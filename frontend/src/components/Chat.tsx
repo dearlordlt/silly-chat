@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowUp, FileDown, FileText, Folder, Link2, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, Square, X } from 'lucide-react'
 import { api, type AppMeta, type Me, type NewProject } from '@/lib/api'
 import { chatStream } from '@/lib/stream'
-import { cn } from '@/lib/utils'
+import { cn, deleteSummary, deletedSummary } from '@/lib/utils'
 import { effectiveTz } from '@/lib/prefs'
 import type { Attachment, CodeArtifact, Mode, Slot, Turn, TurnStats } from '@/lib/types'
 import {
@@ -381,18 +381,22 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     const id = pendingProjectDelete
     if (!id) return
     setPendingProjectDelete(null)
+    let result
     try {
-      await removeProject(id)
+      result = await removeProject(id)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not delete that project')
       return
     }
+    await refreshList()
+    // The chat on screen may have just been deleted with the project — don't leave
+    // the user staring at a conversation that no longer exists anywhere.
     if (projectId === id) {
       setConvProject(undefined)
       projectRef.current = undefined
+      newChat()
     }
-    await refreshList()
-    toast.success('Project deleted — its chats are still in your history')
+    toast.success(deletedSummary(result.deleted_chats, result.files_deleted))
   }
 
   async function createProjectFrom(body: NewProject) {
@@ -1360,8 +1364,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       {pendingProjectDelete && (
         <ConfirmDialog
           title={`Delete "${projects.find((p) => p.id === pendingProjectDelete)?.name ?? 'project'}"?`}
-          message="Its chats stay in your history, outside any project. Files uploaded to it are removed."
-          confirmLabel="Delete project"
+          message={deleteSummary(
+            conversations.filter((c) => c.projectId === pendingProjectDelete).length,
+            projects.find((p) => p.id === pendingProjectDelete)?.file_count ?? 0,
+          )}
+          confirmLabel="Delete everything"
           destructive
           onConfirm={confirmProjectDelete}
           onCancel={() => setPendingProjectDelete(null)}

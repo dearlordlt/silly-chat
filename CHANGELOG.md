@@ -4,6 +4,15 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.1 — 2026-08-12
+
+- Deleting a project now deletes what's in it — its chats and its files — instead of
+  leaving the chats behind. The confirmation says exactly how many of each will go, so
+  nothing disappears unannounced.
+- Project files: the remove button next to each file is always visible (it used to
+  appear only on hover), so clearing out a file you no longer need — and getting the
+  space back — is one click.
+
 ## v1.21.0 — 2026-08-12
 
 - Projects: folders in the sidebar that group chats and carry a standing instruction.

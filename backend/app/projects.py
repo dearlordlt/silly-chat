@@ -246,8 +246,11 @@ def update_project(
 
 @router.delete("/{pid}")
 def delete_project(pid: str, user: ApprovedUser, session: SessionDep) -> dict:
-    """Hard-delete the project and its files. Its chats survive by default — a folder
-    delete must not silently eat history — and fall back to the plain sidebar list."""
+    """Hard-delete the project with everything in it: its chats and its files.
+
+    The client says exactly what will go before asking — and deletes the project's
+    *local* chats itself, since the server never sees those.
+    """
     p = _own(session, user.id, pid)
     files = session.exec(select(Upload).where(Upload.project_id == pid)).all()
     for up in files:
@@ -258,12 +261,11 @@ def delete_project(pid: str, user: ApprovedUser, session: SessionDep) -> dict:
         )
     ).all()
     for c in chats:
-        c.project_id = None
-        session.add(c)
+        session.delete(c)
     session.delete(p)
     session.commit()
     _gc_orphan_files(session)
-    return {"ok": True, "unassigned": len(chats), "files_deleted": len(files)}
+    return {"ok": True, "deleted_chats": len(chats), "files_deleted": len(files)}
 
 
 # ---- files --------------------------------------------------------------------------

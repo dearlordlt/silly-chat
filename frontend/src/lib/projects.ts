@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, type NewProject, type Project, type ProjectMode } from '@/lib/api'
-import { clearProjectLocally, type ConvSummary, type StorageMode } from '@/lib/history'
+import { deleteProjectChatsLocally, type ConvSummary, type StorageMode } from '@/lib/history'
 
 // Canonical pill order — a project's chats start in the first mode it allows.
 export const ALL_MODES: ProjectMode[] = ['search', 'chat', 'code', 'images']
@@ -113,11 +113,12 @@ export function useProjects() {
 
   const remove = useCallback(
     async (id: string) => {
+      // The API takes the project's server chats and files; its local chats exist
+      // only in this browser, so they have to go from here.
+      const local = await deleteProjectChatsLocally(id)
       const r = await api.deleteProject(id)
-      // Server chats are unfiled by the API; local ones live only in this browser.
-      await clearProjectLocally(id)
       await refresh()
-      return r
+      return { ...r, deleted_chats: r.deleted_chats + local }
     },
     [refresh],
   )

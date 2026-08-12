@@ -6,7 +6,8 @@ import { setTheme } from '@/lib/theme'
 import { setRadius, type RadiusId } from '@/lib/radius'
 import { setBg, type BgId } from '@/lib/background'
 import { setTzManual, setTzMode, type TzMode } from '@/lib/prefs'
-import { clearProjectLocally, newId } from '@/lib/history'
+import { deleteProjectChatsLocally, newId } from '@/lib/history'
+import { deletedSummary } from '@/lib/utils'
 import { Auth } from '@/components/Auth'
 import { Chat } from '@/components/Chat'
 import { ProjectPage } from '@/components/ProjectPage'
@@ -91,9 +92,10 @@ function ProjectRoute({ me }: { me: Me }) {
       onChanged={() => {}}
       onDeleted={async (projectId) => {
         try {
-          await api.deleteProject(projectId)
-          await clearProjectLocally(projectId)
-          toast.success('Project deleted — its chats are still in your history')
+          // Local chats can only be deleted here; the API takes the server-side ones.
+          const local = await deleteProjectChatsLocally(projectId)
+          const r = await api.deleteProject(projectId)
+          toast.success(deletedSummary(r.deleted_chats + local, r.files_deleted))
         } catch (e) {
           toast.error(e instanceof Error ? e.message : 'Could not delete that project')
           return

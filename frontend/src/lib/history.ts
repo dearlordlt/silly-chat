@@ -208,13 +208,11 @@ export async function setDigest(
   else await api.patchServerConvo(id, { digest, digest_upto: upTo })
 }
 
-/** Unfile every local chat that belonged to a now-deleted project. */
-export async function clearProjectLocally(projectId: string): Promise<void> {
-  await db.conversations
-    .where('projectId')
-    .equals(projectId)
-    .modify({ projectId: undefined })
+/** Delete this project's local chats — the server can only reach its own. */
+export async function deleteProjectChatsLocally(projectId: string): Promise<number> {
+  return db.conversations.where('projectId').equals(projectId).delete()
 }
+
 
 /** Local chats in a project, for assembling its memory (server ones come from the API). */
 export async function localDigests(

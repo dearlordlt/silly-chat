@@ -97,8 +97,10 @@ it. Folders start collapsed; click one to see its recent chats, and **Show all �
 The project page holds everything else: the master prompt (edit it and press **Save**),
 what new chats there start as — where they're saved (Off / Local / Server) and which mode
 pills they offer — the project's files, and all its chats with their own search. Rename a
-project by clicking its name; the ⋯ menu deletes it. **Deleting a project keeps its
-chats** — they just return to the normal list — but its files are removed.
+project by clicking its name. **Delete** removes the project with everything in it — its
+chats and its files — and says exactly how many of each before you confirm; there's no
+undo, so move anything you want to keep out of the project first (⋯ → Move to project →
+Remove from project).
 
 A chat lives in exactly one place: chats inside a project appear in its folder rather than
 in the date list below. Searching still finds everything — matching folders open
@@ -112,7 +114,8 @@ chat in that project can read them without you attaching anything. Ask about you
 document or a spec in any chat there and the assistant looks it up. Each person has
 100 MB for project files, shown as a meter on the project page (admins are unlimited, and
 can change anyone's allowance). Unlike chat attachments, project files stay until you
-delete them.
+delete them: the trash button next to a file removes it and frees the space straight
+away, and the chats in that project stop seeing it.
 
 ## Project memory
 

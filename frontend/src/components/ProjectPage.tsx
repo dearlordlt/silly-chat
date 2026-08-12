@@ -5,7 +5,6 @@ import {
   FileText,
   FolderOpen,
   Loader2,
-  MoreHorizontal,
   Pencil,
   Plus,
   Search,
@@ -25,11 +24,10 @@ import { ALL_MODES } from '@/lib/projects'
 import { Button } from '@/components/ui/button'
 import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { Segmented } from '@/components/ui/segmented'
-import { MenuItem, MenuPanel } from '@/components/ui/menu'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { LocationIcon } from '@/components/SidebarProjects'
 import { toast } from '@/components/ui/toast'
-import { cn, prettySize, relTime } from '@/lib/utils'
+import { cn, deleteSummary, plural, prettySize, relTime } from '@/lib/utils'
 
 const PAGE = 15
 const DOC_RE = /\.(pdf|docx|xlsx|pptx|txt|md|markdown|csv|log|json|xml|html?|rtf)$/i
@@ -61,7 +59,6 @@ export function ProjectPage({
   const [quota, setQuota] = useState<FileQuota | null>(null)
   const [query, setQuery] = useState('')
   const [visible, setVisible] = useState(PAGE)
-  const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [nameText, setNameText] = useState('')
   const [prompt, setPrompt] = useState('')
@@ -215,6 +212,7 @@ export function ProjectPage({
     )
   }
 
+  const filesBytes = files.reduce((n, f) => n + f.size, 0)
   const pct = quota && !quota.unlimited && quota.limit > 0
     ? Math.min(100, Math.round((quota.used / quota.limit) * 100))
     : 0
@@ -266,34 +264,23 @@ export function ProjectPage({
             <Plus />
             New chat
           </Button>
+          {/* One destructive action doesn't need a menu hiding it. */}
           <Button
             variant="ghost"
-            size="icon"
-            aria-label="Project actions"
-            onClick={() => setMenuOpen((v) => !v)}
+            size="sm"
+            onClick={() => setConfirmDelete(true)}
+            className="gap-1.5 text-destructive hover:bg-destructive/10 [&_svg]:size-4"
           >
-            <MoreHorizontal />
+            <Trash2 />
+            Delete
           </Button>
-          {menuOpen && (
-            <MenuPanel onClose={() => setMenuOpen(false)}>
-              <MenuItem
-                icon={<Trash2 />}
-                danger
-                onClick={() => {
-                  setMenuOpen(false)
-                  setConfirmDelete(true)
-                }}
-              >
-                Delete project
-              </MenuItem>
-            </MenuPanel>
-          )}
         </div>
       </div>
+      {/* Counted from what's on screen, not from the project record — otherwise the
+          size lags a file behind every add and remove. */}
       <p className="-mt-3 mb-6 pl-10 text-[13px] text-muted-foreground">
-        {chats.length} {chats.length === 1 ? 'chat' : 'chats'} · {files.length}{' '}
-        {files.length === 1 ? 'file' : 'files'}
-        {project.files_bytes > 0 && ` · ${prettySize(project.files_bytes)}`}
+        {plural(chats.length, 'chat')} · {plural(files.length, 'file')}
+        {filesBytes > 0 && ` · ${prettySize(filesBytes)}`}
       </p>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -527,10 +514,12 @@ export function ProjectPage({
                       {prettySize(f.size)} · {relTime(Date.parse(f.created_at))}
                     </span>
                   </span>
+                  {/* Always visible, unlike the chat rows' ⋯: clearing out files you
+                      no longer need is what this panel is for. */}
                   <button
                     onClick={() => setToDelete(f)}
                     aria-label={`Remove ${f.name}`}
-                    className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-destructive sm:hidden sm:group-hover:grid [&_svg]:size-4"
+                    className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-destructive [&_svg]:size-4"
                   >
                     <Trash2 />
                   </button>
@@ -563,12 +552,8 @@ export function ProjectPage({
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete "${project.name}"?`}
-          message={`Its ${chats.length} ${
-            chats.length === 1 ? 'chat stays' : 'chats stay'
-          } in your history, outside any project. The ${files.length} ${
-            files.length === 1 ? 'file' : 'files'
-          } uploaded here will be deleted.`}
-          confirmLabel="Delete project"
+          message={deleteSummary(chats.length, files.length)}
+          confirmLabel="Delete everything"
           destructive
           onConfirm={() => {
             setConfirmDelete(false)
