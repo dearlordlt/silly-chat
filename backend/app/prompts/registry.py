@@ -43,6 +43,7 @@ REQUIRED_PROMPTS: tuple[str, ...] = (
     "subagents/coder",
     "subagents/coder_edit",
     "subagents/summarizer",
+    "subagents/digest",
 )
 
 _env = Environment(

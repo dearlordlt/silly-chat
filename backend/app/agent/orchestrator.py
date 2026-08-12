@@ -22,7 +22,8 @@ Mode = Literal["search", "chat", "code", "images"]
 
 
 def build_orchestrator(
-    mode: Mode = "search", timezone: str | None = None, image_gen: bool = False
+    mode: Mode = "search", timezone: str | None = None, image_gen: bool = False,
+    project_prompt: str = "", project_files: str = "",
 ) -> Agent[None, Reply]:
     from app.meta import genome
 
@@ -33,6 +34,10 @@ def build_orchestrator(
         max_agents=limits.max_agents,
         today=now_str(timezone),
         image_gen=image_gen,
+        # A project's standing instruction belongs in the system prompt, not the user
+        # turn: it must survive history trimming and read as behaviour, not as data.
+        project_prompt=project_prompt,
+        project_files=project_files,
         **genome(),  # version / features / history — the app's self-knowledge
     )
     return Agent(

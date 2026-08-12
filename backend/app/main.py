@@ -92,11 +92,23 @@ class ChatRequest(BaseModel):
     summary: str | None = None
     # The chat's current code artifacts (latest version of each).
     artifacts: list[ArtifactIn] = []
+    # The project this chat belongs to, if any. Only the id travels: the master prompt
+    # and file list are read server-side from the project's sealed row, never trusted
+    # from the client.
+    project_id: str | None = None
+    # Digests of the user's OTHER chats in this project, assembled by the client — it's
+    # the only side that can see the ones stored locally. Sent only when the project
+    # has memory switched on.
+    project_memory: str | None = None
 
 
 class SummarizeRequest(BaseModel):
     summary: str = ""  # prior rolling summary (merged into the new one)
     messages: list[HistoryMessage] = []
+
+
+class DigestRequest(BaseModel):
+    messages: list[HistoryMessage] = []  # the chat to boil down for project memory
 
 
 @app.get("/api/health")
@@ -140,6 +152,18 @@ async def chat(
 
     artifacts = {a.id: (a.name, a.language, a.content[:200_000]) for a in req.artifacts[:12]}
 
+    # A project the client names but that's gone (deleted from another tab) just means
+    # a plain chat — never an error mid-turn.
+    from app import projects as projects_mod
+
+    project = (
+        projects_mod.load_for_turn(session, req.project_id, user.id, dk)
+        if req.project_id else None
+    )
+    memory = req.project_memory if project else None
+    if memory:
+        memory = memory[: get_settings().limits.project_memory_max_chars]
+
     # Image generation: per-user (admin-granted, admins on by default) and only
     # when an OpenRouter key is configured — otherwise the tool isn't offered at all.
     from app import runtime
@@ -161,6 +185,10 @@ async def chat(
             req.message, mode, history, req.timezone, images, doc_chunks,
             req.context, req.summary, artifacts, user.id, dk, image_gen, image_quota,
             attachments_current=attachments_current,
+            project_prompt=project.prompt if project else "",
+            project_files=project.files if project else "",
+            project_id=req.project_id if project else None,
+            project_memory=memory,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 
@@ -196,3 +224,31 @@ async def summarize(req: SummarizeRequest, user: ApprovedUser) -> dict:
 
     record_llm(runtime.model_for("worker"), result.usage, user_id=user.id)
     return {"summary": str(result.output).strip()}
+
+
+@app.post("/api/digest")
+async def digest(req: DigestRequest, user: ApprovedUser) -> dict:
+    """Boil one chat down to ~60 words so the other chats in its project can know what
+    was settled here (cheap worker model). The client calls this after a turn settles,
+    and only for projects with memory switched on."""
+    if not ratelimit.allow(f"user:{user.id}", get_settings().limits.user_requests_per_minute):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "slow down a moment")
+    if not req.messages:
+        return {"digest": ""}
+
+    from pydantic_ai import Agent
+
+    from app import runtime
+    from app.agent.ollama import worker_model
+    from app.prompts.registry import get_prompt
+    from app.usage import record_llm
+
+    transcript = "\n\n".join(
+        f"{'User' if m.role == 'user' else 'Assistant'}: {m.content}" for m in req.messages
+    )
+    agent = Agent(worker_model(), instructions=get_prompt("subagents/digest"))
+    result = await agent.run(transcript[:60_000])
+    record_llm(runtime.model_for("worker"), result.usage, user_id=user.id)
+    text = str(result.output).strip()
+    # The prompt answers with a bare dash when nothing was worth remembering.
+    return {"digest": "" if text in {"", "-", "—"} else text[:600]}

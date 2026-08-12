@@ -31,6 +31,13 @@ artifacts_var: ContextVar[dict[str, tuple[str, str, str]] | None] = ContextVar("
 attachments_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("attachments", default=None)
 # Document chunks attached this turn as (text, embedding_bytes) — read by `search_document`.
 docs_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("docs", default=None)
+# The project this turn belongs to. `search_document` loads its file chunks lazily from
+# here — reading the whole corpus up front would decrypt megabytes to answer "hi".
+project_var: ContextVar[str | None] = ContextVar("project", default=None)
+# This turn's already-loaded project chunks, so a second search doesn't re-read them.
+project_docs_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar(
+    "project_docs", default=None
+)
 # Maps built this turn by the show_map tool — appended as map blocks.
 maps_var: ContextVar[list[object] | None] = ContextVar("maps", default=None)
 # Targeted-edit records (EditsBlock) this turn — shown before the updated code.

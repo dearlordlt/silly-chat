@@ -38,6 +38,8 @@ from app.agent.activity import (
     emit_var,
     image_quota_var,
     looks_var,
+    project_docs_var,
+    project_var,
     record_code,
     record_edits,
     record_file,
@@ -837,9 +839,35 @@ async def look(question: str) -> str:
         return f"(could not view the image: {exc})"
 
 
+def _project_chunks() -> list[tuple[str, bytes]]:
+    """This project's file passages, loaded on first search and kept for the turn.
+
+    Lazy on purpose: a project's whole corpus would otherwise be read and decrypted on
+    every turn, including the ones that never look at a document.
+    """
+    cached = project_docs_var.get()
+    if cached is not None:
+        return cached
+    pid = project_var.get()
+    if not pid:
+        project_docs_var.set([])
+        return []
+    from app.agent.activity import dk_var
+    from app.projects import load_chunks
+
+    try:
+        chunks = load_chunks(pid, user_var.get() or 0, dk_var.get())
+    except Exception as exc:  # a broken project shouldn't take the turn down
+        log.warning("project chunks failed: %s", exc)
+        chunks = []
+    project_docs_var.set(chunks)
+    return chunks
+
+
 async def search_document(query: str) -> str:
-    """Find the passages most relevant to a query in the document(s) the user attached."""
-    chunks = docs_var.get() or []
+    """Find the passages most relevant to a query in the document(s) the user attached
+    and in the files attached to this project."""
+    chunks = list(docs_var.get() or []) + _project_chunks()
     if not chunks:
         return "No document is attached to this message."
     aid = uuid.uuid4().hex[:8]
