@@ -10,6 +10,8 @@ export type Me = {
   can_generate_images?: boolean
   // Weekly image quota override — only populated in admin endpoints (null = default).
   image_quota?: number | null
+  // Project-file allowance in MB — admin endpoints only (null = server default).
+  project_quota_mb?: number | null
 }
 
 // FastAPI errors come back as {detail: string} OR {detail: [{msg, loc}, ...]} (422
@@ -100,14 +102,54 @@ export type GalleryItem = {
   size: number
 }
 
-export type ServerConvSummary = { id: string; title: string; updated_at: string; pinned?: boolean }
+export type ServerConvSummary = {
+  id: string
+  title: string
+  updated_at: string
+  pinned?: boolean
+  project_id?: string | null
+}
 export type ServerConv = ServerConvSummary & {
   turns: unknown[]
   linked?: string[]
   summary?: string
   summarized_upto?: number
   artifacts?: unknown[]
+  digest?: string
+  digest_upto?: number
 }
+
+// A project: a folder of chats with a standing instruction, defaults and shared files.
+export type ProjectMode = 'search' | 'chat' | 'code' | 'images'
+export type Project = {
+  id: string
+  name: string
+  prompt: string
+  storage_mode: 'off' | 'local' | 'server'
+  modes: ProjectMode[] // which composer pills this project offers; [] = all
+  memory: boolean
+  chat_count: number // server-side chats only — the client adds its local ones
+  file_count: number
+  files_bytes: number
+  updated_at: string
+}
+export type NewProject = {
+  name: string
+  prompt?: string
+  storage_mode?: Project['storage_mode']
+  modes?: ProjectMode[]
+  memory?: boolean
+}
+export type ProjectFile = {
+  id: string
+  name: string
+  mime: string
+  size: number
+  chunks: number
+  created_at: string
+}
+// The per-user project-file allowance, across all their projects. Admins: unlimited.
+export type FileQuota = { used: number; limit: number; unlimited: boolean }
 
 export const api = {
   me: () => req<Me | null>('GET', '/api/auth/me'),
@@ -181,11 +223,24 @@ export const api = {
       summarized_upto?: number
       artifacts?: unknown[]
       pinned?: boolean
+      project_id?: string | null
+      digest?: string
+      digest_upto?: number
     },
   ) => req<ServerConvSummary>('PUT', `/api/conversations/${id}`, body),
-  // Metadata-only edits (rename / pin) — no content resend, no updated_at bump.
-  patchServerConvo: (id: string, body: { title?: string; pinned?: boolean }) =>
-    req<ServerConvSummary>('PATCH', `/api/conversations/${id}`, body),
+  // Metadata-only edits (rename / pin / file into a project / refresh the digest) —
+  // no content resend, no updated_at bump. project_id: null removes it from a project,
+  // so it must be sent explicitly rather than omitted.
+  patchServerConvo: (
+    id: string,
+    body: {
+      title?: string
+      pinned?: boolean
+      project_id?: string | null
+      digest?: string
+      digest_upto?: number
+    },
+  ) => req<ServerConvSummary>('PATCH', `/api/conversations/${id}`, body),
 
   // Compaction: merge the prior summary + older messages into one rolling summary.
   summarize: (summary: string, messages: { role: string; content: string }[]) =>
@@ -194,6 +249,49 @@ export const api = {
   setChatCfg: (cfg: { compact_pct: number }) =>
     req<{ compact_pct: number }>('PUT', '/api/admin/chat', cfg),
   deleteServerConvo: (id: string) => req<{ ok: boolean }>('DELETE', `/api/conversations/${id}`),
+
+  // Projects (folders of chats). Names and master prompts are sealed server-side.
+  listProjects: () => req<Project[]>('GET', '/api/projects'),
+  getProject: (id: string) => req<Project>('GET', `/api/projects/${id}`),
+  createProject: (body: NewProject) => req<Project>('POST', '/api/projects', body),
+  updateProject: (id: string, body: Partial<NewProject>) =>
+    req<Project>('PATCH', `/api/projects/${id}`, body),
+  // Its chats survive and fall back to the plain list; its files are deleted.
+  deleteProject: (id: string) =>
+    req<{ ok: boolean; unassigned: number; files_deleted: number }>(
+      'DELETE',
+      `/api/projects/${id}`,
+    ),
+
+  // Project files: documents every chat in the project can search.
+  listProjectFiles: (id: string) =>
+    req<{ files: ProjectFile[]; quota: FileQuota }>('GET', `/api/projects/${id}/files`),
+  // Every mutation returns the fresh quota, so the meter is never a round-trip behind.
+  uploadProjectFile: async (
+    id: string,
+    file: File,
+  ): Promise<{ file: ProjectFile; quota: FileQuota }> => {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`/api/projects/${id}/files`, {
+      method: 'POST',
+      body: form,
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error(await readError(res))
+    return res.json()
+  },
+  deleteProjectFile: (id: string, fileId: string) =>
+    req<{ ok: boolean; quota: FileQuota }>('DELETE', `/api/projects/${id}/files/${fileId}`),
+  // Digests of a project's server-side chats (the client merges in its local ones).
+  projectDigests: (id: string) =>
+    req<{ id: string; title: string; digest: string }[]>('GET', `/api/projects/${id}/digests`),
+  // ~60-word digest of one chat, for project memory.
+  digest: (messages: { role: string; content: string }[]) =>
+    req<{ digest: string }>('POST', '/api/digest', { messages }),
+  // Project-file allowance in MB: null = server default, 0 = unlimited.
+  setUserProjectQuota: (id: number, quota_mb: number | null) =>
+    req<Me>('PUT', `/api/admin/users/${id}/projectquota`, { quota_mb }),
 
   // Attachment uploads (images + documents). Returns the id used to attach to a message.
   uploadFile: async (

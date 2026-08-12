@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { api, type Me } from '@/lib/api'
 import { setFont, type FontId } from '@/lib/fonts'
 import { setTheme } from '@/lib/theme'
 import { setRadius, type RadiusId } from '@/lib/radius'
 import { setBg, type BgId } from '@/lib/background'
 import { setTzManual, setTzMode, type TzMode } from '@/lib/prefs'
-import { newId } from '@/lib/history'
+import { clearProjectLocally, newId } from '@/lib/history'
 import { Auth } from '@/components/Auth'
 import { Chat } from '@/components/Chat'
+import { ProjectPage } from '@/components/ProjectPage'
+import { toast } from '@/components/ui/toast'
 import { SettingsPage } from '@/components/SettingsPage'
 import { GalleryPage } from '@/components/GalleryPage'
 import { AdminPage } from '@/components/AdminPage'
@@ -55,6 +57,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<NewChatRedirect />} />
         <Route path="/c/:id" element={<Chat me={me} onLogout={logout} />} />
+        <Route path="/p/:id" element={<ProjectRoute me={me} />} />
         <Route path="/settings" element={<Back render={(onBack) => <SettingsPage me={me} onBack={onBack} onLogout={logout} />} />} />
         <Route path="/gallery" element={<Back render={(onBack) => <GalleryPage onBack={onBack} />} />} />
         <Route
@@ -71,4 +74,32 @@ export default function App() {
 function Back({ render }: { render: (onBack: () => void) => React.ReactNode }) {
   const navigate = useNavigate()
   return <>{render(() => navigate(-1))}</>
+}
+
+// A project's home page. Deleting one keeps its chats (they fall back to the plain
+// list) but takes its files, then returns to the chat view.
+function ProjectRoute({ me }: { me: Me }) {
+  const navigate = useNavigate()
+  const { id = '' } = useParams()
+  return (
+    <ProjectPage
+      id={id}
+      me={me}
+      onBack={() => navigate(-1)}
+      onOpenChat={(chatId) => navigate(`/c/${chatId}`)}
+      onNewChat={(projectId) => navigate(`/c/${newId()}?p=${projectId}`)}
+      onChanged={() => {}}
+      onDeleted={async (projectId) => {
+        try {
+          await api.deleteProject(projectId)
+          await clearProjectLocally(projectId)
+          toast.success('Project deleted — its chats are still in your history')
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Could not delete that project')
+          return
+        }
+        navigate(`/c/${newId()}`, { replace: true })
+      }}
+    />
+  )
 }

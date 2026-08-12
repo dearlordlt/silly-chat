@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowUp, FileDown, FileText, Link2, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, Square, X } from 'lucide-react'
-import { api, type AppMeta, type Me } from '@/lib/api'
-import { chatStream, type HistoryMessage } from '@/lib/stream'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowUp, FileDown, FileText, Folder, Link2, Loader2, Paperclip, PanelLeftOpen, Pencil, RotateCw, Square, X } from 'lucide-react'
+import { api, type AppMeta, type Me, type NewProject } from '@/lib/api'
+import { chatStream } from '@/lib/stream'
 import { cn } from '@/lib/utils'
 import { effectiveTz } from '@/lib/prefs'
 import type { Attachment, CodeArtifact, Mode, Slot, Turn, TurnStats } from '@/lib/types'
@@ -20,8 +20,14 @@ import {
   setMode,
   rename as renameConv,
   setPinned as setPinnedConv,
+  setProject as setProjectConv,
   titleFrom,
+  toHistory,
 } from '@/lib/history'
+import { allowedModes, defaultMode, useProjects } from '@/lib/projects'
+import { backfillDigest, projectMemory, refreshDigestSoon } from '@/lib/memory'
+import { ProjectDialog } from '@/components/ProjectDialog'
+import type { ProjectAction } from '@/components/SidebarProjects'
 import { Button } from '@/components/ui/button'
 import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { toast } from '@/components/ui/toast'
@@ -41,6 +47,10 @@ type Assistant = Extract<Turn, { role: 'assistant' }>
 export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const navigate = useNavigate()
   const { id: currentId = '' } = useParams() // the chat is always /c/:id
+  // A brand-new chat isn't saved until its first turn, so its project rides in the
+  // URL (?p=…) — that survives a reload, unlike router state.
+  const [searchParams] = useSearchParams()
+  const urlProject = searchParams.get('p') ?? undefined
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
   const [mode, setSearchMode] = useState<Mode>('search')
@@ -55,6 +65,15 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const [currentMode, setCurrentMode] = useState<StorageMode>(initialMode)
   const [conversations, setConversations] = useState<ConvSummary[]>([])
   const [pendingDelete, setPendingDelete] = useState<{ id: string; location: Location } | null>(null)
+  // Projects: the list + which folders are open live in one small hook.
+  const { projects, open: openProjects, refresh: refreshProjects, toggle: toggleProject, expand: expandProject, create: createProject, update: updateProject, remove: removeProject } = useProjects()
+  const [convProject, setConvProject] = useState<string | undefined>(undefined) // from the saved chat
+  const [newProjectFor, setNewProjectFor] = useState<'plain' | { chatId: string; location: Location } | null>(null)
+  const [pendingProjectDelete, setPendingProjectDelete] = useState<string | null>(null)
+  const [justMovedId, setJustMovedId] = useState<string | null>(null)
+  const projectRef = useRef<string | undefined>(undefined) // what persistNow writes
+  const digestRef = useRef<string | undefined>(undefined)
+  const digestUpTo = useRef(0)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editText, setEditText] = useState('')
   const [attach, setAttach] = useState<Attachment[]>([]) // uploaded, ready to send
@@ -120,6 +139,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         setTurns(c.turns)
         setLinked(c.linked ?? [])
         setCurrentMode(c.location)
+        setConvProject(c.projectId)
+        projectRef.current = c.projectId
+        digestRef.current = c.digest
+        digestUpTo.current = c.digestUpTo ?? 0
         createdAt.current = c.createdAt
         titleRef.current = c.title || null
         pinnedRef.current = !!c.pinned
@@ -138,11 +161,16 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         createdAt.current = null
         titleRef.current = null
         pinnedRef.current = false
+        setConvProject(undefined)
+        projectRef.current = urlProject
+        digestRef.current = undefined
+        digestUpTo.current = 0
       }
     })
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentId])
 
   // Persist ONLY content the user produced in the current chat (dirty), and only
@@ -158,6 +186,34 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     persistNow(turns, linked).then(refreshList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turns, busy])
+
+  // The project this chat belongs to: what it was saved with, else what the URL asked
+  // for on a chat that has no first turn yet.
+  const projectId = convProject ?? urlProject
+  const project = useMemo(() => projects.find((p) => p.id === projectId), [projects, projectId])
+  const modePills = useMemo(
+    () => allowedModes(project, !!me.can_generate_images),
+    [project, me.can_generate_images],
+  )
+
+  // Apply the project's defaults once per (chat, project) — the list arrives async, so
+  // this can't live in the load effect, and the ref keeps a late arrival from stomping
+  // a mode the user picked by hand.
+  const appliedFor = useRef('')
+  useEffect(() => {
+    const key = `${currentId}:${projectId ?? ''}`
+    if (!project || turns.length > 0 || appliedFor.current === key) return
+    appliedFor.current = key
+    setCurrentMode(project.storage_mode as StorageMode)
+    setSearchMode(defaultMode(project, !!me.can_generate_images))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId, project, turns.length])
+
+  // Walking into a project that doesn't offer the current pill: switch, don't strand.
+  useEffect(() => {
+    if (!modePills.includes(mode)) setSearchMode(modePills[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modePills])
 
   // Write the conversation (with its linked ids + compaction state) where it lives.
   function persistNow(t: Turn[], l: string[]): Promise<void> {
@@ -176,6 +232,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         summarizedUpTo: summarizedUpTo.current,
         artifacts: artifactsRef.current,
         pinned: pinnedRef.current,
+        projectId: projectRef.current,
+        digest: digestRef.current,
+        digestUpTo: digestUpTo.current,
         createdAt: made,
         updatedAt: Date.now(),
       },
@@ -222,9 +281,27 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy, stats, meta])
 
-  function newChat() {
-    setCurrentMode(storageMode)
-    navigate(`/c/${newId()}`)
+  // Keep this chat's digest fresh for its project's OTHER chats. Fire-and-forget:
+  // nothing here delays a turn, and it only runs where memory is switched on.
+  useEffect(() => {
+    if (busy || currentMode === 'off' || !project?.memory || turns.length === 0) return
+    const location: Location = currentMode === 'server' ? 'server' : 'local'
+    const t = setTimeout(
+      () =>
+        refreshDigestSoon(currentId, location, turns, digestUpTo.current, (d, upTo) => {
+          digestRef.current = d
+          digestUpTo.current = upTo
+        }),
+      3000,
+    )
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, turns, project?.memory])
+
+  function newChat(inProject?: string) {
+    const p = inProject ?? undefined
+    setCurrentMode(p ? currentMode : storageMode)
+    navigate(`/c/${newId()}${p ? `?p=${p}` : ''}`)
   }
 
   function changeStorageMode(m: StorageMode) {
@@ -237,6 +314,103 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
   function openConversation(id: string) {
     navigate(`/c/${id}`)
+  }
+
+  // Everything the sidebar's folders can ask for. One handler keeps the Sidebar's
+  // prop list from growing a callback per verb.
+  async function handleProject(a: ProjectAction) {
+    switch (a.kind) {
+      case 'create':
+        setNewProjectFor('plain')
+        return
+      case 'open':
+        navigate(`/p/${a.id}`)
+        return
+      case 'newChat':
+        expandProject(a.id)
+        newChat(a.id)
+        return
+      case 'rename':
+        await updateProject(a.id, { name: a.name }).catch((e) =>
+          toast.error(e instanceof Error ? e.message : 'Could not rename'),
+        )
+        return
+      case 'delete':
+        setPendingProjectDelete(a.id)
+        return
+      case 'assign':
+        await fileChat(a.chatId, a.location, a.projectId)
+        return
+    }
+  }
+
+  /** Move a chat into (or out of) a project, and show it landing in its new home. */
+  async function fileChat(chatId: string, location: Location, projectId: string | null) {
+    try {
+      await setProjectConv(chatId, location, projectId)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not move that chat')
+      return
+    }
+    if (chatId === currentId) {
+      setConvProject(projectId ?? undefined)
+      projectRef.current = projectId ?? undefined
+    }
+    setConversations((list) =>
+      list.map((c) =>
+        c.id === chatId && c.location === location
+          ? { ...c, projectId: projectId ?? undefined }
+          : c,
+      ),
+    )
+    await refreshProjects()
+    const target = projectId ? projects.find((p) => p.id === projectId) : undefined
+    if (projectId) {
+      expandProject(projectId)
+      setJustMovedId(chatId)
+      setTimeout(() => setJustMovedId(null), 1500)
+      toast.success(`Moved to "${target?.name ?? 'project'}"`)
+      // A chat joining a memory-on project should contribute what it already knows.
+      if (target?.memory) backfillDigest(chatId, location)
+    } else {
+      toast.success('Removed from its project')
+    }
+  }
+
+  async function confirmProjectDelete() {
+    const id = pendingProjectDelete
+    if (!id) return
+    setPendingProjectDelete(null)
+    try {
+      await removeProject(id)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not delete that project')
+      return
+    }
+    if (projectId === id) {
+      setConvProject(undefined)
+      projectRef.current = undefined
+    }
+    await refreshList()
+    toast.success('Project deleted — its chats are still in your history')
+  }
+
+  async function createProjectFrom(body: NewProject) {
+    let created
+    try {
+      created = await createProject(body)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not create that project')
+      return
+    }
+    const target = newProjectFor
+    setNewProjectFor(null)
+    expandProject(created.id)
+    if (target && target !== 'plain') {
+      await fileChat(target.chatId, target.location, created.id)
+      return
+    }
+    navigate(`/p/${created.id}`)
   }
 
   async function renameConversation(id: string, location: Location, title: string) {
@@ -437,6 +611,12 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     try {
       const ids = attachments.map((a) => a.id)
       const context = await linkedContext()
+      // What the project's other chats already settled. Only cached digests are read,
+      // so this never makes the user wait on a model call.
+      const memory =
+        projectId && project?.memory
+          ? await projectMemory(projectId, currentId, conversations)
+          : undefined
       for await (const ev of chatStream({
         message,
         mode,
@@ -450,6 +630,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           .reverse()
           .slice(0, 3),
         context,
+        project_id: projectId,
+        project_memory: memory,
         summary: summaryRef.current || undefined,
         artifacts: artifactsRef.current.map(({ id, name, language, content }) => ({ id, name, language, content })),
         signal: controller.signal,
@@ -642,7 +824,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             onSetMode={changeStorageMode}
             conversations={conversations}
             currentId={currentId}
-            onNew={newChat}
+            currentProjectId={projectId}
+            projects={projects}
+            openProjects={openProjects}
+            justMovedId={justMovedId}
+            onToggleProject={toggleProject}
+            onProject={handleProject}
+            onNew={() => newChat()}
             onOpen={openConversation}
             onDelete={(id, location) => setPendingDelete({ id, location })}
             onMove={moveConversation}
@@ -652,7 +840,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           />
         </div>
       ) : (
-        <SidebarRail onExpand={() => setSidebarOpen(true)} onNew={newChat} />
+        <SidebarRail onExpand={() => setSidebarOpen(true)} onNew={() => newChat()} />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -690,6 +878,17 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 </>
               )
             })()}
+            {/* Which folder this chat sits in — and the way back to its home page. */}
+            {project && (
+              <button
+                onClick={() => navigate(`/p/${project.id}`)}
+                title={`Project: ${project.name}`}
+                className="hidden shrink-0 items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:flex"
+              >
+                <Folder className="size-3 text-primary" />
+                <span className="max-w-[8rem] truncate">{project.name}</span>
+              </button>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {/* Whole-chat export (PDF via print, or Markdown). */}
@@ -1094,15 +1293,17 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   >
                     <Paperclip />
                   </button>
-                  {([
-                    'search',
-                    'chat',
-                    'code',
-                    ...(me.can_generate_images ? (['images'] as const) : []),
-                  ] as Mode[]).map((m) => (
+                  {/* A project can narrow which pills it offers; the first one is
+                      where its new chats start. */}
+                  {(modePills as Mode[]).map((m) => (
                     <button
                       key={m}
                       onClick={() => setSearchMode(m)}
+                      title={
+                        modePills.length === 1 && project
+                          ? `This project only uses ${m} mode`
+                          : undefined
+                      }
                       className={cn(
                         'rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors',
                         mode === m
@@ -1156,80 +1357,27 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           onCancel={() => setPendingDelete(null)}
         />
       )}
+      {pendingProjectDelete && (
+        <ConfirmDialog
+          title={`Delete "${projects.find((p) => p.id === pendingProjectDelete)?.name ?? 'project'}"?`}
+          message="Its chats stay in your history, outside any project. Files uploaded to it are removed."
+          confirmLabel="Delete project"
+          destructive
+          onConfirm={confirmProjectDelete}
+          onCancel={() => setPendingProjectDelete(null)}
+        />
+      )}
+      {newProjectFor && (
+        <ProjectDialog
+          note={
+            newProjectFor !== 'plain' ? 'This chat moves into it once created.' : undefined
+          }
+          onCreate={createProjectFrom}
+          onClose={() => setNewProjectFor(null)}
+        />
+      )}
     </div>
   )
-}
-
-// Flatten prior turns into plain-text history for the model's context.
-function toHistory(turns: Turn[]): HistoryMessage[] {
-  const out: HistoryMessage[] = []
-  for (const t of turns) {
-    if (t.role === 'user') {
-      out.push({ role: 'user', content: t.text })
-      continue
-    }
-    const parts = t.slots
-      .map((s) => {
-        if (s.kind !== 'filled') return ''
-        const b = s.block
-        switch (b.type) {
-          case 'text':
-            return b.markdown
-          case 'table':
-            return [b.columns.join(' | '), ...b.rows.map((r) => r.join(' | '))].join('\n')
-          case 'code':
-            // Artifact code: the CURRENT version rides separately once per request —
-            // a placeholder here keeps old versions from bloating the history.
-            if (b.artifact_id) {
-              const lines = b.content.split('\n').length
-              return `[code artifact ${b.artifact_id}${b.filename ? ` — ${b.filename}` : ''} (${b.language}, ${lines} lines); current version provided separately]`
-            }
-            return '```' + b.language + '\n' + b.content + '\n```'
-          case 'gallery':
-            return `[images: ${b.images.map((i) => i.caption || i.url).join('; ')}]`
-          case 'chart':
-            return `[chart: ${b.title ?? ''}]`
-          case 'sim':
-            // Keep the formulas: follow-up turns ("add inflation to that") need them.
-            return `[interactive simulation: ${b.title ?? ''} — series: ${b.series
-              .map((s) => `${s.name} = ${s.expr}`)
-              .join('; ')}; variables: ${b.variables.map((v) => `${v.name} (${v.label})`).join(', ')}]`
-          case 'ask':
-            return `[asked permission to: ${b.action}]`
-          case 'timeline':
-            // Keep the events so follow-ups ("add the Middle Ages") can extend it.
-            return `[timeline: ${b.title ?? ''} — ${b.eras
-              .map((e) => `${e.name}: ${e.events.map((ev) => `${ev.date} ${ev.title}`).join('; ')}`)
-              .join(' | ')}]`
-          case 'change':
-            return `[change display: ${b.title ?? ''} — periods ${b.periods.join('/')}, groups ${b.groups.join(
-              '/',
-            )}, options ${b.options.join('/')}; data ${JSON.stringify(b.data)}]`
-          case 'slides':
-            return `[presentation: ${b.title ?? ''} — slides: ${b.slides.map((s) => s.title).join('; ')}]`
-          case 'edits':
-            return `[edited artifact ${b.artifact_id}${b.name ? ` (${b.name})` : ''}: ${b.changes.length} targeted change(s)]`
-          case 'file':
-            return `[generated file: ${b.name}]`
-          case 'sources':
-            return 'Sources: ' + b.items.map((i) => i.title).join('; ')
-        }
-      })
-      .filter(Boolean)
-    // Vision answers ride along as durable knowledge: the orchestrator can't see
-    // images, so what the vision model already reported must stay in its context —
-    // it only needs to look again for details these notes don't cover.
-    if (t.visionNotes?.length) {
-      parts.push(
-        t.visionNotes
-          .map((n) => `[vision model examined the image — Q: ${n.q} A: ${n.a}]`)
-          .join('\n'),
-      )
-    }
-    const content = parts.join('\n\n').trim()
-    if (content) out.push({ role: 'assistant', content })
-  }
-  return out
 }
 
 // "14:32" today, "Jul 9 · 14:32" otherwise — subtle per-message timestamps.

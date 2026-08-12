@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
+  ArrowLeft,
+  Check,
   Cloud,
   CloudOff,
   CloudUpload,
+  Folder,
+  FolderInput,
+  FolderPlus,
   HardDrive,
   HardDriveDownload,
   HelpCircle,
@@ -18,11 +23,20 @@ import {
   Search,
   Trash2,
 } from 'lucide-react'
+import type { Project } from '@/lib/api'
 import type { ConvSummary, Location, StorageMode } from '@/lib/history'
+import { groupByProject } from '@/lib/projects'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { MenuItem, MenuLabel, MenuPanel } from '@/components/ui/menu'
 import { AboutDialog, HelpDialog } from '@/components/MetaDialogs'
-import { cn } from '@/lib/utils'
+import {
+  LocationIcon,
+  ProjectChip,
+  SidebarProjects,
+  type ProjectAction,
+} from '@/components/SidebarProjects'
+import { bucket, cn, relTime } from '@/lib/utils'
 
 const PAGE = 15 // chats shown per "Load more" step
 
@@ -38,29 +52,17 @@ const MODE_HINT: Record<StorageMode, string> = {
   server: 'Synced to your account.',
 }
 
-function relTime(ts: number): string {
-  const s = (Date.now() - ts) / 1000
-  if (s < 60) return 'now'
-  if (s < 3600) return `${Math.floor(s / 60)}m`
-  if (s < 86400) return `${Math.floor(s / 3600)}h`
-  if (s < 604800) return `${Math.floor(s / 86400)}d`
-  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-function bucket(ts: number): string {
-  const now = new Date()
-  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  if (ts >= startToday) return 'Today'
-  if (ts >= startToday - 86400000) return 'Yesterday'
-  if (ts >= startToday - 6 * 86400000) return 'Previous 7 days'
-  return 'Older'
-}
-
 export function Sidebar({
   mode,
   onSetMode,
   conversations,
   currentId,
+  currentProjectId,
+  projects,
+  openProjects,
+  justMovedId,
+  onToggleProject,
+  onProject,
   onNew,
   onOpen,
   onDelete,
@@ -73,6 +75,12 @@ export function Sidebar({
   onSetMode: (m: StorageMode) => void
   conversations: ConvSummary[]
   currentId: string
+  currentProjectId?: string
+  projects: Project[]
+  openProjects: string[]
+  justMovedId: string | null
+  onToggleProject: (id: string) => void
+  onProject: (a: ProjectAction) => void
   onNew: () => void
   onOpen: (id: string, location: Location) => void
   onDelete: (id: string, location: Location) => void
@@ -83,12 +91,14 @@ export function Sidebar({
 }) {
   const [query, setQuery] = useState('')
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  // The ⋯ menu swaps its own contents instead of opening a nested submenu — hover
+  // submenus are unusable on touch, and the sidebar is an overlay on phones.
+  const [menuPage, setMenuPage] = useState<'root' | 'projects'>('root')
   const [movingId, setMovingId] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
   const [version, setVersion] = useState('')
   const [dialog, setDialog] = useState<'about' | 'help' | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     api.getMeta().then((m) => setVersion(m.version)).catch(() => {})
@@ -97,31 +107,220 @@ export function Sidebar({
   // A finished move re-renders the list — clear the transient "Moving…" state then.
   useEffect(() => setMovingId(null), [conversations])
 
-  useEffect(() => {
-    if (!menuFor) return
-    const onDocClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null)
-    }
-    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && setMenuFor(null)
-    document.addEventListener('mousedown', onDocClick)
-    document.addEventListener('keydown', onEsc)
-    return () => {
-      document.removeEventListener('mousedown', onDocClick)
-      document.removeEventListener('keydown', onEsc)
-    }
-  }, [menuFor])
+  const projectName = useMemo(
+    () => new Map(projects.map((p) => [p.id, p.name])),
+    [projects],
+  )
 
-  const filtered = useMemo(() => {
+  const { byProject, unfiled } = useMemo(() => groupByProject(conversations), [conversations])
+
+  // A chat lives in exactly one place: filed chats show inside their folder, never
+  // doubled in the date list. Pins are the one exception — a pin means "keep this
+  // within reach", so it floats to the top with a chip saying where it lives.
+  const flat = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const hits = q ? conversations.filter((c) => c.title.toLowerCase().includes(q)) : conversations
-    // Pinned chats float to the top as their own group (list arrives newest-first).
-    return [...hits].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned))
-  }, [conversations, query])
+    const pinned = conversations.filter((c) => c.pinned)
+    const rest = unfiled.filter((c) => !c.pinned)
+    const hits = (list: ConvSummary[]) =>
+      q ? list.filter((c) => c.title.toLowerCase().includes(q)) : list
+    return [...hits(pinned), ...hits(rest)]
+  }, [conversations, unfiled, query])
 
   // Long histories: render a page at a time (search always scans the full list).
   const [visible, setVisible] = useState(PAGE)
   useEffect(() => setVisible(PAGE), [query])
-  const shown = filtered.slice(0, visible)
+  const shown = flat.slice(0, visible)
+
+  const closeMenu = () => {
+    setMenuFor(null)
+    setMenuPage('root')
+  }
+
+  function chatRow(c: ConvSummary, inProject: boolean) {
+    const active = c.id === currentId
+    const moving = c.id === movingId
+    const renaming = c.id === renamingId
+    const folder = !inProject && c.projectId ? projectName.get(c.projectId) : undefined
+    const commitRename = () => {
+      const t = renameText.trim()
+      setRenamingId(null)
+      if (t && t !== c.title) onRename(c.id, c.location, t)
+    }
+    return (
+      <div
+        className={cn(
+          'group relative flex items-center gap-2 rounded-sm p-2 text-[13.5px] transition-colors',
+          active ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/60',
+          moving && 'pointer-events-none opacity-60',
+        )}
+      >
+        {renaming ? (
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <LocationIcon location={c.location} />
+            <input
+              autoFocus
+              value={renameText}
+              onChange={(e) => setRenameText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename()
+                if (e.key === 'Escape') setRenamingId(null)
+              }}
+              onBlur={commitRename}
+              className="w-full min-w-0 rounded-sm border border-ring bg-background px-1.5 py-0.5 text-[13px] outline-none"
+            />
+          </span>
+        ) : (
+          <button
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            onClick={() => onOpen(c.id, c.location)}
+            title={c.title}
+          >
+            <LocationIcon location={c.location} />
+            <span className="truncate">{c.title || 'Untitled'}</span>
+          </button>
+        )}
+        {folder && <ProjectChip name={folder} />}
+        {moving ? (
+          <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" />
+            Moving…
+          </span>
+        ) : (
+          <>
+            <span className="shrink-0 text-[11px] text-muted-foreground sm:group-hover:hidden">
+              {relTime(c.updatedAt)}
+            </span>
+            {/* Always tappable on touch; hover-revealed only where hovering exists. */}
+            <button
+              onClick={() => {
+                setMenuPage('root')
+                setMenuFor(menuFor === c.id ? null : c.id)
+              }}
+              aria-label="Chat actions"
+              className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground sm:hidden sm:group-hover:grid [&_svg]:size-4"
+            >
+              <MoreHorizontal />
+            </button>
+          </>
+        )}
+        {menuFor === c.id && (
+          <MenuPanel onClose={closeMenu} className={menuPage === 'projects' ? 'w-52' : undefined}>
+            {menuPage === 'root' ? (
+              <>
+                <MenuItem
+                  icon={c.pinned ? <PinOff /> : <Pin />}
+                  onClick={() => {
+                    closeMenu()
+                    onPin(c.id, c.location, !c.pinned)
+                  }}
+                >
+                  {c.pinned ? 'Unpin' : 'Pin'}
+                </MenuItem>
+                <MenuItem
+                  icon={<Pencil />}
+                  onClick={() => {
+                    closeMenu()
+                    setRenameText(c.title)
+                    setRenamingId(c.id)
+                  }}
+                >
+                  Rename
+                </MenuItem>
+                <MenuItem icon={<FolderInput />} onClick={() => setMenuPage('projects')}>
+                  Move to project…
+                </MenuItem>
+                {c.location === 'local' ? (
+                  <MenuItem
+                    icon={<CloudUpload />}
+                    onClick={() => {
+                      closeMenu()
+                      setMovingId(c.id)
+                      onMove(c.id, 'local', 'server')
+                    }}
+                  >
+                    Move to server
+                  </MenuItem>
+                ) : (
+                  <MenuItem
+                    icon={<HardDriveDownload />}
+                    onClick={() => {
+                      closeMenu()
+                      setMovingId(c.id)
+                      onMove(c.id, 'server', 'local')
+                    }}
+                  >
+                    Move to local
+                  </MenuItem>
+                )}
+                <MenuItem
+                  icon={<Trash2 />}
+                  danger
+                  onClick={() => {
+                    closeMenu()
+                    onDelete(c.id, c.location)
+                  }}
+                >
+                  Delete
+                </MenuItem>
+              </>
+            ) : (
+              <>
+                <MenuItem icon={<ArrowLeft />} onClick={() => setMenuPage('root')}>
+                  Back
+                </MenuItem>
+                <MenuLabel>Move to project</MenuLabel>
+                {projects.map((p) => (
+                  <MenuItem
+                    key={p.id}
+                    icon={c.projectId === p.id ? <Check /> : <Folder />}
+                    selected={c.projectId === p.id}
+                    onClick={() => {
+                      closeMenu()
+                      if (c.projectId !== p.id) {
+                        onProject({
+                          kind: 'assign',
+                          chatId: c.id,
+                          location: c.location,
+                          projectId: p.id,
+                        })
+                      }
+                    }}
+                  >
+                    {p.name}
+                  </MenuItem>
+                ))}
+                {c.projectId && (
+                  <MenuItem
+                    icon={<FolderInput />}
+                    onClick={() => {
+                      closeMenu()
+                      onProject({
+                        kind: 'assign',
+                        chatId: c.id,
+                        location: c.location,
+                        projectId: null,
+                      })
+                    }}
+                  >
+                    Remove from project
+                  </MenuItem>
+                )}
+                <MenuItem
+                  icon={<FolderPlus />}
+                  onClick={() => {
+                    closeMenu()
+                    onProject({ kind: 'create' })
+                  }}
+                >
+                  New project…
+                </MenuItem>
+              </>
+            )}
+          </MenuPanel>
+        )}
+      </div>
+    )
+  }
 
   let lastBucket = ''
 
@@ -159,23 +358,27 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 py-1">
-        {filtered.length === 0 ? (
+        <SidebarProjects
+          projects={projects}
+          byProject={byProject}
+          open={openProjects}
+          query={query}
+          currentProjectId={currentProjectId}
+          justMovedId={justMovedId}
+          onToggle={onToggleProject}
+          onProject={onProject}
+          renderRow={chatRow}
+        />
+
+        {flat.length === 0 ? (
           <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-            {query ? 'No matches.' : 'No saved chats yet.'}
+            {query ? 'No matches outside your projects.' : 'No saved chats yet.'}
           </p>
         ) : (
           <ul className="space-y-0.5">
             {shown.map((c) => {
               const b = c.pinned ? 'Pinned' : bucket(c.updatedAt)
               const header = b !== lastBucket ? ((lastBucket = b), b) : null
-              const active = c.id === currentId
-              const moving = c.id === movingId
-              const renaming = c.id === renamingId
-              const commitRename = () => {
-                const t = renameText.trim()
-                setRenamingId(null)
-                if (t && t !== c.title) onRename(c.id, c.location, t)
-              }
               return (
                 <li key={`${c.location}:${c.id}`}>
                   {header && (
@@ -183,136 +386,18 @@ export function Sidebar({
                       {header}
                     </p>
                   )}
-                  <div
-                    className={cn(
-                      'group relative flex items-center gap-2 rounded-sm p-2 text-[13.5px] transition-colors',
-                      active ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/60',
-                      moving && 'pointer-events-none opacity-60',
-                    )}
-                  >
-                    {renaming ? (
-                      <span className="flex min-w-0 flex-1 items-center gap-2">
-                        {c.location === 'server' ? (
-                          <Cloud className="size-3.5 shrink-0 text-muted-foreground" />
-                        ) : (
-                          <HardDrive className="size-3.5 shrink-0 text-muted-foreground" />
-                        )}
-                        <input
-                          autoFocus
-                          value={renameText}
-                          onChange={(e) => setRenameText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') commitRename()
-                            if (e.key === 'Escape') setRenamingId(null)
-                          }}
-                          onBlur={commitRename}
-                          className="w-full min-w-0 rounded-sm border border-ring bg-background px-1.5 py-0.5 text-[13px] outline-none"
-                        />
-                      </span>
-                    ) : (
-                      <button
-                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                        onClick={() => onOpen(c.id, c.location)}
-                        title={c.title}
-                      >
-                        {c.location === 'server' ? (
-                          <Cloud className="size-3.5 shrink-0 text-muted-foreground" />
-                        ) : (
-                          <HardDrive className="size-3.5 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="truncate">{c.title || 'Untitled'}</span>
-                      </button>
-                    )}
-                    {moving ? (
-                      <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-                        <Loader2 className="size-3 animate-spin" />
-                        Moving…
-                      </span>
-                    ) : (
-                      <>
-                        <span className="shrink-0 text-[11px] text-muted-foreground group-hover:hidden">
-                          {relTime(c.updatedAt)}
-                        </span>
-                        <button
-                          onClick={() => setMenuFor(menuFor === c.id ? null : c.id)}
-                          aria-label="Chat actions"
-                          className="hidden size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground group-hover:grid [&_svg]:size-4"
-                        >
-                          <MoreHorizontal />
-                        </button>
-                      </>
-                    )}
-                    {menuFor === c.id && (
-                      <div
-                        ref={menuRef}
-                        className="animate-rise absolute right-1 top-full z-50 mt-1 w-44 rounded-lg border bg-card p-1 shadow-lg"
-                      >
-                        <RowMenuItem
-                          icon={c.pinned ? <PinOff /> : <Pin />}
-                          onClick={() => {
-                            setMenuFor(null)
-                            onPin(c.id, c.location, !c.pinned)
-                          }}
-                        >
-                          {c.pinned ? 'Unpin' : 'Pin'}
-                        </RowMenuItem>
-                        <RowMenuItem
-                          icon={<Pencil />}
-                          onClick={() => {
-                            setMenuFor(null)
-                            setRenameText(c.title)
-                            setRenamingId(c.id)
-                          }}
-                        >
-                          Rename
-                        </RowMenuItem>
-                        {c.location === 'local' ? (
-                          <RowMenuItem
-                            icon={<CloudUpload />}
-                            onClick={() => {
-                              setMenuFor(null)
-                              setMovingId(c.id)
-                              onMove(c.id, 'local', 'server')
-                            }}
-                          >
-                            Move to server
-                          </RowMenuItem>
-                        ) : (
-                          <RowMenuItem
-                            icon={<HardDriveDownload />}
-                            onClick={() => {
-                              setMenuFor(null)
-                              setMovingId(c.id)
-                              onMove(c.id, 'server', 'local')
-                            }}
-                          >
-                            Move to local
-                          </RowMenuItem>
-                        )}
-                        <RowMenuItem
-                          icon={<Trash2 />}
-                          danger
-                          onClick={() => {
-                            setMenuFor(null)
-                            onDelete(c.id, c.location)
-                          }}
-                        >
-                          Delete
-                        </RowMenuItem>
-                      </div>
-                    )}
-                  </div>
+                  {chatRow(c, false)}
                 </li>
               )
             })}
           </ul>
         )}
-        {filtered.length > visible && (
+        {flat.length > visible && (
           <button
             onClick={() => setVisible((v) => v + PAGE)}
             className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
-            Load more ({filtered.length - visible})
+            Load more ({flat.length - visible})
           </button>
         )}
       </nav>
@@ -401,30 +486,5 @@ export function SidebarRail({ onExpand, onNew }: { onExpand: () => void; onNew: 
         <Plus />
       </button>
     </aside>
-  )
-}
-
-function RowMenuItem({
-  children,
-  icon,
-  onClick,
-  danger,
-}: {
-  children: React.ReactNode
-  icon: React.ReactNode
-  onClick: () => void
-  danger?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-colors [&_svg]:size-4 [&_svg]:text-muted-foreground',
-        danger ? 'text-destructive hover:bg-destructive/10 [&_svg]:text-destructive' : 'hover:bg-accent',
-      )}
-    >
-      {icon}
-      {children}
-    </button>
   )
 }

@@ -20,6 +20,12 @@ export type ChatParams = {
   // I sent before" keeps working without re-attaching.
   prior_attachments?: string[]
   context?: string // flattened @-linked chats
+  // The project this chat belongs to: the server reads its master prompt and files
+  // from the sealed row, so only the id travels.
+  project_id?: string
+  // Digests of the project's other chats (assembled here — local ones never leave
+  // the browser otherwise). Sent only when the project has memory on.
+  project_memory?: string
   summary?: string // rolling summary of this chat's compacted messages
   artifacts?: { id: string; name: string; language: string; content: string }[]
   signal?: AbortSignal
