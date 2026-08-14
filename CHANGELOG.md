@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.6 — 2026-08-14
+
+- Search failover now falls through on *usable* results, not merely on any results.
+  A search instance whose engines answered with off-topic filler ended the failover
+  chain, and v1.21.4's relevance filter then removed every one of those results —
+  so the question came back empty while a healthy fallback sat unasked. Each
+  instance is now judged on what survives filtering.
+
 ## v1.21.5 — 2026-08-14
 
 - Fixed ⋯ menus losing their bottom entries on shorter screens: the sidebar's chat

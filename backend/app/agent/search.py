@@ -129,13 +129,19 @@ def _why(exc: httpx.HTTPError) -> str:
     }.get(code, f"Unreachable ({type(exc).__name__}).")
 
 
-async def _query(params: dict) -> dict:
+async def _query(params: dict, pick) -> list:
     """Query SearXNG. ``searxng_url`` may be a comma-separated failover list —
     e.g. a home instance over Tailscale (residential IP = engines don't block it)
-    first, the local container second. First instance that yields results wins;
-    empty results also fall through (that's how engine suspensions look)."""
+    first, the local container second.
+
+    ``pick`` turns one instance's JSON into the results worth using, so the chain
+    falls through on *usable* results rather than on raw ones. That distinction
+    matters: an instance whose engines answer with off-topic filler returns a full
+    results array, which would otherwise end the chain and then be filtered down to
+    nothing — leaving a healthy fallback unasked. Empty results fall through too
+    (that's how engine suspensions look).
+    """
     bases = [u.strip().rstrip("/") for u in get_settings().search.searxng_url.split(",") if u.strip()]
-    last: dict = {}
     async with httpx.AsyncClient(timeout=20.0) as client:
         for i, base in enumerate(bases):
             try:
@@ -145,12 +151,18 @@ async def _query(params: dict) -> dict:
             except httpx.HTTPError as exc:
                 log.warning("searxng %s failed: %s", base, exc)
                 continue
-            if data.get("results"):
+            out = pick(data)
+            if out:
                 if i > 0:
                     log.info("searxng fallback #%d (%s) answered", i + 1, base)
-                return data
-            last = data
-    return last
+                return out
+            if data.get("results"):
+                log.info("searxng %s answered with nothing on topic — trying the next", base)
+    return []
+
+
+def _text_of(r: TextResult) -> str:
+    return f"{r.title} {r.snippet} {r.url}"
 
 
 async def search_text(query: str, limit: int = 8) -> list[TextResult]:
@@ -165,22 +177,30 @@ async def search_text(query: str, limit: int = 8) -> list[TextResult]:
             for r in (data.get("web") or {}).get("results", [])[:limit]
             if r.get("url")
         ]
-        out = _relevant(query, out, lambda r: f"{r.title} {r.snippet} {r.url}")
+        out = _relevant(query, out, _text_of)
         if out:
             return out
+
+    def pick(data: dict) -> list[TextResult]:
+        out = [
+            TextResult(
+                title=r.get("title", ""),
+                url=r.get("url", ""),
+                snippet=r.get("content", ""),
+            )
+            for r in data.get("results", [])[:limit]
+        ]
+        return _relevant(query, out, _text_of)
+
     try:
-        data = await _query({"q": query})
+        return await _query({"q": query}, pick)
     except httpx.HTTPError as exc:
         log.warning("searxng text search failed for %r: %s", query[:60], exc)
         return []
-    out = []
-    for r in data.get("results", [])[:limit]:
-        out.append(TextResult(
-            title=r.get("title", ""),
-            url=r.get("url", ""),
-            snippet=r.get("content", ""),
-        ))
-    return _relevant(query, out, lambda r: f"{r.title} {r.snippet} {r.url}")
+
+
+def _img_of(r: ImageResult) -> str:
+    return f"{r.title} {r.source_url}"
 
 
 async def search_images(query: str, limit: int = 12) -> list[ImageResult]:
@@ -195,22 +215,25 @@ async def search_images(query: str, limit: int = 12) -> list[ImageResult]:
             for r in data.get("results", [])[:limit]
         ]
         out = [r for r in out if r.image_url]
-        out = _relevant(query, out, lambda r: f"{r.title} {r.source_url}")
+        out = _relevant(query, out, _img_of)
         if out:
             return out
+
+    def pick(data: dict) -> list[ImageResult]:
+        out = []
+        for r in data.get("results", [])[:limit]:
+            img = r.get("img_src") or r.get("thumbnail_src")
+            if not img:
+                continue
+            out.append(ImageResult(
+                title=r.get("title", ""),
+                image_url=img,
+                source_url=r.get("url", ""),
+            ))
+        return _relevant(query, out, _img_of)
+
     try:
-        data = await _query({"q": query, "categories": "images"})
+        return await _query({"q": query, "categories": "images"}, pick)
     except httpx.HTTPError as exc:
         log.warning("searxng image search failed for %r: %s", query[:60], exc)
         return []
-    out = []
-    for r in data.get("results", [])[:limit]:
-        img = r.get("img_src") or r.get("thumbnail_src")
-        if not img:
-            continue
-        out.append(ImageResult(
-            title=r.get("title", ""),
-            image_url=img,
-            source_url=r.get("url", ""),
-        ))
-    return _relevant(query, out, lambda r: f"{r.title} {r.source_url}")
