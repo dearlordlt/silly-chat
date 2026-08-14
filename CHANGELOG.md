@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.5 — 2026-08-14
+
+- Fixed ⋯ menus losing their bottom entries on shorter screens: the sidebar's chat
+  list is a scrolling area, and menus opened inside it were cut off at its edge, so
+  the same chat offered **Delete** on a tall monitor and not on a laptop. Menus now
+  sit above the page and open upwards when there isn't room below.
+- The same fix reaches Admin → Users, whose ⋯ menu could lose **Delete** the same way.
+
 ## v1.21.4 — 2026-08-14
 
 - Search results that have nothing to do with the question are now dropped instead of

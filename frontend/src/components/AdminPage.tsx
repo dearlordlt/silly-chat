@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
   Check,
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { toast } from '@/components/ui/toast'
+import { MenuItem, MenuPanel } from '@/components/ui/menu'
 
 type Section = 'users' | 'models' | 'images' | 'search' | 'stats'
 
@@ -81,26 +82,11 @@ function UsersSection() {
   // One dialog for both allowances — images per week and project-file megabytes.
   const [quotaFor, setQuotaFor] = useState<{ user: Me; kind: 'image' | 'files' } | null>(null)
   const [quotaVal, setQuotaVal] = useState('')
-  const menuRef = useRef<HTMLDivElement>(null)
 
   const load = () => api.listUsers().then(setUsers).catch((e) => toast.error(String(e.message ?? e)))
   useEffect(() => {
     load()
   }, [])
-
-  useEffect(() => {
-    if (menuFor === null) return
-    const onDocClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null)
-    }
-    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && setMenuFor(null)
-    document.addEventListener('mousedown', onDocClick)
-    document.addEventListener('keydown', onEsc)
-    return () => {
-      document.removeEventListener('mousedown', onDocClick)
-      document.removeEventListener('keydown', onEsc)
-    }
-  }, [menuFor])
 
   const act = (fn: Promise<unknown>, done?: string) =>
     fn
@@ -176,10 +162,7 @@ function UsersSection() {
                 </button>
               </span>
               {menuFor === u.id && (
-                <div
-                  ref={menuRef}
-                  className="animate-rise absolute right-3 top-full z-50 mt-1 w-48 rounded-lg border bg-card p-1 shadow-lg"
-                >
+                <MenuPanel onClose={() => setMenuFor(null)} className="w-48">
                   {u.role === 'admin' ? (
                     <MenuItem
                       icon={<ShieldOff />}
@@ -261,7 +244,7 @@ function UsersSection() {
                   >
                     Delete
                   </MenuItem>
-                </div>
+                </MenuPanel>
               )}
             </li>
           ))}
@@ -391,30 +374,6 @@ function UsersSection() {
   )
 }
 
-function MenuItem({
-  children,
-  icon,
-  onClick,
-  danger,
-}: {
-  children: React.ReactNode
-  icon: React.ReactNode
-  onClick: () => void
-  danger?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-colors [&_svg]:size-4 [&_svg]:text-muted-foreground',
-        danger ? 'text-destructive hover:bg-destructive/10 [&_svg]:text-destructive' : 'hover:bg-accent',
-      )}
-    >
-      {icon}
-      {children}
-    </button>
-  )
-}
 
 const ROLES: { key: string; label: string; hint: string }[] = [
   { key: 'orchestrator', label: 'Main model', hint: 'Plans, delegates, and writes the final answer. Spend quality here.' },
