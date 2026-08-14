@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.3 — 2026-08-14
+
+- Fixed answers that appeared for a second and then vanished, leaving only the sources.
+  An answer is delivered twice — streamed as it's written, then re-sent in final form —
+  and the two are matched by position; when the model revised its reply the positions
+  no longer lined up and the sources block overwrote the answer. Text you have already
+  read is now never discarded, whatever arrives after it.
+
 ## v1.21.2 — 2026-08-12
 
 - Every project row in the sidebar now has a **+** button that starts a new chat there.

@@ -6,6 +6,7 @@ import { chatStream } from '@/lib/stream'
 import { cn, deleteSummary, deletedSummary } from '@/lib/utils'
 import { effectiveTz } from '@/lib/prefs'
 import type { Attachment, CodeArtifact, Mode, Slot, Turn, TurnStats } from '@/lib/types'
+import { applyBlock, settleSlots } from '@/lib/slots'
 import {
   type ConvSummary,
   type Location,
@@ -724,13 +725,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               }
               artifactsRef.current = i >= 0 ? list.map((a, j) => (j === i ? art : a)) : [...list, art]
             }
-            const filled: Slot = { id: ev.block_id, kind: 'filled', block: ev.block }
-            patchLast((t) => ({
-              ...t,
-              slots: t.slots.some((s) => s.id === ev.block_id)
-                ? t.slots.map((s) => (s.id === ev.block_id ? filled : s))
-                : [...t.slots, filled],
-            }))
+            patchLast((t) => ({ ...t, slots: applyBlock(t.slots, ev.block_id, ev.block) }))
             break
           }
           case 'error':
@@ -746,15 +741,15 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               models: ev.models ?? [],
             }
             const visionNotes = (ev.vision_notes ?? []).map((n) => ({ q: n.q, a: n.a }))
-            // Transitional slots (live code stream, unfilled skeletons) end with the
-            // turn — every real block got its block_data by now. Stats ride on the
-            // turn so the status line survives reloads and chat switches.
+            // Unfilled skeletons end with the turn, but text the user already read is
+            // never thrown away — settleSlots keeps it even if its block_data never
+            // came. Stats ride on the turn so the status line survives reloads.
             patchLast((t) => ({
               ...t,
               status: null,
               ts: Date.now(),
               stats: turnStats,
-              slots: t.slots.filter((s) => s.kind === 'filled'),
+              slots: settleSlots(t.slots),
               ...(visionNotes.length > 0 ? { visionNotes } : {}),
             }))
             setStats(turnStats)
