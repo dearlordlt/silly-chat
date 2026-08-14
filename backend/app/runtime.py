@@ -151,6 +151,23 @@ def brave_api_key() -> str:
     return _search.get("brave_api_key", "") or os.environ.get("BRAVE_API_KEY", "")
 
 
+# Why the answers went bad, in one line, for Admin → Search. A key that stops working
+# (spent credit, spend cap, revoked) otherwise fails completely silently: search keeps
+# "working" via SearXNG and only the quality collapses, which is a horrible way to find
+# out. Last outcome only — this is a status light, not a log.
+_search_status: dict[str, object] = {"ok": True, "detail": "", "at": 0.0}
+
+
+def note_search(ok: bool, detail: str = "") -> None:
+    import time
+
+    _search_status.update({"ok": ok, "detail": detail[:200], "at": time.time()})
+
+
+def search_status() -> dict[str, object]:
+    return dict(_search_status)
+
+
 def set_search(values: dict[str, str | None]) -> None:
     """Merge-update the web-search settings. Empty values are ignored so saving
     never wipes a stored key by accident."""

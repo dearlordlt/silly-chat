@@ -4,6 +4,18 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.4 — 2026-08-14
+
+- Search results that have nothing to do with the question are now dropped instead of
+  being cited and fed to the assistant. When an engine won't answer a server properly
+  it returns filler — a question about the Grand Duchy of Lithuania came back with
+  porn-site search pages, and one about Mažvydas's 1547 catechism with Chrome help
+  pages in eight languages. A result must now share some of the question's distinctive
+  words to be used at all.
+- Admin → Search says when the Brave key has stopped working ("the monthly free credit
+  is spent", "the key looks invalid") instead of quietly falling back to SearXNG and
+  letting the answers get worse for no visible reason.
+
 ## v1.21.3 — 2026-08-14
 
 - Fixed answers that appeared for a second and then vanished, leaving only the sources.

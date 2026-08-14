@@ -252,7 +252,8 @@ demote, delete, toggle image generation) and choose which Ollama models power ea
 role — main, research agents, vision, coding, and embeddings — from the Admin panel,
 applied instantly. Admin → Search holds the Brave Search API key that powers web
 research (with SearXNG as the automatic fallback when no key is set or Brave is
-unavailable). Each person's project-file allowance can be
+unavailable) and warns when that key stops working — a spent monthly credit makes
+answers quietly worse, so it says so there. Each person's project-file allowance can be
 changed in Users → ⋯ → File quota (blank = the server default of 100 MB, 0 = unlimited;
 admins are always unlimited). Admin → Statistics shows how much each person has used:
 tokens per model and images generated, filterable by period (today, last days, week,

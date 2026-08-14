@@ -73,6 +73,8 @@ export type SearchCfg = {
   has_brave_key: boolean
   brave_key_hint: string
   provider: 'brave' | 'searxng'
+  // Non-empty only when a configured Brave key is failing — says why, in words.
+  brave_problem: string
 }
 
 export type UsageModelRow = {

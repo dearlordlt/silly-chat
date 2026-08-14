@@ -512,6 +512,7 @@ function SearchSection() {
   const [hasKey, setHasKey] = useState(false)
   const [keyHint, setKeyHint] = useState('')
   const [provider, setProvider] = useState<'brave' | 'searxng'>('searxng')
+  const [problem, setProblem] = useState('')
   const [key, setKey] = useState('')
   const [savedKey, setSavedKey] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -523,6 +524,7 @@ function SearchSection() {
         setHasKey(d.has_brave_key)
         setKeyHint(d.brave_key_hint)
         setProvider(d.provider)
+        setProblem(d.brave_problem)
       })
       .catch((e) => toast.error(String(e.message ?? e)))
   }, [])
@@ -534,6 +536,9 @@ function SearchSection() {
       setHasKey(r.has_brave_key)
       setKeyHint(r.brave_key_hint)
       setProvider(r.provider)
+      // A freshly pasted key deserves a clean slate — the old key's failure is not
+      // this one's. The next search decides whether it comes back.
+      setProblem('')
       setKey('')
       setSavedKey(true)
     } catch (e) {
@@ -561,6 +566,13 @@ function SearchSection() {
               {provider === 'brave' ? 'Brave Search API (SearXNG as fallback)' : 'SearXNG only'}
             </span>
           </div>
+          {/* A key that stopped working degrades answers silently — say so here. */}
+          {problem && (
+            <p className="mt-1.5 text-[13px] text-destructive">
+              Brave is not answering: {problem} Searches are falling back to
+              SearXNG, which returns noticeably worse results.
+            </p>
+          )}
         </div>
         <div className="rounded-lg border bg-card px-4 py-3">
           <div className="mb-1 flex flex-wrap items-center justify-between gap-3">

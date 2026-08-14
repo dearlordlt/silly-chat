@@ -500,10 +500,14 @@ def _search_cfg() -> dict[str, Any]:
     from app import runtime
 
     key = runtime.brave_api_key()
+    st = runtime.search_status()
     return {
         "has_brave_key": bool(key),
         "brave_key_hint": _key_hint(key),
         "provider": "brave" if key else "searxng",
+        # Empty unless a configured key actually failed — then it says why, so a
+        # spent credit shows up here instead of as mysteriously worse answers.
+        "brave_problem": "" if (not key or st.get("ok")) else str(st.get("detail") or ""),
     }
 
 
