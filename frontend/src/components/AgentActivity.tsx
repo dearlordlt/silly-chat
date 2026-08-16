@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Check, ChevronDown, Loader2, X } from 'lucide-react'
 import type { Agent } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  * agent. Rows truncate to one line; clicking a row expands the full label on a soft
  * muted chip.
  */
-export function AgentActivity({ agents }: { agents: Agent[] }) {
+export const AgentActivity = memo(function AgentActivity({ agents }: { agents: Agent[] }) {
   const [open, setOpen] = useState(true)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   if (agents.length === 0) return null
@@ -93,4 +93,4 @@ export function AgentActivity({ agents }: { agents: Agent[] }) {
       </div>
     </div>
   )
-}
+})

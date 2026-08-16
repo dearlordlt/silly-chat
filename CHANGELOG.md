@@ -4,6 +4,13 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.7 — 2026-08-14
+
+- Typing in a long chat no longer lags behind the keyboard. Every keystroke was
+  re-rendering every answer in the conversation — markdown, tables and all — because
+  each block was handed a freshly-built props object on every render. Measured in a
+  25-answer chat: 69 ms per keystroke before, ~11 ms after.
+
 ## v1.21.6 — 2026-08-14
 
 - Search failover now falls through on *usable* results, not merely on any results.

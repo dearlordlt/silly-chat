@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Block } from '@/types/contract'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TextBlockView } from './TextBlock'
@@ -18,8 +19,14 @@ import { SourcesBlockView } from './SourcesBlock'
 
 /** Render a completed block by dispatching on its discriminant.
  * `ask` wires the permission card's buttons — only Chat passes it, and only
- * for the latest turn (elsewhere the card renders inert). */
-export function BlockView({ block, ask }: { block: Block; ask?: AskResponder }) {
+ * for the latest turn (elsewhere the card renders inert).
+ *
+ * Memoised because blocks are immutable once rendered and this is the expensive
+ * half of the app: parsing markdown, laying out tables, drawing charts. The chat
+ * view re-renders on every keystroke in the composer (the draft lives there), and
+ * without this each letter re-rendered every block of every answer in the chat —
+ * 69 ms per keystroke in a 25-answer chat, which felt exactly like a stuck keyboard. */
+export const BlockView = memo(function BlockView({ block, ask }: { block: Block; ask?: AskResponder }) {
   switch (block.type) {
     case 'text':
       return <TextBlockView block={block} />
@@ -52,7 +59,7 @@ export function BlockView({ block, ask }: { block: Block; ask?: AskResponder }) 
     case 'sources':
       return <SourcesBlockView block={block} />
   }
-}
+})
 
 /** Type-specific skeleton shown between block_start and block_data. */
 export function BlockSkeleton({ blockType }: { blockType: string }) {

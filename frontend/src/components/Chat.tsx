@@ -103,6 +103,12 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const abort = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const atBottom = useRef(true) // stick to bottom while the user is at the bottom
+  // Live mirrors of state that stable callbacks need to read without being rebuilt
+  // (a callback rebuilt every render changes its consumers' props — see askLive).
+  const busyRef = useRef(false)
+  const turnsRef = useRef<Turn[]>([])
+  busyRef.current = busy
+  turnsRef.current = turns
 
   const refreshList = useCallback(async () => {
     setConversations(await listAll())
@@ -556,13 +562,24 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
   // Tool-permission card (chat mode): the buttons answer with predefined
   // messages — mode_chat.md teaches the model to treat these as grant/refusal.
-  function respondToAsk(allow: boolean) {
-    if (busy) return
-    runTurn(
-      allow ? 'Allowed — go ahead.' : 'Not now — no tools, please answer from what you know.',
-      turns,
-    )
-  }
+  const respondToAsk = useCallback(
+    (allow: boolean) => {
+      if (busyRef.current) return
+      runTurn(
+        allow ? 'Allowed — go ahead.' : 'Not now — no tools, please answer from what you know.',
+        turnsRef.current,
+      )
+    },
+    // Reads live state through refs so the identity stays stable — see askLive below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+
+  // ONE object for the whole chat, and only the newest turn gets it. Handing every
+  // block a freshly-built `ask` made each block's props change on every render, so
+  // memoised blocks re-rendered anyway and typing in the composer re-parsed every
+  // answer in the chat.
+  const askLive = useMemo(() => ({ enabled: !busy, respond: respondToAsk }), [busy, respondToAsk])
 
   function startEdit(index: number, text: string) {
     setEditingIndex(index)
@@ -1069,7 +1086,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                       ) : (
                         <BlockView
                           block={slot.block}
-                          ask={{ enabled: i === turns.length - 1 && !busy, respond: respondToAsk }}
+                          ask={i === turns.length - 1 ? askLive : undefined}
                         />
                       )}
                     </div>
