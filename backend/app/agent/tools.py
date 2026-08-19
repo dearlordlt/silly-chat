@@ -39,6 +39,7 @@ from app.agent.activity import (
     image_quota_var,
     looks_var,
     project_docs_var,
+    project_prompt_var,
     project_var,
     record_code,
     record_edits,
@@ -128,7 +129,11 @@ def _worker() -> Agent:
     return Agent(
         worker_model(),
         tools=[Tool(_web_search, name="web_search", description=get_prompt("tools/web_search"))],
-        instructions=get_prompt("subagents/researcher", today=now_str(tz_var.get())),
+        instructions=get_prompt(
+            "subagents/researcher",
+            today=now_str(tz_var.get()),
+            project_prompt=(project_prompt_var.get() or "").strip(),
+        ),
         retries=get_settings().limits.output_retries,
     )
 

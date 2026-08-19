@@ -4,6 +4,17 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.8 — 2026-08-14
+
+- A project's standing instruction now reaches the research agents, not just the
+  assistant. Each agent only ever saw the one subtask it was handed, so a project
+  pinned to a specific version could still be researched as whatever the web writes
+  about most — a WotLK-only server answered with TBC and current-retail sources.
+  Given the same vague subtask, searches went from 0/5 carrying the project's version
+  to 5/5.
+- A new chat appears in the sidebar as soon as you send the first message, instead of
+  only once the answer finishes — no more wondering where the chat went mid-answer.
+
 ## v1.21.7 — 2026-08-14
 
 - Typing in a long chat no longer lags behind the keyboard. Every keystroke was

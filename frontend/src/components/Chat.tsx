@@ -620,11 +620,17 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     dirty.current = true // this chat now has unsaved user content
     atBottom.current = true // follow the new exchange
     setBusy(true)
-    setTurns([
+    const withQuestion: Turn[] = [
       ...base,
       { role: 'user', text: message, attachments: attachments.length ? attachments : undefined, ts: Date.now() },
-      { role: 'assistant', status: 'Thinking…', agents: [], slots: [] },
-    ])
+    ]
+    setTurns([...withQuestion, { role: 'assistant', status: 'Thinking…', agents: [], slots: [] }])
+    // Save the question immediately instead of waiting for the answer: a chat that
+    // isn't in the sidebar yet is a chat the user can't get back to if they navigate
+    // away mid-answer, and a brand-new one is invisible for the whole first turn.
+    if (currentMode !== 'off') {
+      persistNow(withQuestion, linked).then(refreshList).catch(() => {})
+    }
 
     // A turn must end with a done (or error) event. A stream that just stops —
     // proxy timeout, dropped connection surfacing as a clean close — would

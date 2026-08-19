@@ -91,7 +91,9 @@ trip, a piece of work — and remembers how you want the assistant to behave the
 one with the **+** next to PROJECTS: give it a name and, optionally, a **master prompt**
 ("in this project you help me craft image prompts — I describe a picture, you write the
 prompt"). That instruction is sent with every message in the project, so you never retype
-it. Folders start collapsed; click one to see its recent chats, and **Show all →** (or
+it — and the research agents get it too, so if it pins down a version or edition ("my
+WotLK server", "the 2019 rules"), searches stay on that and don't drift to whatever the
+web writes about most. Folders start collapsed; click one to see its recent chats, and **Show all →** (or
 ⋯ → Open project) to open the project's own page.
 
 To start a chat inside a project, click the **+** on its row in the sidebar (or the

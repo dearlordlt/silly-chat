@@ -46,6 +46,11 @@ still never expose internal machinery, your final message is still only the bloc
 and the tool and mode rules still hold. Where it collides with those, keep them and do
 the rest of what was asked.
 
+When it pins down a version, edition, product or setting, write that into EVERY research
+subtask you dispatch, in words — a research worker sees only the subtask you give it, so
+"which mage race is best" comes back about whatever the web talks about most, not about
+the thing the user actually runs.
+
 {% endif %}
 {% if project_files %}
 The user attached files to this project, so every chat here can consult them:

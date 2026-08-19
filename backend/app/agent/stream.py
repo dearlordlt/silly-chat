@@ -50,6 +50,7 @@ from app.agent.activity import (
     vision_notes_var,
     maps_var,
     project_docs_var,
+    project_prompt_var,
     project_var,
     sources_var,
     user_var,
@@ -370,6 +371,7 @@ async def stream_chat(
         tok_a = attachments_var.set(attachments)
         tok_d = docs_var.set(doc_chunks)
         tok_p = project_var.set(project_id)
+        tok_pp = project_prompt_var.set(project_prompt)
         tok_pd = project_docs_var.set(None)
         log.info("turn start: mode=%s history=%d msg=%r", mode, len(history or []), message[:120])
         try:
@@ -426,6 +428,7 @@ async def stream_chat(
             attachments_var.reset(tok_a)
             docs_var.reset(tok_d)
             project_var.reset(tok_p)
+            project_prompt_var.reset(tok_pp)
             project_docs_var.reset(tok_pd)
             queue.put_nowait(_DONE)
 

@@ -34,6 +34,12 @@ docs_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar("docs", defaul
 # The project this turn belongs to. `search_document` loads its file chunks lazily from
 # here — reading the whole corpus up front would decrypt megabytes to answer "hi".
 project_var: ContextVar[str | None] = ContextVar("project", default=None)
+
+# The project's standing instruction, so RESEARCH WORKERS get it too. A worker's whole
+# world is the one subtask string it is handed; if the orchestrator forgets to spell out
+# the project's constraints in that string, the worker researches the wrong thing
+# entirely (seen live: a WotLK-only project answered with TBC research).
+project_prompt_var: ContextVar[str | None] = ContextVar("project_prompt", default=None)
 # This turn's already-loaded project chunks, so a second search doesn't re-read them.
 project_docs_var: ContextVar[list[tuple[str, bytes]] | None] = ContextVar(
     "project_docs", default=None
