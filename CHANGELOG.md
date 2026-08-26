@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.9 — 2026-08-26
+
+- Typing is now equally fast in a fresh chat and a long one. v1.21.7 stopped every
+  keystroke from re-parsing the answers, but the draft still lived at the top of the
+  chat view, so each letter re-rendered the sidebar's rows and every answer's frame
+  around them. The composer now owns its own draft. Measured in a 48-turn chat:
+  6.4 ms per keystroke before, 0.9 ms after — the same 0.7 ms an empty chat costs.
+
 ## v1.21.8 — 2026-08-14
 
 - A project's standing instruction now reaches the research agents, not just the
