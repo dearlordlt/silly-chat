@@ -4,6 +4,17 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.21.10 — 2026-08-26
+
+- The Starfield background no longer costs the app its frame rate. Its drift was
+  animated through `background-position`, which the browser cannot hand to the
+  compositor — so both full-screen star layers were repainted on every frame, for as
+  long as the tab stayed open. A profile of a laggy typing session: the renderer
+  pinned at 100% for the whole recording, the page down to 7.8 frames per second
+  while typing at 13.8 characters per second — characters landing two at a time.
+  The layers now drift by `transform`, which repaints nothing. Same starfield.
+  (Glow, Gradient and Grid never animated; Aurora and Mesh already used `transform`.)
+
 ## v1.21.9 — 2026-08-26
 
 - Typing is now equally fast in a fresh chat and a long one. v1.21.7 stopped every
