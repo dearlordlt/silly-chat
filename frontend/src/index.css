@@ -104,25 +104,16 @@ body {
   66% { transform: translate(-3%, 4%); }
   100% { transform: translate(0, 0); }
 }
-/* The starfield drifts by MOVING ITS LAYER, not its background-position.
-   background-position is not a compositor property: animating it repainted both
-   full-viewport star layers on every frame, for as long as the tab was open. On a
-   large window that saturated the renderer — measured in a Firefox profile: render
-   thread pinned at 100%, the page down to 7.8 fps while typing at 13.8 keys/s, so
-   characters appeared two at a time. transform runs on the compositor and repaints
-   nothing. Each layer travels exactly one background tile, so the loop is seamless. */
-@keyframes silly-drift-near {
-  from { transform: translate3d(0, 0, 0); }
-  to { transform: translate3d(250px, 250px, 0); }
-}
-@keyframes silly-drift-far {
-  from { transform: translate3d(0, 0, 0); }
-  to { transform: translate3d(360px, 360px, 0); }
-}
-@keyframes silly-twinkle {
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 0.9; }
-}
+/* The starfield is DELIBERATELY STILL. It used to drift and twinkle, and that cost
+   far more than it looked like it should: an animation on a full-viewport layer asks
+   the browser for a fresh frame of the WHOLE WINDOW sixty times a second, forever.
+   Measured on a machine compositing frames on the CPU rather than the GPU, one such
+   frame cost ~88 ms — the page ran at 7.8 fps while its owner typed at 13.8 keys/s,
+   so characters arrived two at a time. Moving the drift from `background-position`
+   to `transform` removed the repaint but not the frame request, and the lag stayed.
+   The drift was 1.7 px per second; nobody could see it. Now nothing is animated
+   here, so the stars cost exactly one paint. Aurora and Mesh remain for anyone whose
+   machine can spend a frame a tick. */
 
 [data-bg="glow"] body::before,
 [data-bg="gradient"] body::before,
@@ -191,9 +182,6 @@ body {
     radial-gradient(1px 1px at 46% 54%, var(--star) 50%, transparent);
   background-repeat: repeat;
   background-size: 250px 250px;
-  /* One tile of slack all round, so drifting never exposes the layer's edge. */
-  inset: -250px;
-  animation: silly-drift-near 150s linear infinite;
 }
 [data-bg="stars"] body::after {
   background-image:
@@ -202,8 +190,8 @@ body {
     radial-gradient(1.4px 1.4px at 50% 85%, var(--star) 50%, transparent);
   background-repeat: repeat;
   background-size: 360px 360px;
-  inset: -360px;
-  animation: silly-drift-far 95s linear infinite, silly-twinkle 5s ease-in-out infinite;
+  /* Was the midpoint of the old twinkle, so the far stars keep their weight. */
+  opacity: 0.7;
 }
 [data-bg="aurora"] .bg-primary,
 [data-bg="mesh"] .bg-primary {

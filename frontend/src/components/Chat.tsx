@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { FileDown, FileText, Folder, PanelLeftOpen, Pencil, RotateCw } from 'lucide-react'
+import { ChevronDown, FileDown, FileText, Folder, PanelLeftOpen, Pencil, RotateCw } from 'lucide-react'
 import { api, type AppMeta, type Me, type NewProject } from '@/lib/api'
 import { chatStream } from '@/lib/stream'
 import { cn, deleteSummary, deletedSummary } from '@/lib/utils'
@@ -95,7 +95,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const session = useRef(0) // bumps on every chat switch; invalidates in-flight streams
   const abort = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const atBottom = useRef(true) // stick to bottom while the user is at the bottom
+  const [showJump, setShowJump] = useState(false) // "jump to latest" pill
   // Live mirrors of state that stable callbacks need to read without being rebuilt
   // (a callback rebuilt every render changes its consumers' props — see askLive).
   const busyRef = useRef(false)
@@ -120,6 +122,33 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     }
   }, [turns])
 
+  // ...and keep sticking to it while the content is still settling. Answers grow
+  // AFTER their first layout — images decode, diagrams draw, code gets highlighted,
+  // fonts swap — so the one-shot scroll above lands partway up a long chat and the
+  // chat looks like it opened in the middle. Watching the column's height pins the
+  // bottom until it stops moving.
+  useEffect(() => {
+    const el = scrollRef.current
+    const content = contentRef.current
+    if (!el || !content) return
+    const ro = new ResizeObserver(() => {
+      if (atBottom.current) el.scrollTop = el.scrollHeight
+    })
+    ro.observe(content)
+    return () => ro.disconnect()
+  }, [])
+
+  function jumpToBottom() {
+    const el = scrollRef.current
+    if (!el) return
+    atBottom.current = true
+    setShowJump(false)
+    // Smooth here, because the button is a deliberate move and the travel is the
+    // point. Opening a chat stays instant — you asked for the latest message, not
+    // for a tour of the conversation.
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }
+
   // Load whatever chat the URL points at (or start empty for an unsaved id).
   // Switching chats stops any in-flight stream and drops its unsaved state, so it
   // can't bleed into — or overwrite — the chat we're opening.
@@ -128,6 +157,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     session.current += 1
     dirty.current = false
     atBottom.current = true // a freshly opened chat starts scrolled to the latest
+    setShowJump(false)
     setBusy(false)
     setStats(null)
     let cancelled = false
@@ -881,15 +911,20 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         {/* The SCROLLER is full-width (scrollbar at the window edge, wheel works
             anywhere over the conversation); only the content column is centered. */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-0 flex-1 flex-col">
           <div
             ref={scrollRef}
             onScroll={(e) => {
               const el = e.currentTarget
-              atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+              const gap = el.scrollHeight - el.scrollTop - el.clientHeight
+              atBottom.current = gap < 80
+              // Half a screen down is where "I've lost the latest" starts to bite.
+              const want = gap > el.clientHeight * 0.5
+              setShowJump((v) => (v === want ? v : want))
             }}
             className="flex-1 overflow-y-auto"
           >
-            <div className="mx-auto flex min-h-full w-full max-w-[720px] flex-col gap-6 px-4 py-6">
+            <div ref={contentRef} className="mx-auto flex min-h-full w-full max-w-[720px] flex-col gap-6 px-4 py-6">
             {turns.length === 0 && (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
                 <h1 className="text-2xl font-semibold tracking-tight">Ask me anything</h1>
@@ -1059,6 +1094,17 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               ),
             )}
             </div>
+          </div>
+          {showJump && (
+            <button
+              onClick={jumpToBottom}
+              aria-label="Jump to the latest message"
+              title="Jump to the latest message"
+              className="animate-rise absolute bottom-3 left-1/2 z-20 grid size-9 -translate-x-1/2 place-items-center rounded-full border bg-card text-muted-foreground shadow-[0_6px_24px_0_color-mix(in_oklch,var(--color-primary)_10%,transparent)] transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4"
+            >
+              <ChevronDown />
+            </button>
+          )}
           </div>
 
           <Composer

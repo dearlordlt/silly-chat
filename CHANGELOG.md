@@ -4,6 +4,21 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.22.0 — 2026-08-26
+
+- **Jump to the latest message.** Scroll up in a long chat and a round button appears
+  above the composer; it glides you back down and hides itself once you arrive.
+- A chat now opens at its newest message however long it is. It always meant to, but
+  answers keep growing after their first layout — images decode, diagrams draw, code
+  gets highlighted — so the one scroll happened too early and a long chat opened
+  somewhere in the middle. It now holds the bottom until the content stops moving.
+- The Starfield background is now still. v1.21.10 moved its drift onto the compositor,
+  which stopped the repainting but not the deeper cost: any animation on a full-screen
+  layer asks for a fresh frame of the whole window sixty times a second, forever, and
+  on a machine drawing those frames on the CPU one frame cost ~88 ms. The drift moved
+  1.7 px per second — invisible — and it was costing the app its frame rate. Aurora
+  and Mesh are unchanged for machines that can afford them.
+
 ## v1.21.10 — 2026-08-26
 
 - The Starfield background no longer costs the app its frame rate. Its drift was

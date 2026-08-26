@@ -14,7 +14,7 @@ export const BACKGROUNDS: BgOption[] = [
   { id: 'gradient', label: 'Gradient' },
   { id: 'aurora', label: 'Aurora', animated: true },
   { id: 'mesh', label: 'Mesh', animated: true },
-  { id: 'stars', label: 'Starfield', animated: true },
+  { id: 'stars', label: 'Starfield' },
   { id: 'grid', label: 'Grid' },
 ]
 

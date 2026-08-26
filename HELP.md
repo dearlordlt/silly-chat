@@ -11,6 +11,10 @@ under the answer. You can watch the agents work in the "Working…" panel — cl
 to read its full task. The answer streams in live as it's written; the send button turns
 into a **Stop** button while it works — stopping keeps whatever has already arrived.
 
+A chat always opens at its newest message, however long it is. Scroll up to read back
+and a round **↓** button appears just above the box — click it to glide back down to
+the latest. It hides itself again once you're there.
+
 ## Chat modes
 
 Pills under the input choose the flavor: **Search** (default — grounded, looks
