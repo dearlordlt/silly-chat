@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronDown, FileDown, FileText, Folder, PanelLeftOpen, Pencil, RotateCw } from 'lucide-react'
-import { api, type AppMeta, type Me, type NewProject } from '@/lib/api'
+import { ChevronDown, FileDown, FileText, FlaskConical, Folder, PanelLeftOpen, Pencil, RotateCw } from 'lucide-react'
+import { api, type AppMeta, type Me, type ModelOverrides, type NewProject } from '@/lib/api'
 import { chatStream } from '@/lib/stream'
 import { cn, deleteSummary, deletedSummary } from '@/lib/utils'
 import { effectiveTz } from '@/lib/prefs'
@@ -20,6 +20,7 @@ import {
   save,
   setMode,
   rename as renameConv,
+  setModelOverrides as setModelOverridesConv,
   setPinned as setPinnedConv,
   setProject as setProjectConv,
   titleFrom,
@@ -28,6 +29,7 @@ import {
 import { allowedModes, defaultMode, useProjects } from '@/lib/projects'
 import { backfillDigest, projectMemory, refreshDigestSoon } from '@/lib/memory'
 import { Composer } from '@/components/Composer'
+import { ModelOverrideDialog } from '@/components/ModelOverrideDialog'
 import { ProjectDialog } from '@/components/ProjectDialog'
 import type { ProjectAction } from '@/components/SidebarProjects'
 import { Button } from '@/components/ui/button'
@@ -91,6 +93,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   // Sidebar metadata that must survive saves: a custom (renamed) title and the pin.
   const titleRef = useRef<string | null>(null)
   const pinnedRef = useRef(false)
+  // Admin-only per-chat model swap: the ref feeds every request (even before the
+  // chat is first saved), the state renders the header chip.
+  const modelOverridesRef = useRef<ModelOverrides>({})
+  const [convModelOverrides, setConvModelOverrides] = useState<ModelOverrides>({})
+  const [modelDialogOpen, setModelDialogOpen] = useState(false)
   const dirty = useRef(false) // true only when the user changed THIS chat's content
   const session = useRef(0) // bumps on every chat switch; invalidates in-flight streams
   const abort = useRef<AbortController | null>(null)
@@ -174,6 +181,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         createdAt.current = c.createdAt
         titleRef.current = c.title || null
         pinnedRef.current = !!c.pinned
+        modelOverridesRef.current = c.modelOverrides ?? {}
+        setConvModelOverrides(c.modelOverrides ?? {})
         summaryRef.current = c.summary ?? ''
         summarizedUpTo.current = Math.min(c.summarizedUpTo ?? 0, c.turns.length)
         artifactsRef.current = c.artifacts ?? []
@@ -189,6 +198,8 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         createdAt.current = null
         titleRef.current = null
         pinnedRef.current = false
+        modelOverridesRef.current = {}
+        setConvModelOverrides({})
         setConvProject(undefined)
         projectRef.current = urlProject
         digestRef.current = undefined
@@ -261,6 +272,7 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         artifacts: artifactsRef.current,
         pinned: pinnedRef.current,
         projectId: projectRef.current,
+        modelOverrides: modelOverridesRef.current,
         digest: digestRef.current,
         digestUpTo: digestUpTo.current,
         createdAt: made,
@@ -268,6 +280,23 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       },
       currentMode === 'server' ? 'server' : 'local',
     ).catch(() => {})
+  }
+
+  // Set/clear the admin-only per-chat model swap. A metadata PATCH (no reorder)
+  // for saved chats; unsaved and storage-off chats keep it in the ref, where it
+  // still rides every request and any eventual first save.
+  function changeModelOverrides(next: ModelOverrides) {
+    modelOverridesRef.current = next
+    setConvModelOverrides(next)
+    setModelDialogOpen(false)
+    if (currentMode !== 'off' && turns.length > 0) {
+      setModelOverridesConv(currentId, currentMode === 'server' ? 'server' : 'local', next)
+        .then(refreshList)
+        .catch((e) => toast.error(String((e as Error).message ?? e)))
+    }
+    toast.success(
+      Object.keys(next).length ? 'Models pinned for this chat' : 'Back to the default models',
+    )
   }
 
   // Link/unlink another chat as context. Persists immediately when this chat is
@@ -611,6 +640,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
         project_memory: memory,
         summary: summaryRef.current || undefined,
         artifacts: artifactsRef.current.map(({ id, name, language, content }) => ({ id, name, language, content })),
+        model_overrides: Object.keys(modelOverridesRef.current).length
+          ? modelOverridesRef.current
+          : undefined,
         signal: controller.signal,
       })) {
         if (session.current !== mySession) return // navigated away mid-stream
@@ -773,10 +805,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
   // Status line: always on. Before any turn reports usage, fall back to the
   // current models + window from /api/meta; per-turn stats then update it.
+  // Before a turn reports real stats, show what WILL answer: the chat's pinned
+  // model when one is set, else the global default.
+  const pendingModel = convModelOverrides.orchestrator ?? meta?.models?.orchestrator
   const shownStats: TurnStats | null =
     stats ??
-    (meta?.models?.orchestrator
-      ? { models: [meta.models.orchestrator], contextWindow: meta.context_window ?? undefined }
+    (pendingModel
+      ? { models: [pendingModel], contextWindow: meta?.context_window ?? undefined }
       : null)
 
   return (
@@ -858,6 +893,31 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               >
                 <Folder className="size-3 text-primary" />
                 <span className="max-w-[8rem] truncate">{project.name}</span>
+              </button>
+            )}
+            {/* Admin test bench: pin different models to this chat. Icon-only when
+                nothing is pinned; shows the pinned chat model's short name when set. */}
+            {me.role === 'admin' && (
+              <button
+                onClick={() => setModelDialogOpen(true)}
+                title={
+                  convModelOverrides.orchestrator || convModelOverrides.vision
+                    ? `Models pinned to this chat — chat: ${convModelOverrides.orchestrator ?? 'default'} · vision: ${convModelOverrides.vision ?? 'default'}`
+                    : 'Pin different models to this chat (admin)'
+                }
+                className={cn(
+                  'hidden shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground sm:flex',
+                  convModelOverrides.orchestrator || convModelOverrides.vision
+                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
+                <FlaskConical className="size-3" />
+                {(convModelOverrides.orchestrator || convModelOverrides.vision) && (
+                  <span className="max-w-[8rem] truncate">
+                    {shortModel(convModelOverrides.orchestrator ?? convModelOverrides.vision!)}
+                  </span>
+                )}
               </button>
             )}
           </div>
@@ -1151,6 +1211,13 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           onCancel={() => setPendingProjectDelete(null)}
         />
       )}
+      {modelDialogOpen && (
+        <ModelOverrideDialog
+          current={convModelOverrides}
+          onSave={changeModelOverrides}
+          onClose={() => setModelDialogOpen(false)}
+        />
+      )}
       {newProjectFor && (
         <ProjectDialog
           note={
@@ -1162,6 +1229,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
       )}
     </div>
   )
+}
+
+// "glm-5.3-flash:cloud" → "glm-5.3-flash" — chips have no room for the tag.
+function shortModel(name: string): string {
+  return name.replace(/:[^:]+$/, '')
 }
 
 // "14:32" today, "Jul 9 · 14:32" otherwise — subtle per-message timestamps.

@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type { CodeArtifact, Turn } from '@/lib/types'
 import type { HistoryMessage } from '@/lib/stream'
-import { api } from '@/lib/api'
+import { api, type ModelOverrides } from '@/lib/api'
 
 // Where a chat is kept. 'off' is a mode (don't save); a saved chat is local|server.
 export type StorageMode = 'off' | 'local' | 'server'
@@ -14,6 +14,7 @@ export interface ConvSummary {
   location: Location
   pinned?: boolean
   projectId?: string // the project (folder) this chat sits in
+  modelOverrides?: ModelOverrides // admin-only per-chat model swap (the list badges on it)
 }
 
 export interface FullConv {
@@ -26,6 +27,7 @@ export interface FullConv {
   artifacts?: CodeArtifact[] // code artifacts, latest version each
   pinned?: boolean
   projectId?: string
+  modelOverrides?: ModelOverrides // admin-only per-chat model swap
   digest?: string // ~60-word digest of this chat, for its project's memory
   digestUpTo?: number // how many turns the digest covers (staleness check)
   createdAt: number
@@ -92,6 +94,7 @@ export async function listAll(): Promise<ConvSummary[]> {
       location: 'local' as const,
       pinned: !!c.pinned,
       projectId: c.projectId,
+      modelOverrides: c.modelOverrides,
     })),
     ...server.map((c) => ({
       id: c.id,
@@ -100,6 +103,7 @@ export async function listAll(): Promise<ConvSummary[]> {
       location: 'server' as const,
       pinned: !!c.pinned,
       projectId: c.project_id ?? undefined,
+      modelOverrides: c.model_overrides,
     })),
   ]
   return merged.sort((a, b) => b.updatedAt - a.updatedAt)
@@ -122,6 +126,7 @@ export async function loadAny(id: string): Promise<(FullConv & { location: Locat
       artifacts: (c.artifacts ?? []) as CodeArtifact[],
       pinned: !!c.pinned,
       projectId: c.project_id ?? undefined,
+      modelOverrides: c.model_overrides,
       digest: c.digest,
       digestUpTo: c.digest_upto,
       createdAt: ts,
@@ -146,6 +151,7 @@ export async function loadFull(id: string, location: Location): Promise<FullConv
     artifacts: (c.artifacts ?? []) as CodeArtifact[],
     pinned: !!c.pinned,
     projectId: c.project_id ?? undefined,
+    modelOverrides: c.model_overrides,
     digest: c.digest,
     digestUpTo: c.digest_upto,
     createdAt: Date.parse(c.updated_at),
@@ -168,6 +174,9 @@ export async function save(conv: FullConv, location: Location): Promise<void> {
       pinned: conv.pinned,
       // Explicit null, not undefined: an unfiled chat must actively clear the column.
       project_id: conv.projectId ?? null,
+      // Always sent ({} actively clears) so the swap survives a local↔server move.
+      // Non-admins never have one, and the server drops the field for them anyway.
+      model_overrides: conv.modelOverrides ?? {},
       digest: conv.digest,
       digest_upto: conv.digestUpTo,
     })
@@ -195,6 +204,16 @@ export async function setProject(
   } else {
     await api.patchServerConvo(id, { project_id: projectId })
   }
+}
+
+/** Set or clear ({}) a chat's admin-only model swap. Metadata-only: no reorder. */
+export async function setModelOverrides(
+  id: string,
+  location: Location,
+  overrides: ModelOverrides,
+): Promise<void> {
+  if (location === 'local') await db.conversations.update(id, { modelOverrides: overrides })
+  else await api.patchServerConvo(id, { model_overrides: overrides })
 }
 
 /** Store a chat's project-memory digest without touching its content or sort order. */

@@ -265,6 +265,12 @@ admins are always unlimited). Admin → Statistics shows how much each person ha
 tokens per model and images generated, filterable by period (today, last days, week,
 month) — counts only, never what anyone wrote.
 
+Admins can also pin different models to a single chat: the flask button in the chat
+header picks a chat and/or vision model for that conversation only — handy for trying
+a new model without changing it for everyone. Pinned chats carry a small flask badge
+in the chats list. If the pinned chat model can see images itself, attachments go
+straight to it and no separate vision model runs.
+
 ## Install as an app
 
 silly-chat works as an app on your phone or desktop. On Android/Chrome pick

@@ -127,6 +127,11 @@ class Conversation(SQLModel, table=True):
     # `pinned` — the sidebar must group without a key. It's an opaque id; the name
     # it groups under is sealed on the project itself.
     project_id: str | None = Field(default=None, index=True)
+    # Admin-only per-chat model overrides, e.g. {"orchestrator": "...", "vision": "..."}.
+    # Unsealed like `pinned`/`project_id`: it's a setting, not content — the chats list
+    # must badge it and /api/chat must honor it without a data key. Leaks only that a
+    # model was swapped, never what was said.
+    model_overrides: dict = Field(default_factory=dict, sa_column=Column(JSON))
     # Short digest of this chat for project memory, sealed under the owner's key as
     # {"text": ..., "upto": n}. Its own blob rather than a key inside enc_data, so
     # gathering a project's memory unseals ~200 bytes per chat, not every chat in full.

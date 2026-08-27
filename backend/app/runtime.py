@@ -7,9 +7,18 @@ in the AppSetting table and are cached here for fast, sync access from the agent
 
 from __future__ import annotations
 
+from contextvars import ContextVar
+
 from app.config import get_settings
 
 ROLES = ("orchestrator", "worker", "vision", "coder", "embed")
+
+# Per-turn (per-chat) model overrides, set by stream_chat for admin test chats.
+# Sits above the admin DB override: per-chat > admin global > config.toml. A
+# contextvar so every model_for() consumer — agent builders, telemetry, the done
+# event, the history budget — sees the effective model without threading a
+# parameter through the whole call tree.
+turn_overrides: ContextVar[dict[str, str]] = ContextVar("turn_overrides", default={})
 
 _overrides: dict[str, str] = {}
 _chat: dict[str, int] = {}  # runtime chat-behavior overrides (e.g. compact_pct)
@@ -191,7 +200,7 @@ def set_search(values: dict[str, str | None]) -> None:
 
 
 def model_for(role: str) -> str:
-    return _overrides.get(role) or getattr(get_settings().models, role)
+    return turn_overrides.get().get(role) or _overrides.get(role) or getattr(get_settings().models, role)
 
 
 def current() -> dict[str, str]:

@@ -339,6 +339,15 @@ def set_models(body: dict[str, str], _: AdminUser) -> dict[str, str]:
     return runtime.set_overrides(body)
 
 
+@admin_router.get("/models/capabilities")
+async def model_capabilities(name: str, _: AdminUser) -> dict[str, Any]:
+    """Capability tags for one model (per-chat picker hint: a vision-capable chat
+    model reads images itself, so no separate vision model runs)."""
+    from app.agent.ollama import capabilities
+
+    return {"name": name, "capabilities": await capabilities(name)}
+
+
 @admin_router.post("/users/{user_id}/reset")
 def admin_reset_password(user_id: int, admin: AdminUser, session: SessionDep) -> dict:
     """Account-only recovery: issue a temporary password. The user's encryption keys

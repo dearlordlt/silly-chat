@@ -28,7 +28,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_core import from_json
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, BinaryContent
 
 from app.agent.activity import (
     artifacts_var,
@@ -56,7 +56,7 @@ from app.agent.activity import (
     user_var,
 )
 from app.agent.clock import tz_var
-from app.agent.ollama import orchestrator_model
+from app.agent.ollama import capabilities, orchestrator_model
 from app.agent.orchestrator import Mode, build_orchestrator
 from app.logging_setup import get_logger
 from app.schema import CodeBlock, GalleryBlock, Reply, TextBlock
@@ -196,9 +196,24 @@ async def stream_chat(
     project_files: str = "",  # names of the project's files, so the model knows to search
     project_id: str | None = None,  # lets search_document reach the project's passages
     project_memory: str | None = None,  # digests of the project's other chats
+    model_overrides: dict[str, str] | None = None,  # admin-only per-chat swap ({role: model})
 ) -> AsyncIterator[StreamEvent]:
+    from app import runtime
+
+    # The per-chat swap rides a contextvar so every model_for() consumer this turn —
+    # the agent build below, the look tools, telemetry, the done event — resolves the
+    # effective model without threading a parameter everywhere. The run() task copies
+    # this context at create_task time; reset is in the outer finally.
+    tok_models = runtime.turn_overrides.set(model_overrides or {})
     attachments = attachments or []
     doc_chunks = doc_chunks or []
+    # A vision-capable chat model reads its images natively — no look-tool middleman
+    # re-describing the picture through another model. An explicit per-chat vision
+    # override means the admin wants the tool path (that's how you A/B a vision model).
+    native_vision = bool(attachments) and (
+        "vision" in await capabilities(runtime.model_for("orchestrator"))
+        and "vision" not in (model_overrides or {})
+    )
     # The "use the look tool first" nudge is only for images attached to THIS
     # message. Fallback images from earlier turns stay quietly available — the
     # history's vision notes usually already answer the question.
@@ -209,7 +224,13 @@ async def stream_chat(
     effective_mode: Mode = mode
     if has_img or has_doc:
         hints = []
-        if has_img:
+        if has_img and native_vision:
+            hints.append(
+                f"the {len(attachments)} image(s) are attached to this message — you can see "
+                "them directly; if the message asks to edit/change/restyle/extend the picture "
+                'itself, call edit_image(source="attached")'
+            )
+        elif has_img:
             hints.append(
                 f"use the look tool to see the {len(attachments)} image(s) first — UNLESS the "
                 "message asks to edit/change/restyle/extend the picture itself, then skip look "
@@ -374,11 +395,19 @@ async def stream_chat(
         tok_pp = project_prompt_var.set(project_prompt)
         tok_pd = project_docs_var.set(None)
         log.info("turn start: mode=%s history=%d msg=%r", mode, len(history or []), message[:120])
+        # Native vision: the images ride IN the user message (fallback ones from
+        # earlier turns too, so "the picture I sent" keeps working). The tool path
+        # leaves them in attachments_var for look/edit_image to fetch.
+        user_content = (
+            [prompt, *(BinaryContent(data=data, media_type=mime) for mime, data in attachments)]
+            if native_vision
+            else prompt
+        )
         try:
             with capture_run_messages() as messages:
                 try:
                     result = await agent.run(
-                        prompt, message_history=message_history, event_stream_handler=on_events
+                        user_content, message_history=message_history, event_stream_handler=on_events
                     )
                     output = result.output
                     # Context used = prompt tokens of the LAST model request (the full
@@ -482,6 +511,7 @@ async def stream_chat(
             await task
         except (asyncio.CancelledError, Exception):  # noqa: BLE001 — run() logs its own errors
             pass
+        runtime.turn_overrides.reset(tok_models)
 
 
 async def _text_fallback(message: str, findings: list[tuple[str, str]], history) -> Reply:

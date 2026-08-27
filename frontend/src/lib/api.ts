@@ -104,12 +104,16 @@ export type GalleryItem = {
   size: number
 }
 
+// Admin-only per-chat model swap; keys the backend honors are orchestrator | vision.
+export type ModelOverrides = { orchestrator?: string; vision?: string }
+
 export type ServerConvSummary = {
   id: string
   title: string
   updated_at: string
   pinned?: boolean
   project_id?: string | null
+  model_overrides?: ModelOverrides
 }
 export type ServerConv = ServerConvSummary & {
   turns: unknown[]
@@ -183,6 +187,11 @@ export const api = {
     req<{ current: Record<string, string>; available: string[] }>('GET', '/api/admin/models'),
   setModels: (models: Record<string, string>) =>
     req<Record<string, string>>('PUT', '/api/admin/models', models),
+  getModelCaps: (name: string) =>
+    req<{ name: string; capabilities: string[] }>(
+      'GET',
+      `/api/admin/models/capabilities?name=${encodeURIComponent(name)}`,
+    ),
 
   // Image generation (OpenRouter): per-user switch, admin-managed key + model, stats.
   setUserImageGen: (id: number, enabled: boolean) =>
@@ -228,6 +237,7 @@ export const api = {
       project_id?: string | null
       digest?: string
       digest_upto?: number
+      model_overrides?: ModelOverrides
     },
   ) => req<ServerConvSummary>('PUT', `/api/conversations/${id}`, body),
   // Metadata-only edits (rename / pin / file into a project / refresh the digest) —
@@ -241,6 +251,7 @@ export const api = {
       project_id?: string | null
       digest?: string
       digest_upto?: number
+      model_overrides?: ModelOverrides // {} = back to defaults; admin-only
     },
   ) => req<ServerConvSummary>('PATCH', `/api/conversations/${id}`, body),
 

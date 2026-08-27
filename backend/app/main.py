@@ -100,6 +100,10 @@ class ChatRequest(BaseModel):
     # the only side that can see the ones stored locally. Sent only when the project
     # has memory switched on.
     project_memory: str | None = None
+    # Admin-only per-chat model swap ({"orchestrator": ..., "vision": ...}). Rides the
+    # request — local-only chats have no server row to read it from. Ignored for
+    # non-admins.
+    model_overrides: dict[str, str] = {}
 
 
 class SummarizeRequest(BaseModel):
@@ -180,6 +184,11 @@ async def chat(
         q = user.image_quota if user.image_quota is not None else get_settings().images.weekly_quota
         image_quota = q if q > 0 else None
 
+    # Per-chat model swap is an admin test tool — same never-trust-the-client posture.
+    from app.conversations import clean_model_overrides
+
+    model_overrides = clean_model_overrides(req.model_overrides) if user.role == "admin" else {}
+
     async def event_generator():
         async for event in stream_chat(
             req.message, mode, history, req.timezone, images, doc_chunks,
@@ -189,6 +198,7 @@ async def chat(
             project_files=project.files if project else "",
             project_id=req.project_id if project else None,
             project_memory=memory,
+            model_overrides=model_overrides,
         ):
             yield {"event": event.event, "data": event.model_dump_json()}
 

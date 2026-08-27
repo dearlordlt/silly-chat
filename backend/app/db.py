@@ -60,6 +60,9 @@ def _ensure_columns() -> None:
         if "enc_digest" not in cols:
             conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN enc_digest TEXT DEFAULT ''")
             conn.commit()
+        if "model_overrides" not in cols:
+            conn.exec_driver_sql("ALTER TABLE conversation ADD COLUMN model_overrides TEXT DEFAULT '{}'")
+            conn.commit()
         ucols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()}
         if "wrapped_dk" not in ucols:
             conn.exec_driver_sql("ALTER TABLE user ADD COLUMN wrapped_dk TEXT DEFAULT ''")

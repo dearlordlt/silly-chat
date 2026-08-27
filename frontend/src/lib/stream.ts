@@ -28,6 +28,9 @@ export type ChatParams = {
   project_memory?: string
   summary?: string // rolling summary of this chat's compacted messages
   artifacts?: { id: string; name: string; language: string; content: string }[]
+  // Admin-only per-chat model swap ({orchestrator?, vision?}) — rides every turn
+  // because local-only chats have no server row; ignored for non-admins.
+  model_overrides?: { orchestrator?: string; vision?: string }
   signal?: AbortSignal
 }
 

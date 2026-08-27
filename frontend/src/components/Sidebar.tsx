@@ -32,6 +32,7 @@ import { MenuItem, MenuLabel, MenuPanel } from '@/components/ui/menu'
 import { AboutDialog, HelpDialog } from '@/components/MetaDialogs'
 import {
   LocationIcon,
+  ModelChip,
   ProjectChip,
   SidebarProjects,
   type ProjectAction,
@@ -180,6 +181,9 @@ export function Sidebar({
           </button>
         )}
         {folder && <ProjectChip name={folder} />}
+        {(c.modelOverrides?.orchestrator || c.modelOverrides?.vision) && (
+          <ModelChip overrides={c.modelOverrides} />
+        )}
         {moving ? (
           <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
             <Loader2 className="size-3 animate-spin" />

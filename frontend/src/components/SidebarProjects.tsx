@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   ChevronRight,
   Cloud,
+  FlaskConical,
   Folder,
   FolderOpen,
   FolderPlus,
@@ -11,7 +12,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react'
-import type { Project } from '@/lib/api'
+import type { ModelOverrides, Project } from '@/lib/api'
 import type { ConvSummary, Location } from '@/lib/history'
 import { MenuItem, MenuPanel } from '@/components/ui/menu'
 import { cn } from '@/lib/utils'
@@ -262,6 +263,21 @@ export function ProjectChip({ name }: { name: string }) {
     <span className="flex max-w-[6rem] shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
       <Folder className="size-3 shrink-0" />
       <span className="truncate">{name}</span>
+    </span>
+  )
+}
+
+/** Admin-only "models pinned to this chat" badge. Renders purely from the data —
+ * only admin chats ever carry overrides, so no role check is needed here. */
+export function ModelChip({ overrides }: { overrides: ModelOverrides }) {
+  const name = overrides.orchestrator ?? overrides.vision ?? ''
+  return (
+    <span
+      title={`Models pinned to this chat — chat: ${overrides.orchestrator ?? 'default'} · vision: ${overrides.vision ?? 'default'}`}
+      className="flex max-w-[6rem] shrink-0 items-center gap-1 text-[11px] text-primary"
+    >
+      <FlaskConical className="size-3 shrink-0" />
+      <span className="truncate">{name.replace(/:[^:]+$/, '')}</span>
     </span>
   )
 }

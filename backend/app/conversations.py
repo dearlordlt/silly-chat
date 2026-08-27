@@ -91,6 +91,9 @@ class ConvIn(BaseModel):
     project_id: str | None = None
     digest: str | None = None  # project-memory digest of this chat
     digest_upto: int | None = None  # how many turns the digest covers
+    # Admin-only per-chat model swap. None = leave as is; {} = clear. Carried on
+    # saves so it survives a local↔server move; silently dropped for non-admins.
+    model_overrides: dict[str, str] | None = None
 
 
 class ConvPatch(BaseModel):
@@ -102,6 +105,7 @@ class ConvPatch(BaseModel):
     project_id: str | None = None  # "" removes the chat from its project
     digest: str | None = None
     digest_upto: int | None = None
+    model_overrides: dict[str, str] | None = None  # admin-only; {} = back to defaults
 
 
 class ConvSummary(BaseModel):
@@ -110,6 +114,7 @@ class ConvSummary(BaseModel):
     updated_at: datetime
     pinned: bool = False
     project_id: str | None = None  # the sidebar groups on this
+    model_overrides: dict[str, str] = {}  # the sidebar badges on this
 
 
 class ConvOut(ConvSummary):
@@ -126,6 +131,22 @@ def _utc(dt: datetime) -> datetime:
     # SQLite stores naive datetimes; they're UTC (written with utcnow). Mark them
     # so the JSON carries an offset and clients don't read them as local time.
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+# The two roles a chat may override; worker/embed stay global — they're plumbing,
+# not personality, and per-chat knobs should stay few.
+_OVERRIDABLE = ("orchestrator", "vision")
+
+
+def clean_model_overrides(raw: dict[str, str]) -> dict[str, str]:
+    return {k: v for k, v in raw.items() if k in _OVERRIDABLE and isinstance(v, str) and v}
+
+
+def _apply_model_overrides(c: Conversation, body_val: dict[str, str] | None, user: ApprovedUser) -> None:
+    # Admin-only: anyone else's value is dropped silently, same posture as
+    # /api/chat's mode degrade — never trust the client, never error on it.
+    if body_val is not None and user.role == "admin":
+        c.model_overrides = clean_model_overrides(body_val)
 
 
 def _own(session: SessionDep, user: ApprovedUser, cid: str) -> Conversation:
@@ -145,7 +166,7 @@ def list_conversations(user: ApprovedUser, session: SessionDep, dk: SessionKey) 
     return [
         ConvSummary(
             id=c.id, title=_unseal_title(c, dk), updated_at=_utc(c.updated_at),
-            pinned=c.pinned, project_id=c.project_id,
+            pinned=c.pinned, project_id=c.project_id, model_overrides=c.model_overrides or {},
         )
         for c in rows
     ]
@@ -163,7 +184,7 @@ def get_conversation(cid: str, user: ApprovedUser, session: SessionDep, dk: Sess
         linked=data.get("linked", []), summary=data.get("summary", ""),
         summarized_upto=data.get("summarized_upto", 0), artifacts=data.get("artifacts", []),
         updated_at=_utc(c.updated_at), pinned=c.pinned, project_id=c.project_id,
-        digest=digest, digest_upto=digest_upto,
+        model_overrides=c.model_overrides or {}, digest=digest, digest_upto=digest_upto,
     )
 
 
@@ -189,6 +210,7 @@ def upsert_conversation(
         c.pinned = body.pinned
     if body.project_id is not None:
         c.project_id = body.project_id or None
+    _apply_model_overrides(c, body.model_overrides, user)
     c.enc_title = c.enc_data = ""
     if dk is not None:
         seal_conv(c, dk)
@@ -199,7 +221,7 @@ def upsert_conversation(
     session.commit()
     return ConvSummary(
         id=c.id, title=body.title, updated_at=_utc(c.updated_at), pinned=c.pinned,
-        project_id=c.project_id,
+        project_id=c.project_id, model_overrides=c.model_overrides or {},
     )
 
 
@@ -222,6 +244,7 @@ def patch_conversation(
         c.project_id = body.project_id or None
     if body.digest is not None:
         seal_digest(c, dk, body.digest, body.digest_upto or 0)
+    _apply_model_overrides(c, body.model_overrides, user)
     title = _unseal_title(c, dk)
     if body.title is not None:
         title = body.title
@@ -235,7 +258,7 @@ def patch_conversation(
     session.commit()
     return ConvSummary(
         id=c.id, title=title, updated_at=_utc(c.updated_at), pinned=c.pinned,
-        project_id=c.project_id,
+        project_id=c.project_id, model_overrides=c.model_overrides or {},
     )
 
 

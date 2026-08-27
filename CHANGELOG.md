@@ -4,6 +4,19 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.23.0 — 2026-08-27
+
+- **Per-chat models (admin).** A flask button in the chat header pins a different
+  chat and/or vision model to that one chat — a test bench for new models without
+  touching the global configuration. The choice is saved with the chat, survives
+  local↔server moves, and shows as a small flask badge in the chats list. Admin-only:
+  the server ignores the setting from anyone else.
+- **Native vision.** When the chat's model can see images itself (per Ollama's own
+  capability metadata), attachments now ride inside the message and the model reads
+  them directly — no more relaying every picture through the separate vision model.
+  Chat models without vision keep the look-tool path, and explicitly pinning a vision
+  model on a chat keeps the tool path too (that's how you A/B a vision model).
+
 ## v1.22.0 — 2026-08-26
 
 - **Jump to the latest message.** Scroll up in a long chat and a round button appears
