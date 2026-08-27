@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.27.2 — 2026-08-27
+
+- Fixes: editing a message and resending no longer drops its images. A question
+  whose answer got lost (leaving the chat mid-turn, a crash, a reload) now shows
+  "No answer arrived" with a visible Retry instead of a dead end.
+
 ## v1.27.1 — 2026-08-27
 
 - Fixes: collapsed Reasoning and agents cards no longer leak a cropped strip of

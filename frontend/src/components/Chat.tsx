@@ -584,9 +584,10 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
   function applyEdit() {
     const message = editText.trim()
     if (!message || busy || editingIndex === null) return
+    const original = turns[editingIndex] // keep its images — editing the words shouldn't drop them
     const base = turns.slice(0, editingIndex) // drop the edited message + its reply
     setEditingIndex(null)
-    runTurn(message, base)
+    runTurn(message, base, (original?.role === 'user' ? original.attachments : undefined) ?? [])
   }
 
   // Re-run the user message that produced the answer at `index` — same text, same
@@ -1102,6 +1103,23 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                         </div>
                       )}
                       {turn.ts && <span className="text-[10px] text-muted-foreground/70">{fmtTime(turn.ts)}</span>}
+                      {/* A question with no reply below it (stream lost to a page
+                          switch, crash, or reload mid-turn): offer the way out
+                          visibly — there's no answer row to hang a Retry on. */}
+                      {i === turns.length - 1 && !busy && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">No answer arrived.</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => retryFrom(i)}
+                            className="rounded-full"
+                          >
+                            <RotateCw />
+                            Retry
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
