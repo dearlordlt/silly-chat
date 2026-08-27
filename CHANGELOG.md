@@ -4,6 +4,15 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.26.2 — 2026-08-27
+
+- Fixes: a reasoning loop now stops the turn within seconds. When a model degenerates
+  into repeating itself while thinking ("locklocklock…" — glm-5.3-flash does this for
+  real), a repetition detector on the thinking stream aborts the run with a clear
+  error instead of burning tokens until someone hits Stop. Normal reasoning is
+  untouched — the detector only fires on a short pattern repeated unbroken across
+  thousands of characters.
+
 ## v1.26.1 — 2026-08-27
 
 - Fixes: runaway reasoning is capped at ~120k characters — a model stuck repeating

@@ -80,6 +80,33 @@ from app.schema import (
 log = get_logger("chat")
 
 _DONE = object()
+
+
+class ThinkingLoopError(Exception):
+    """A degenerate repetition loop in the model's reasoning ("locklocklock…").
+    Raised from the event handler to abort the run — a looping model never reaches
+    an answer, so every further second just burns tokens."""
+
+    def __str__(self) -> str:
+        return (
+            "the model got stuck repeating itself while reasoning — turn stopped. "
+            "Try a different reasoning effort or model."
+        )
+
+
+# A short unit (3–80 chars) repeated back-to-back through the whole recent tail.
+# Conservative on purpose: legit reasoning repeats ideas, not the same few
+# characters over 1.5k+ chars without interruption.
+_LOOP_TAIL = 3000
+_LOOP_RE = re.compile(r"(.{3,80}?)(?:\1){10,}$", re.DOTALL)
+
+
+def _looks_looped(text: str) -> bool:
+    tail = text[-_LOOP_TAIL:]
+    if len(tail) < _LOOP_TAIL:
+        return False
+    m = _LOOP_RE.search(tail)
+    return bool(m and len(m.group(0)) >= 1500)
 _TOOL_STATUS = {
     "research": "Planning the research…",
     "find_images": "Looking for images…",
@@ -356,6 +383,16 @@ async def stream_chat(
     # Text parts of the CURRENT model response, by part index. FinalResultEvent
     # marks the response that carries the Reply — from then on, deltas stream out.
     text_bufs: dict[int, str] = {}
+    # Accumulated reasoning, for the loop detector; checked every ~2k new chars.
+    think_state = {"buf": "", "checked": 0}
+
+    def _forward_thinking(fragment: str) -> None:
+        emit(ThinkingDeltaEvent(text=fragment))
+        think_state["buf"] += fragment
+        if len(think_state["buf"]) - think_state["checked"] >= 2000:
+            think_state["checked"] = len(think_state["buf"])
+            if _looks_looped(think_state["buf"]):
+                raise ThinkingLoopError()
 
     async def on_events(ctx: RunContext, event_stream) -> None:
         async for event in event_stream:
@@ -366,10 +403,10 @@ async def stream_chat(
             elif isinstance(event, PartStartEvent) and isinstance(event.part, ThinkingPart):
                 # The model's reasoning, streamed into the turn's collapsed panel.
                 if event.part.content:
-                    emit(ThinkingDeltaEvent(text=event.part.content))
+                    _forward_thinking(event.part.content)
             elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, ThinkingPartDelta):
                 if event.delta.content_delta:
-                    emit(ThinkingDeltaEvent(text=event.delta.content_delta))
+                    _forward_thinking(event.delta.content_delta)
             elif isinstance(event, PartStartEvent) and isinstance(event.part, TextPart):
                 text_bufs[event.index] = event.part.content or ""
             elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
@@ -448,6 +485,11 @@ async def stream_chat(
                     if usage and usage.output_tokens:
                         stats["output_tokens"] = usage.output_tokens
                     record_llm(runtime.model_for("orchestrator"), usage, user_id=user_id)
+                except ThinkingLoopError:
+                    # No salvage: a looping model has produced nothing worth keeping,
+                    # and the fallback would likely loop the same way.
+                    log.warning("thinking loop detected — aborting turn")
+                    raise
                 except Exception as primary:
                     # Surface what the model produced, then salvage the research into a
                     # plain-text answer instead of failing the whole turn.
