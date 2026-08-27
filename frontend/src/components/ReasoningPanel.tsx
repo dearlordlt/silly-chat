@@ -45,12 +45,22 @@ export const ReasoningPanel = memo(function ReasoningPanel({
           open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
         )}
       >
-        <div className="min-h-0 overflow-hidden px-3.5 pb-2.5">
-          <p className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words text-[12.5px] leading-[1.6] text-muted-foreground">
+        {/* Padding lives INSIDE the clipped wrapper: padding on the grid item itself
+            can't shrink below its border-box, which leaked a cropped strip of text
+            under the header whenever the card was closed. */}
+        <div className="min-h-0 overflow-hidden">
+          <p className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words px-3.5 pb-2.5 text-[12.5px] leading-[1.6] text-muted-foreground">
             {thinking}
           </p>
         </div>
       </div>
+      {/* Closed but still thinking: a one-line ticker of the newest thought — the
+          deliberate version of the liveness the leak used to fake. */}
+      {!open && live && (
+        <p className="truncate px-3.5 pb-2.5 text-[12px] text-muted-foreground/80">
+          {thinking.trimEnd().split('\n').filter(Boolean).pop()}
+        </p>
+      )}
     </div>
   )
 })

@@ -52,7 +52,10 @@ export const AgentActivity = memo(function AgentActivity({ agents }: { agents: A
           open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
         )}
       >
-        <ul className="min-h-0 space-y-1 overflow-hidden px-3.5 pb-2.5">
+        {/* Padding inside the clip, not on the grid item — an item's own padding
+            can't shrink to zero, which leaked a cropped strip when collapsed. */}
+        <div className="min-h-0 overflow-hidden">
+          <ul className="space-y-1 px-3.5 pb-2.5">
           {agents.map((a) => {
             const isOpen = expanded.has(a.id)
             return (
@@ -89,7 +92,8 @@ export const AgentActivity = memo(function AgentActivity({ agents }: { agents: A
               </li>
             )
           })}
-        </ul>
+          </ul>
+        </div>
       </div>
     </div>
   )

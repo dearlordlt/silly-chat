@@ -4,6 +4,13 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.27.1 — 2026-08-27
+
+- Fixes: collapsed Reasoning and agents cards no longer leak a cropped strip of
+  their first line (the clipped element's own padding couldn't shrink to zero).
+  While thinking streams with the card closed, the newest thought now shows as a
+  deliberate one-line ticker instead.
+
 ## v1.27.0 — 2026-08-27
 
 - **Retry on every answer.** Hover any answer and a Retry appears next to its
