@@ -4,6 +4,17 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.25.0 — 2026-08-27
+
+- **Reasoning, visible and tunable.** Thinking models' reasoning now streams into a
+  collapsed "Reasoning" card under the answer — expand it to watch the model think,
+  live or later (it's saved with the chat, and never fed back into the model's
+  context). Admin → Models gains a Reasoning setting (default **low** — thinking
+  models stay fast but still think; also none/medium/high/max or "default" to let
+  the model decide), and the per-chat flask dialog can pin a different effort for
+  one chat. Not every model honors every value — some can't stop thinking even on
+  none, and some ignore the dial entirely.
+
 ## v1.24.0 — 2026-08-27
 
 - **Only the main model is mandatory now.** Research, Vision and Coding can be set to

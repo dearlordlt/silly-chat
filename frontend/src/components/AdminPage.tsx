@@ -450,6 +450,30 @@ function ModelsSection() {
             <p className="text-xs text-muted-foreground">{r.hint}</p>
           </div>
         ))}
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold">Reasoning</span>
+            <select
+              value={models.reasoning ?? 'low'}
+              onChange={(e) => {
+                setSaved(false)
+                setModels((m) => ({ ...m, reasoning: e.target.value }))
+              }}
+              className="h-9 max-w-[60%] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {['default', 'none', 'low', 'medium', 'high', 'max'].map((v) => (
+                <option key={v} value={v}>
+                  {v === 'default' ? 'default (model decides)' : v}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            How hard the main model thinks before answering. "low" keeps thinking models
+            fast; not every model honors every value. The thinking shows collapsed under
+            each answer.
+          </p>
+        </div>
       </div>
       <div className="mt-4 flex items-center gap-3">
         <Button onClick={save} disabled={busy}>

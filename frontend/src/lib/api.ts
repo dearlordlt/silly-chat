@@ -106,11 +106,13 @@ export type GalleryItem = {
 
 // Admin-only per-chat model swap. Unset roles follow the pinned chat model (or the
 // global config when no chat model is pinned). Embeddings are global-only.
+// `reasoning` pins the chat's reasoning effort (none|low|medium|high|max).
 export type ModelOverrides = {
   orchestrator?: string
   worker?: string
   vision?: string
   coder?: string
+  reasoning?: string
 }
 
 export type ServerConvSummary = {

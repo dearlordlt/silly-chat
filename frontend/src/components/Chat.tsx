@@ -38,6 +38,7 @@ import { toast } from '@/components/ui/toast'
 import { Sidebar, SidebarRail } from '@/components/Sidebar'
 import { UserMenu } from '@/components/UserMenu'
 import { AgentActivity } from '@/components/AgentActivity'
+import { ReasoningPanel } from '@/components/ReasoningPanel'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { BlockView, BlockSkeleton } from '@/components/blocks/BlockView'
 import { StreamingCode } from '@/components/blocks/StreamingCode'
@@ -650,6 +651,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
           case 'agent_status':
             patchLast((t) => ({ ...t, status: ev.message }))
             break
+          case 'thinking_delta':
+            patchLast((t) => ({ ...t, thinking: (t.thinking ?? '') + ev.text }))
+            break
           case 'agent_update':
             patchLast((t) => {
               const agents = [...(t.agents ?? [])]
@@ -1090,6 +1094,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                         <Skeleton className="h-4 w-4/6" />
                       </div>
                     )}
+                  {turn.thinking && (
+                    <ReasoningPanel thinking={turn.thinking} live={turn.status != null} />
+                  )}
                   {turn.agents?.length > 0 && <AgentActivity agents={turn.agents} />}
                   {turn.slots.map((slot) => (
                     <div key={slot.id} className="animate-rise">
@@ -1236,18 +1243,26 @@ function shortModel(name: string): string {
   return name.replace(/:[^:]+$/, '')
 }
 
-// The name a pinned chat's chip leads with: the chat model, else the first pinned role.
+// The name a pinned chat's chip leads with: the chat model, else the first pinned
+// role, else the pinned reasoning effort alone.
 export function pinnedModelName(mo: ModelOverrides): string | undefined {
-  return mo.orchestrator ?? mo.worker ?? mo.vision ?? mo.coder
+  return (
+    mo.orchestrator ??
+    mo.worker ??
+    mo.vision ??
+    mo.coder ??
+    (mo.reasoning ? `reasoning ${mo.reasoning}` : undefined)
+  )
 }
 
-// "chat: X · vision: Y" — only the roles that are actually pinned.
+// "chat: X · vision: Y" — only what's actually pinned.
 export function pinnedModelTitle(mo: ModelOverrides): string {
   const names: [keyof ModelOverrides, string][] = [
     ['orchestrator', 'chat'],
     ['worker', 'research'],
     ['vision', 'vision'],
     ['coder', 'coding'],
+    ['reasoning', 'reasoning'],
   ]
   return names
     .filter(([k]) => mo[k])

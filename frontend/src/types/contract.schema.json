@@ -1487,6 +1487,26 @@
       "title": "TextDeltaEvent",
       "type": "object"
     },
+    "ThinkingDeltaEvent": {
+      "description": "A fragment of the model's reasoning, streamed as it thinks. The client\naccumulates these into the turn's collapsed \"Reasoning\" section \u2014 the answer\nitself still arrives only via text_delta/block events.",
+      "properties": {
+        "event": {
+          "const": "thinking_delta",
+          "default": "thinking_delta",
+          "title": "Event",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "ThinkingDeltaEvent",
+      "type": "object"
+    },
     "TimelineBlock": {
       "description": "A chronology: events in time, grouped into eras/periods.\n\nRenders as an interactive card \u2014 a minimap of all events on the time axis,\nera chips for navigation, and a collapsible grouped list. For a short flat\nchronology emit one era named after the whole span.",
       "properties": {
@@ -1653,13 +1673,17 @@
           "done": "#/$defs/DoneEvent",
           "error": "#/$defs/ErrorEvent",
           "image_quota": "#/$defs/ImageQuotaEvent",
-          "text_delta": "#/$defs/TextDeltaEvent"
+          "text_delta": "#/$defs/TextDeltaEvent",
+          "thinking_delta": "#/$defs/ThinkingDeltaEvent"
         },
         "propertyName": "event"
       },
       "oneOf": [
         {
           "$ref": "#/$defs/TextDeltaEvent"
+        },
+        {
+          "$ref": "#/$defs/ThinkingDeltaEvent"
         },
         {
           "$ref": "#/$defs/BlockStartEvent"

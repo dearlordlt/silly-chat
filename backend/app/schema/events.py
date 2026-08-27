@@ -22,6 +22,15 @@ class TextDeltaEvent(BaseModel):
     text: str
 
 
+class ThinkingDeltaEvent(BaseModel):
+    """A fragment of the model's reasoning, streamed as it thinks. The client
+    accumulates these into the turn's collapsed "Reasoning" section — the answer
+    itself still arrives only via text_delta/block events."""
+
+    event: Literal["thinking_delta"] = "thinking_delta"
+    text: str
+
+
 class BlockStartEvent(BaseModel):
     """Opens a block. Carries the type (and id) BEFORE any data — enables skeleton."""
 
@@ -96,6 +105,7 @@ class ErrorEvent(BaseModel):
 StreamEvent = Annotated[
     Union[
         TextDeltaEvent,
+        ThinkingDeltaEvent,
         BlockStartEvent,
         BlockDataEvent,
         AgentStatusEvent,

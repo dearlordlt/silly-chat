@@ -37,6 +37,9 @@ class ModelsCfg(BaseModel):
     vision: str = ""
     coder: str = ""
     embed: str  # embedding model for document RAG — a chat model can't do this job
+    # Reasoning effort for the main model ("default"|"none"|"low"|"medium"|"high"|"max").
+    # "default" sends nothing (model decides); the rest go as Ollama's reasoning_effort.
+    reasoning: str = "low"
 
 
 class SearchCfg(BaseModel):

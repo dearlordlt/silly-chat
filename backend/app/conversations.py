@@ -134,12 +134,19 @@ def _utc(dt: datetime) -> datetime:
 
 
 # Roles a chat may pin. Embeddings stay global: chunks are embedded at upload time,
-# so a per-chat embedder would never match the stored vectors.
+# so a per-chat embedder would never match the stored vectors. "reasoning" rides in
+# the same dict but takes only the known effort values.
 _OVERRIDABLE = ("orchestrator", "worker", "vision", "coder")
 
 
 def clean_model_overrides(raw: dict[str, str]) -> dict[str, str]:
-    return {k: v for k, v in raw.items() if k in _OVERRIDABLE and isinstance(v, str) and v}
+    from app.runtime import REASONING
+
+    clean = {k: v for k, v in raw.items() if k in _OVERRIDABLE and isinstance(v, str) and v}
+    r = raw.get("reasoning")
+    if isinstance(r, str) and r in REASONING and r != "default":
+        clean["reasoning"] = r
+    return clean
 
 
 def _apply_model_overrides(c: Conversation, body_val: dict[str, str] | None, user: ApprovedUser) -> None:

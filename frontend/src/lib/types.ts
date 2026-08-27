@@ -47,4 +47,7 @@ export type Turn =
       // Vision Q&A from this turn — persisted so later turns inherit what the
       // vision model already reported instead of re-examining the image.
       visionNotes?: { q: string; a: string }[]
+      // The model's reasoning, streamed while it thinks. Shown collapsed under the
+      // answer; never fed back into the model's context.
+      thinking?: string
     }

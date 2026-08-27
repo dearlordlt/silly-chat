@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic_ai import Agent, PromptedOutput
+from pydantic_ai.models.openai import OpenAIChatModelSettings
 
 from app.agent.clock import now_str
 from app.agent.ollama import orchestrator_model
@@ -19,6 +20,18 @@ from app.prompts.registry import get_prompt
 from app.schema import Reply
 
 Mode = Literal["search", "chat", "code", "images"]
+
+
+def reasoning_settings() -> OpenAIChatModelSettings | None:
+    """Reasoning effort for the main model's calls (admin/per-chat, default "low").
+    "default" sends nothing — the model behaves as it would out of the box. Ollama
+    passes unknown values through, so unsupported models just ignore it."""
+    from app import runtime
+
+    eff = runtime.reasoning_effort()
+    if eff and eff != "default":
+        return OpenAIChatModelSettings(openai_reasoning_effort=eff)  # type: ignore[typeddict-item]
+    return None
 
 
 def build_orchestrator(
@@ -50,5 +63,6 @@ def build_orchestrator(
         output_type=PromptedOutput(Reply),
         instructions=instructions,
         tools=build_tools(image_gen, native_vision=native_vision),
+        model_settings=reasoning_settings(),
         retries=limits.output_retries,
     )

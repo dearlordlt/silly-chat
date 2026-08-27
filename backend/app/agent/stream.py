@@ -23,6 +23,8 @@ from pydantic_ai.messages import (
     PartStartEvent,
     TextPart,
     TextPartDelta,
+    ThinkingPart,
+    ThinkingPartDelta,
     ToolCallPart,
     UserPromptPart,
 )
@@ -57,7 +59,7 @@ from app.agent.activity import (
 )
 from app.agent.clock import tz_var
 from app.agent.ollama import capabilities, orchestrator_model
-from app.agent.orchestrator import Mode, build_orchestrator
+from app.agent.orchestrator import Mode, build_orchestrator, reasoning_settings
 from app.logging_setup import get_logger
 from app.schema import CodeBlock, GalleryBlock, Reply, TextBlock
 from app.usage import record_llm
@@ -71,6 +73,7 @@ from app.schema import (
     SourcesBlock,
     StreamEvent,
     TextDeltaEvent,
+    ThinkingDeltaEvent,
     VisionNote,
 )
 
@@ -360,6 +363,13 @@ async def stream_chat(
                 msg = _TOOL_PREP.get(event.part.tool_name or "")
                 if msg:
                     emit(AgentStatusEvent(message=msg))
+            elif isinstance(event, PartStartEvent) and isinstance(event.part, ThinkingPart):
+                # The model's reasoning, streamed into the turn's collapsed panel.
+                if event.part.content:
+                    emit(ThinkingDeltaEvent(text=event.part.content))
+            elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, ThinkingPartDelta):
+                if event.delta.content_delta:
+                    emit(ThinkingDeltaEvent(text=event.delta.content_delta))
             elif isinstance(event, PartStartEvent) and isinstance(event.part, TextPart):
                 text_bufs[event.index] = event.part.content or ""
             elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
@@ -409,7 +419,10 @@ async def stream_chat(
         tok_p = project_var.set(project_id)
         tok_pp = project_prompt_var.set(project_prompt)
         tok_pd = project_docs_var.set(None)
-        log.info("turn start: mode=%s history=%d msg=%r", mode, len(history or []), message[:120])
+        log.info(
+            "turn start: mode=%s history=%d reasoning=%s msg=%r",
+            mode, len(history or []), runtime.reasoning_effort(), message[:120],
+        )
         # Native vision: the images ride IN the user message (fallback ones from
         # earlier turns too, so "the picture I sent" keeps working). The tool path
         # leaves them in attachments_var for look/edit_image to fetch.
@@ -434,8 +447,6 @@ async def stream_chat(
                     usage = result.usage() if callable(result.usage) else result.usage
                     if usage and usage.output_tokens:
                         stats["output_tokens"] = usage.output_tokens
-                    from app import runtime
-
                     record_llm(runtime.model_for("orchestrator"), usage, user_id=user_id)
                 except Exception as primary:
                     # Surface what the model produced, then salvage the research into a
@@ -539,7 +550,9 @@ async def _text_fallback(message: str, findings: list[tuple[str, str]], history)
         )
     else:
         prompt = message
-    result = await Agent(orchestrator_model()).run(prompt, message_history=history)
+    result = await Agent(orchestrator_model(), model_settings=reasoning_settings()).run(
+        prompt, message_history=history
+    )
     from app import runtime
 
     record_llm(runtime.model_for("orchestrator"), result.usage)

@@ -25,6 +25,10 @@ coder = "glm-5.2"
 # runs on the local embed appliance (see [ollama].embed_base_url / compose `embed`
 # profile) or a dev box's own daemon.
 embed = "nomic-embed-text:v1.5"
+# Reasoning effort for the main model: "default" (send nothing — model decides),
+# "none", "low", "medium", "high", "max". "low" keeps thinking models fast while
+# still letting them think; not every model honors every value.
+reasoning = "low"
 # (The context window shown in the UI is NOT configured — it comes from the
 # Ollama /api/show metadata for whichever orchestrator model is active.)
 

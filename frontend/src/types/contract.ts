@@ -250,6 +250,7 @@ export type Blocks = (
 )[];
 export type Event =
   | TextDeltaEvent
+  | ThinkingDeltaEvent
   | BlockStartEvent
   | BlockDataEvent
   | AgentStatusEvent
@@ -260,10 +261,12 @@ export type Event =
 export type Event1 = "text_delta";
 export type BlockId = string;
 export type Text = string;
-export type Event2 = "block_start";
+export type Event2 = "thinking_delta";
+export type Text1 = string;
+export type Event3 = "block_start";
 export type BlockId1 = string;
 export type BlockType = string;
-export type Event3 = "block_data";
+export type Event4 = "block_data";
 export type BlockId2 = string;
 export type Block =
   | TextBlock
@@ -310,18 +313,18 @@ export type Name7 = string;
 export type Approximate = boolean;
 export type Polygons = number[][][];
 export type Title9 = string | null;
-export type Event4 = "agent_status";
+export type Event5 = "agent_status";
 export type Message = string;
-export type Event5 = "agent_update";
+export type Event6 = "agent_update";
 export type Id = string;
 export type Label4 = string;
 export type Status = string;
 export type State = "running" | "done" | "error";
-export type Event6 = "image_quota";
+export type Event7 = "image_quota";
 export type Used = number;
 export type Remaining = number;
 export type ResetsAt = string;
-export type Event7 = "done";
+export type Event8 = "done";
 export type InputTokens = number | null;
 export type OutputTokens = number | null;
 export type ContextWindow = number | null;
@@ -329,7 +332,7 @@ export type Models = string[];
 export type Q = string;
 export type A = string;
 export type VisionNotes = VisionNote[];
-export type Event8 = "error";
+export type Event9 = "error";
 export type Message1 = string;
 
 /**
@@ -556,10 +559,20 @@ export interface TextDeltaEvent {
   [k: string]: unknown;
 }
 /**
+ * A fragment of the model's reasoning, streamed as it thinks. The client
+ * accumulates these into the turn's collapsed "Reasoning" section — the answer
+ * itself still arrives only via text_delta/block events.
+ */
+export interface ThinkingDeltaEvent {
+  event?: Event2;
+  text: Text1;
+  [k: string]: unknown;
+}
+/**
  * Opens a block. Carries the type (and id) BEFORE any data — enables skeleton.
  */
 export interface BlockStartEvent {
-  event?: Event2;
+  event?: Event3;
   block_id: BlockId1;
   block_type: BlockType;
   [k: string]: unknown;
@@ -568,7 +581,7 @@ export interface BlockStartEvent {
  * Fills a previously-started block with its validated payload.
  */
 export interface BlockDataEvent {
-  event?: Event3;
+  event?: Event4;
   block_id: BlockId2;
   block: Block;
   [k: string]: unknown;
@@ -659,7 +672,7 @@ export interface MapArea {
  * Working heartbeat to fill dead air during multi-round-trip runs.
  */
 export interface AgentStatusEvent {
-  event?: Event4;
+  event?: Event5;
   message: Message;
   [k: string]: unknown;
 }
@@ -670,7 +683,7 @@ export interface AgentStatusEvent {
  * updates carry ``status``/``state`` only.
  */
 export interface AgentUpdateEvent {
-  event?: Event5;
+  event?: Event6;
   id: Id;
   label?: Label4;
   status?: Status;
@@ -683,14 +696,14 @@ export interface AgentUpdateEvent {
  * plenty of quota remains: limits stay invisible until they matter.
  */
 export interface ImageQuotaEvent {
-  event?: Event6;
+  event?: Event7;
   used: Used;
   remaining: Remaining;
   resets_at: ResetsAt;
   [k: string]: unknown;
 }
 export interface DoneEvent {
-  event?: Event7;
+  event?: Event8;
   input_tokens?: InputTokens;
   output_tokens?: OutputTokens;
   context_window?: ContextWindow;
@@ -708,7 +721,7 @@ export interface VisionNote {
   [k: string]: unknown;
 }
 export interface ErrorEvent {
-  event?: Event8;
+  event?: Event9;
   message: Message1;
   [k: string]: unknown;
 }

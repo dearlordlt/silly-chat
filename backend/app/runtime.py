@@ -15,6 +15,10 @@ ROLES = ("orchestrator", "worker", "vision", "coder", "embed")
 # Roles that may be left unset ("") to follow the main model. Embeddings can't —
 # a chat model doesn't produce embedding vectors; orchestrator IS the main model.
 FOLLOW_MAIN = ("worker", "vision", "coder")
+# Reasoning effort for the main model. "default" = don't send the parameter (the
+# model's own behavior); the rest map to Ollama's reasoning_effort. Rides in the
+# same settings dict / per-chat pins as the models, under the "reasoning" key.
+REASONING = ("default", "none", "low", "medium", "high", "max")
 
 # Per-turn (per-chat) model overrides, set by stream_chat for admin test chats.
 # Sits above the admin DB override: per-chat > admin global > config.toml. A
@@ -45,7 +49,11 @@ def load_overrides() -> None:
         # "" on a FOLLOW_MAIN role is an explicit setting ("same as main") that must
         # shadow a non-empty config.toml value — so empties survive for those roles.
         _overrides.update(
-            {k: v for k, v in row.value.items() if k in ROLES and (v or k in FOLLOW_MAIN)}
+            {
+                k: v
+                for k, v in row.value.items()
+                if (k in ROLES and (v or k in FOLLOW_MAIN)) or (k == "reasoning" and v in REASONING)
+            }
         )
     _chat.clear()
     if chat_row:
@@ -227,6 +235,16 @@ def model_for(role: str) -> str:
     return base
 
 
+def reasoning_effort() -> str:
+    """The effective reasoning effort for the main model's calls:
+    chat pin > admin setting > config.toml (default "low")."""
+    return (
+        turn_overrides.get().get("reasoning")
+        or _overrides.get("reasoning")
+        or get_settings().models.reasoning
+    )
+
+
 def current() -> dict[str, str]:
     """Resolved view: the model each role actually runs on right now (globals only)."""
     return {role: model_for(role) for role in ROLES}
@@ -235,7 +253,9 @@ def current() -> dict[str, str]:
 def settings_view() -> dict[str, str]:
     """Raw view for the admin page: "" on a helper role means "same as main" —
     distinct from the resolved name, so the select can show the choice itself."""
-    return {role: _overrides[role] if role in _overrides else getattr(get_settings().models, role) for role in ROLES}
+    view = {role: _overrides[role] if role in _overrides else getattr(get_settings().models, role) for role in ROLES}
+    view["reasoning"] = _overrides.get("reasoning") or get_settings().models.reasoning
+    return view
 
 
 def set_overrides(models: dict[str, str]) -> dict[str, str]:
@@ -244,7 +264,11 @@ def set_overrides(models: dict[str, str]) -> dict[str, str]:
     from app.db import engine
     from app.models import AppSetting
 
-    clean = {k: v for k, v in models.items() if k in ROLES and (v or k in FOLLOW_MAIN)}
+    clean = {
+        k: v
+        for k, v in models.items()
+        if (k in ROLES and (v or k in FOLLOW_MAIN)) or (k == "reasoning" and v in REASONING)
+    }
     with Session(engine) as session:
         row = session.get(AppSetting, "models") or AppSetting(key="models", value={})
         row.value = clean

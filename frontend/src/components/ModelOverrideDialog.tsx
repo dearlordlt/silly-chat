@@ -30,11 +30,13 @@ export function ModelOverrideDialog({
 }) {
   const [available, setAvailable] = useState<string[]>([])
   const [resolved, setResolved] = useState<Record<string, string>>({})
+  const [globalReasoning, setGlobalReasoning] = useState('')
   const [picks, setPicks] = useState<Record<string, string>>({
     orchestrator: current.orchestrator ?? '',
     worker: current.worker ?? '',
     vision: current.vision ?? '',
     coder: current.coder ?? '',
+    reasoning: current.reasoning ?? '',
   })
   // Capability tags of the picked chat model — drives the vision hint.
   const [chatCaps, setChatCaps] = useState<string[] | null>(null)
@@ -45,6 +47,7 @@ export function ModelOverrideDialog({
       .then((d) => {
         setAvailable(d.available)
         setResolved(d.resolved)
+        setGlobalReasoning(d.current.reasoning ?? '')
       })
       .catch((e) => toast.error(String((e as Error).message ?? e)))
   }, [])
@@ -90,6 +93,28 @@ export function ModelOverrideDialog({
             follow the pinned chat model — one pin moves the whole chat onto one model.
           </span>
         </p>
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-semibold" htmlFor="override-reasoning">
+            Reasoning
+          </label>
+          <select
+            id="override-reasoning"
+            value={picks.reasoning}
+            onChange={(e) => setPicks((p) => ({ ...p, reasoning: e.target.value }))}
+            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Default — {globalReasoning || 'low'}</option>
+            {['none', 'low', 'medium', 'high', 'max'].map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-muted-foreground">
+            How hard the chat model thinks before answering. Not every model honors every
+            value — some can&apos;t stop thinking even on none.
+          </p>
+        </div>
         {ROLES.map((r) => (
           <div key={r.key} className="space-y-1.5">
             <label className="text-[13px] font-semibold" htmlFor={`override-${r.key}`}>
@@ -137,6 +162,7 @@ export function ModelOverrideDialog({
           onClick={() => {
             const next: ModelOverrides = {}
             for (const r of ROLES) if (picks[r.key]) next[r.key] = picks[r.key]
+            if (picks.reasoning) next.reasoning = picks.reasoning
             onSave(next)
           }}
         >

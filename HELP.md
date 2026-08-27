@@ -15,6 +15,11 @@ A chat always opens at its newest message, however long it is. Scroll up to read
 and a round **↓** button appears just above the box — click it to glide back down to
 the latest. It hides itself again once you're there.
 
+When the model reasons before answering, its thinking appears as a collapsed
+**Reasoning** card above the answer — expand it to watch the thought process, live or
+later (it's saved with the chat). The reasoning is scratch work, not part of the
+answer, and it's never sent back to the model on later turns.
+
 ## Chat modes
 
 Pills under the input choose the flavor: **Search** (default — grounded, looks
@@ -258,7 +263,9 @@ demote, delete, toggle image generation) and choose which Ollama models power ea
 role — main, research agents, vision, coding, and embeddings — from the Admin panel,
 applied instantly. Only the main model is mandatory: research, vision and coding can
 be set to "Same as main model", and a vision-capable main then reads images directly
-with no separate vision model. Admin → Search holds the Brave Search API key that powers web
+with no separate vision model. A Reasoning setting (default "low") controls how hard
+thinking models think before answering — none through max, or "default" to let the
+model decide; the per-chat flask dialog can pin a different effort for one chat. Admin → Search holds the Brave Search API key that powers web
 research (with SearXNG as the automatic fallback when no key is set or Brave is
 unavailable) and warns when that key stops working — a spent monthly credit makes
 answers quietly worse, so it says so there. Each person's project-file allowance can be
