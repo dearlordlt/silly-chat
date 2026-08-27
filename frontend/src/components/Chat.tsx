@@ -668,7 +668,21 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             patchLast((t) => ({ ...t, status: ev.message }))
             break
           case 'thinking_delta':
-            patchLast((t) => ({ ...t, thinking: (t.thinking ?? '') + ev.text }))
+            patchLast((t) => {
+              // A degenerate model can loop in its thinking forever ("locklocklock…").
+              // Cap what we keep: past this, every delta would re-render and later
+              // persist megabytes of garbage with the chat.
+              const cur = t.thinking ?? ''
+              if (cur.length >= 120_000) return t
+              const next = cur + ev.text
+              return {
+                ...t,
+                thinking:
+                  next.length >= 120_000
+                    ? next.slice(0, 120_000) + '\n\n… [reasoning truncated — the model kept going]'
+                    : next,
+              }
+            })
             break
           case 'agent_update':
             patchLast((t) => {

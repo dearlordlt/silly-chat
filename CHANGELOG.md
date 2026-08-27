@@ -4,6 +4,12 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.26.1 — 2026-08-27
+
+- Fixes: runaway reasoning is capped at ~120k characters — a model stuck repeating
+  itself in its thinking ("locklocklock…") no longer grows the chat without bound or
+  makes every streamed fragment re-render an ever-larger card.
+
 ## v1.26.0 — 2026-08-27
 
 - **The reasoning dial moved into the composer, for everyone.** A small brain chip
