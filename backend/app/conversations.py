@@ -150,10 +150,20 @@ def clean_model_overrides(raw: dict[str, str]) -> dict[str, str]:
 
 
 def _apply_model_overrides(c: Conversation, body_val: dict[str, str] | None, user: ApprovedUser) -> None:
-    # Admin-only: anyone else's value is dropped silently, same posture as
-    # /api/chat's mode degrade — never trust the client, never error on it.
-    if body_val is not None and user.role == "admin":
-        c.model_overrides = clean_model_overrides(body_val)
+    # Model pins are admin-only (dropped silently for anyone else, same posture as
+    # /api/chat's mode degrade). The reasoning dial is everyone's — it's the
+    # composer's per-chat knob — and a non-admin write touches ONLY that key, so it
+    # can never wipe an admin's pinned models.
+    if body_val is None:
+        return
+    clean = clean_model_overrides(body_val)
+    if user.role == "admin":
+        c.model_overrides = clean
+        return
+    kept = {k: v for k, v in (c.model_overrides or {}).items() if k != "reasoning"}
+    if "reasoning" in clean:
+        kept["reasoning"] = clean["reasoning"]
+    c.model_overrides = kept
 
 
 def _own(session: SessionDep, user: ApprovedUser, cid: str) -> Conversation:

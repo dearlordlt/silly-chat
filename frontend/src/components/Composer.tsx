@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUp, FileText, Link2, Loader2, Paperclip, Square, X } from 'lucide-react'
+import { ArrowUp, Brain, Check, FileText, Link2, Loader2, Paperclip, Square, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { Attachment, Mode } from '@/lib/types'
 import type { ConvSummary } from '@/lib/history'
 import { cn } from '@/lib/utils'
 import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { Button } from '@/components/ui/button'
+import { MenuItem, MenuLabel, MenuPanel } from '@/components/ui/menu'
 import { toast } from '@/components/ui/toast'
+
+// The reasoning dial's options; '' = the global default (shown with its value).
+const EFFORTS = ['none', 'low', 'medium', 'high', 'max']
 
 // The draft lives HERE, not in Chat. Typing is the most frequent render in the app,
 // and while the draft sat in Chat every keystroke re-rendered the whole view — the
@@ -36,6 +40,9 @@ export function Composer({
   onMode,
   onSend,
   onStop,
+  reasoning,
+  reasoningDefault,
+  onReasoning,
 }: {
   chatId: string
   busy: boolean
@@ -49,6 +56,9 @@ export function Composer({
   onMode: (m: Mode) => void
   onSend: (message: string, attachments: Attachment[]) => void
   onStop: () => void
+  reasoning: string // this chat's pinned effort; '' = follow the global default
+  reasoningDefault: string // the global default, for the dial's label
+  onReasoning: (v: string) => void
 }) {
   const [input, setInput] = useState('')
   const [attach, setAttach] = useState<Attachment[]>([]) // uploaded, ready to send
@@ -56,6 +66,7 @@ export function Composer({
   const [dragOver, setDragOver] = useState(false)
   // @-mention typeahead: start = index of the '@' in the input, sel = highlighted row.
   const [mention, setMention] = useState<{ start: number; query: string; sel: number } | null>(null)
+  const [effortMenu, setEffortMenu] = useState(false)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -317,6 +328,49 @@ export function Composer({
                 {m}
               </button>
             ))}
+            {/* Reasoning dial (per chat, applies from the next message): how hard a
+                thinking model thinks. '' rides the global default. */}
+            <div className="relative">
+              <button
+                onClick={() => setEffortMenu((o) => !o)}
+                title="How hard the model thinks before answering"
+                className={cn(
+                  'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                  reasoning ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent',
+                )}
+              >
+                <Brain className="size-3.5" />
+                <span className="hidden sm:inline">{reasoning || reasoningDefault}</span>
+              </button>
+              {effortMenu && (
+                <MenuPanel onClose={() => setEffortMenu(false)}>
+                  <MenuLabel>Reasoning</MenuLabel>
+                  <MenuItem
+                    selected={!reasoning}
+                    icon={!reasoning ? <Check /> : <span className="size-4" />}
+                    onClick={() => {
+                      onReasoning('')
+                      setEffortMenu(false)
+                    }}
+                  >
+                    Default — {reasoningDefault}
+                  </MenuItem>
+                  {EFFORTS.map((v) => (
+                    <MenuItem
+                      key={v}
+                      selected={reasoning === v}
+                      icon={reasoning === v ? <Check /> : <span className="size-4" />}
+                      onClick={() => {
+                        onReasoning(v)
+                        setEffortMenu(false)
+                      }}
+                    >
+                      {v}
+                    </MenuItem>
+                  ))}
+                </MenuPanel>
+              )}
+            </div>
           </div>
           {busy ? (
             <Button

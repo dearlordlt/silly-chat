@@ -300,6 +300,22 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     )
   }
 
+  // The composer's reasoning dial: everyone's knob, per chat, applies from the next
+  // message. '' = follow the global default. Rides the same overrides dict as the
+  // admin model pins; the server lets non-admins touch only this key.
+  function changeReasoning(v: string) {
+    const next = { ...modelOverridesRef.current }
+    if (v) next.reasoning = v
+    else delete next.reasoning
+    modelOverridesRef.current = next
+    setConvModelOverrides(next)
+    if (currentMode !== 'off' && turns.length > 0) {
+      setModelOverridesConv(currentId, currentMode === 'server' ? 'server' : 'local', next)
+        .then(refreshList)
+        .catch(() => {})
+    }
+  }
+
   // Link/unlink another chat as context. Persists immediately when this chat is
   // already saved; an empty/unsaved chat just keeps it in state until first save.
   function changeLinked(next: string[]) {
@@ -1187,6 +1203,9 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
             onMode={setSearchMode}
             onSend={(message, atts) => runTurn(message, turns, atts)}
             onStop={stopTurn}
+            reasoning={convModelOverrides.reasoning ?? ''}
+            reasoningDefault={meta?.reasoning || 'low'}
+            onReasoning={changeReasoning}
           />
         </div>
       </div>
@@ -1243,16 +1262,10 @@ function shortModel(name: string): string {
   return name.replace(/:[^:]+$/, '')
 }
 
-// The name a pinned chat's chip leads with: the chat model, else the first pinned
-// role, else the pinned reasoning effort alone.
+// The name a pinned chat's chip leads with — MODEL pins only. A reasoning-only
+// choice is an ordinary user setting shown on the composer dial, not a flask badge.
 export function pinnedModelName(mo: ModelOverrides): string | undefined {
-  return (
-    mo.orchestrator ??
-    mo.worker ??
-    mo.vision ??
-    mo.coder ??
-    (mo.reasoning ? `reasoning ${mo.reasoning}` : undefined)
-  )
+  return mo.orchestrator ?? mo.worker ?? mo.vision ?? mo.coder
 }
 
 // "chat: X · vision: Y" — only what's actually pinned.

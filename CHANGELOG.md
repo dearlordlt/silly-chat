@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.26.0 — 2026-08-27
+
+- **The reasoning dial moved into the composer, for everyone.** A small brain chip
+  next to the mode pills shows the current effort (the global default until you
+  change it); click it to pick none/low/medium/high/max for this chat — it applies
+  from your next message and sticks with the chat. Admins keep the global default in
+  Admin → Models; model pinning stays admin-only.
+
 ## v1.25.0 — 2026-08-27
 
 - **Reasoning, visible and tunable.** Thinking models' reasoning now streams into a

@@ -181,9 +181,12 @@ export function Sidebar({
           </button>
         )}
         {folder && <ProjectChip name={folder} />}
-        {Object.keys(c.modelOverrides ?? {}).length > 0 && (
-          <ModelChip overrides={c.modelOverrides!} />
-        )}
+        {/* Model pins only — a reasoning-only choice lives on the composer dial,
+            not as a flask badge. */}
+        {(c.modelOverrides?.orchestrator ||
+          c.modelOverrides?.worker ||
+          c.modelOverrides?.vision ||
+          c.modelOverrides?.coder) && <ModelChip overrides={c.modelOverrides} />}
         {moving ? (
           <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
             <Loader2 className="size-3 animate-spin" />

@@ -53,6 +53,7 @@ export type AppMeta = {
   compact_pct: number
   compact_keep_recent: number
   models: Record<string, string>
+  reasoning?: string // the global reasoning effort — the composer dial's "Default"
   context_window: number | null
 }
 

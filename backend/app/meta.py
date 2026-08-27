@@ -143,5 +143,7 @@ async def meta_endpoint(_: ApprovedUser) -> dict:
         "compact_pct": runtime.compact_pct(),
         "compact_keep_recent": get_settings().limits.compact_keep_recent,
         "models": runtime.current(),
+        # The global reasoning effort — the composer's dial shows it as "Default".
+        "reasoning": runtime.settings_view()["reasoning"],
         "context_window": await context_window(runtime.model_for("orchestrator")),
     }

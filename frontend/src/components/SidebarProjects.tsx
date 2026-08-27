@@ -270,12 +270,7 @@ export function ProjectChip({ name }: { name: string }) {
 /** Admin-only "models pinned to this chat" badge. Renders purely from the data —
  * only admin chats ever carry overrides, so no role check is needed here. */
 export function ModelChip({ overrides }: { overrides: ModelOverrides }) {
-  const name =
-    overrides.orchestrator ??
-    overrides.worker ??
-    overrides.vision ??
-    overrides.coder ??
-    (overrides.reasoning ? `reasoning ${overrides.reasoning}` : '')
+  const name = overrides.orchestrator ?? overrides.worker ?? overrides.vision ?? overrides.coder ?? ''
   const detail = (
     [
       ['orchestrator', 'chat'],

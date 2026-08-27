@@ -184,10 +184,15 @@ async def chat(
         q = user.image_quota if user.image_quota is not None else get_settings().images.weekly_quota
         image_quota = q if q > 0 else None
 
-    # Per-chat model swap is an admin test tool — same never-trust-the-client posture.
+    # Per-chat model pins are an admin test tool; the reasoning dial is everyone's.
+    # Same never-trust-the-client posture: non-admins keep only the reasoning key.
     from app.conversations import clean_model_overrides
 
-    model_overrides = clean_model_overrides(req.model_overrides) if user.role == "admin" else {}
+    model_overrides = clean_model_overrides(req.model_overrides)
+    if user.role != "admin":
+        model_overrides = (
+            {"reasoning": model_overrides["reasoning"]} if "reasoning" in model_overrides else {}
+        )
 
     async def event_generator():
         async for event in stream_chat(

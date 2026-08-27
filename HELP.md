@@ -20,6 +20,11 @@ When the model reasons before answering, its thinking appears as a collapsed
 later (it's saved with the chat). The reasoning is scratch work, not part of the
 answer, and it's never sent back to the model on later turns.
 
+The brain chip next to the mode pills controls how hard the model thinks: it shows
+the server's default until you pick your own — none, low, medium, high or max. Your
+choice applies from the next message and stays with that chat. Higher effort means
+slower but more careful answers; not every model honors every value.
+
 ## Chat modes
 
 Pills under the input choose the flavor: **Search** (default — grounded, looks
