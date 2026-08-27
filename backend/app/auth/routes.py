@@ -329,7 +329,13 @@ async def get_models(_: AdminUser) -> dict[str, Any]:
     from app import runtime
     from app.agent.models_catalog import available_models
 
-    return {"current": runtime.current(), "available": await available_models()}
+    # current = raw settings ("" on a helper role means "same as main"); resolved =
+    # what each role actually runs on — the UI needs both to render the choice.
+    return {
+        "current": runtime.settings_view(),
+        "resolved": runtime.current(),
+        "available": await available_models(),
+    }
 
 
 @admin_router.put("/models")

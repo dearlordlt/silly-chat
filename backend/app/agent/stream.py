@@ -200,24 +200,31 @@ async def stream_chat(
 ) -> AsyncIterator[StreamEvent]:
     from app import runtime
 
+    # A pinned main takes over the chat's unset helper roles (see runtime.model_for) —
+    # except vision when that main can't see: images must still reach eyes, so a
+    # blind pinned main keeps the globally configured vision model instead.
+    overrides = dict(model_overrides or {})
+    if overrides.get("orchestrator") and not overrides.get("vision"):
+        if "vision" not in await capabilities(overrides["orchestrator"]):
+            overrides["vision"] = runtime.model_for("vision")  # global resolution — contextvar not set yet
     # The per-chat swap rides a contextvar so every model_for() consumer this turn —
     # the agent build below, the look tools, telemetry, the done event — resolves the
     # effective model without threading a parameter everywhere. The run() task copies
     # this context at create_task time; reset is in the outer finally.
-    tok_models = runtime.turn_overrides.set(model_overrides or {})
+    tok_models = runtime.turn_overrides.set(overrides)
     attachments = attachments or []
     doc_chunks = doc_chunks or []
-    # A vision-capable chat model reads its images natively — no look-tool middleman
-    # re-describing the picture through another model. An explicit per-chat vision
-    # override means the admin wants the tool path (that's how you A/B a vision model).
+    # When the model that would answer look questions IS the main model, the tool is
+    # pointless indirection — attach the images natively instead. Pinning a DIFFERENT
+    # vision model keeps the tool path (that's how you A/B a vision model).
+    main = runtime.model_for("orchestrator")
     native_vision = bool(attachments) and (
-        "vision" in await capabilities(runtime.model_for("orchestrator"))
-        and "vision" not in (model_overrides or {})
+        runtime.model_for("vision") == main and "vision" in await capabilities(main)
     )
     if attachments:
         log.info(
-            "vision routing: native=%s orchestrator=%s", native_vision,
-            runtime.model_for("orchestrator"),
+            "vision routing: native=%s orchestrator=%s vision=%s",
+            native_vision, main, runtime.model_for("vision"),
         )
     # The "use the look tool first" nudge is only for images attached to THIS
     # message. Fallback images from earlier turns stay quietly available — the

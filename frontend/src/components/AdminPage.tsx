@@ -375,11 +375,13 @@ function UsersSection() {
 }
 
 
-const ROLES: { key: string; label: string; hint: string }[] = [
+// followMain: the role is a specialization — "" means "same as the main model".
+// Embeddings can't follow (a chat model makes no vectors); main IS the main.
+const ROLES: { key: string; label: string; hint: string; followMain?: boolean }[] = [
   { key: 'orchestrator', label: 'Main model', hint: 'Plans, delegates, and writes the final answer. Spend quality here.' },
-  { key: 'worker', label: 'Research agents', hint: 'Cheap, fast model the parallel research workers run on.' },
-  { key: 'vision', label: 'Vision', hint: 'Looks at images the user attaches (and verifies found images).' },
-  { key: 'coder', label: 'Coding', hint: 'Writes code when the user asks. Pick a strong coding model.' },
+  { key: 'worker', label: 'Research agents', hint: 'Cheap, fast model the parallel research workers run on.', followMain: true },
+  { key: 'vision', label: 'Vision', hint: 'Looks at images the user attaches (and verifies found images). Same as main: a vision-capable main reads images directly, no separate model.', followMain: true },
+  { key: 'coder', label: 'Coding', hint: 'Writes code when the user asks. Pick a strong coding model.', followMain: true },
   { key: 'embed', label: 'Embeddings', hint: 'Turns attached documents into searchable vectors. Use an embedding model.' },
 ]
 
@@ -434,6 +436,7 @@ function ModelsSection() {
                 }}
                 className="h-9 max-w-[60%] rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
+                {r.followMain && <option value="">Same as main model</option>}
                 {models[r.key] && !available.includes(models[r.key]) && (
                   <option value={models[r.key]}>{models[r.key]}</option>
                 )}

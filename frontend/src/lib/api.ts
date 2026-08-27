@@ -104,8 +104,14 @@ export type GalleryItem = {
   size: number
 }
 
-// Admin-only per-chat model swap; keys the backend honors are orchestrator | vision.
-export type ModelOverrides = { orchestrator?: string; vision?: string }
+// Admin-only per-chat model swap. Unset roles follow the pinned chat model (or the
+// global config when no chat model is pinned). Embeddings are global-only.
+export type ModelOverrides = {
+  orchestrator?: string
+  worker?: string
+  vision?: string
+  coder?: string
+}
 
 export type ServerConvSummary = {
   id: string
@@ -183,8 +189,13 @@ export const api = {
   setRole: (id: number, role: 'admin' | 'user') =>
     req<Me>('PUT', `/api/admin/users/${id}/role`, { role }),
   deleteUser: (id: number) => req<{ ok: boolean }>('DELETE', `/api/admin/users/${id}`),
+  // current = raw settings ("" on a helper role means "same as main");
+  // resolved = the model each role actually runs on right now.
   getModels: () =>
-    req<{ current: Record<string, string>; available: string[] }>('GET', '/api/admin/models'),
+    req<{ current: Record<string, string>; resolved: Record<string, string>; available: string[] }>(
+      'GET',
+      '/api/admin/models',
+    ),
   setModels: (models: Record<string, string>) =>
     req<Record<string, string>>('PUT', '/api/admin/models', models),
   getModelCaps: (name: string) =>

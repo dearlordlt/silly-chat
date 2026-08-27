@@ -12,6 +12,9 @@ from contextvars import ContextVar
 from app.config import get_settings
 
 ROLES = ("orchestrator", "worker", "vision", "coder", "embed")
+# Roles that may be left unset ("") to follow the main model. Embeddings can't —
+# a chat model doesn't produce embedding vectors; orchestrator IS the main model.
+FOLLOW_MAIN = ("worker", "vision", "coder")
 
 # Per-turn (per-chat) model overrides, set by stream_chat for admin test chats.
 # Sits above the admin DB override: per-chat > admin global > config.toml. A
@@ -39,7 +42,11 @@ def load_overrides() -> None:
         search_row = session.get(AppSetting, "search")
     _overrides.clear()
     if row:
-        _overrides.update({k: v for k, v in row.value.items() if k in ROLES and v})
+        # "" on a FOLLOW_MAIN role is an explicit setting ("same as main") that must
+        # shadow a non-empty config.toml value — so empties survive for those roles.
+        _overrides.update(
+            {k: v for k, v in row.value.items() if k in ROLES and (v or k in FOLLOW_MAIN)}
+        )
     _chat.clear()
     if chat_row:
         _chat.update({k: int(v) for k, v in chat_row.value.items() if isinstance(v, (int, float))})
@@ -200,11 +207,35 @@ def set_search(values: dict[str, str | None]) -> None:
 
 
 def model_for(role: str) -> str:
-    return turn_overrides.get().get(role) or _overrides.get(role) or getattr(get_settings().models, role)
+    """The effective model for a role. Only the main model is mandatory; the helper
+    roles are specializations — unset means "same as main" at whichever layer:
+
+    chat pin > chat's pinned main > admin setting > config.toml > the main model
+    """
+    turn = turn_overrides.get()
+    v = turn.get(role, "")
+    if v:
+        return v
+    # A chat that pins its main model takes over the unset helper roles too — the
+    # test bench isolates the whole chat, not just the final answer. (stream_chat
+    # pre-resolves vision for blind mains before setting the contextvar.)
+    if role in FOLLOW_MAIN and turn.get("orchestrator"):
+        return turn["orchestrator"]
+    base = _overrides[role] if role in _overrides else getattr(get_settings().models, role)
+    if not base and role in FOLLOW_MAIN:
+        return _overrides.get("orchestrator") or get_settings().models.orchestrator
+    return base
 
 
 def current() -> dict[str, str]:
+    """Resolved view: the model each role actually runs on right now (globals only)."""
     return {role: model_for(role) for role in ROLES}
+
+
+def settings_view() -> dict[str, str]:
+    """Raw view for the admin page: "" on a helper role means "same as main" —
+    distinct from the resolved name, so the select can show the choice itself."""
+    return {role: _overrides[role] if role in _overrides else getattr(get_settings().models, role) for role in ROLES}
 
 
 def set_overrides(models: dict[str, str]) -> dict[str, str]:
@@ -213,7 +244,7 @@ def set_overrides(models: dict[str, str]) -> dict[str, str]:
     from app.db import engine
     from app.models import AppSetting
 
-    clean = {k: v for k, v in models.items() if k in ROLES and v}
+    clean = {k: v for k, v in models.items() if k in ROLES and (v or k in FOLLOW_MAIN)}
     with Session(engine) as session:
         row = session.get(AppSetting, "models") or AppSetting(key="models", value={})
         row.value = clean
@@ -221,4 +252,4 @@ def set_overrides(models: dict[str, str]) -> dict[str, str]:
         session.commit()
     _overrides.clear()
     _overrides.update(clean)
-    return current()
+    return settings_view()

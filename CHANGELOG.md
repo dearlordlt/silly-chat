@@ -4,6 +4,19 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.24.0 — 2026-08-27
+
+- **Only the main model is mandatory now.** Research, Vision and Coding can be set to
+  "Same as main model" in Admin → Models — a specialization you opt into, not a form
+  you must fill. With a vision-capable main and Vision on "same as main", images go
+  straight to the main model for everyone. (Embeddings still needs a real embedding
+  model.)
+- **Per-chat pins cover every role.** The flask dialog now pins the chat, research,
+  vision and coding models individually — and roles you leave on Default follow the
+  pinned chat model, so one pin moves the whole chat onto one brain. Exception with
+  its own safety: pin a chat model that can't see, and images keep going through the
+  globally configured vision model instead of a blind one.
+
 ## v1.23.1 — 2026-08-27
 
 - Fixes: native vision no longer offers the look tool — a vision-capable chat model

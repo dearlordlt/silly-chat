@@ -133,9 +133,9 @@ def _utc(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-# The two roles a chat may override; worker/embed stay global — they're plumbing,
-# not personality, and per-chat knobs should stay few.
-_OVERRIDABLE = ("orchestrator", "vision")
+# Roles a chat may pin. Embeddings stay global: chunks are embedded at upload time,
+# so a per-chat embedder would never match the stored vectors.
+_OVERRIDABLE = ("orchestrator", "worker", "vision", "coder")
 
 
 def clean_model_overrides(raw: dict[str, str]) -> dict[str, str]:

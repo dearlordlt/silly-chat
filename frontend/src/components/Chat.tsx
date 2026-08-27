@@ -901,21 +901,21 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
               <button
                 onClick={() => setModelDialogOpen(true)}
                 title={
-                  convModelOverrides.orchestrator || convModelOverrides.vision
-                    ? `Models pinned to this chat — chat: ${convModelOverrides.orchestrator ?? 'default'} · vision: ${convModelOverrides.vision ?? 'default'}`
+                  pinnedModelName(convModelOverrides)
+                    ? `Models pinned to this chat — ${pinnedModelTitle(convModelOverrides)}`
                     : 'Pin different models to this chat (admin)'
                 }
                 className={cn(
                   'hidden shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground sm:flex',
-                  convModelOverrides.orchestrator || convModelOverrides.vision
+                  pinnedModelName(convModelOverrides)
                     ? 'border-primary/40 bg-primary/10 text-primary'
                     : 'bg-muted text-muted-foreground',
                 )}
               >
                 <FlaskConical className="size-3" />
-                {(convModelOverrides.orchestrator || convModelOverrides.vision) && (
+                {pinnedModelName(convModelOverrides) && (
                   <span className="max-w-[8rem] truncate">
-                    {shortModel(convModelOverrides.orchestrator ?? convModelOverrides.vision!)}
+                    {shortModel(pinnedModelName(convModelOverrides)!)}
                   </span>
                 )}
               </button>
@@ -1234,6 +1234,25 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
 // "glm-5.3-flash:cloud" → "glm-5.3-flash" — chips have no room for the tag.
 function shortModel(name: string): string {
   return name.replace(/:[^:]+$/, '')
+}
+
+// The name a pinned chat's chip leads with: the chat model, else the first pinned role.
+export function pinnedModelName(mo: ModelOverrides): string | undefined {
+  return mo.orchestrator ?? mo.worker ?? mo.vision ?? mo.coder
+}
+
+// "chat: X · vision: Y" — only the roles that are actually pinned.
+export function pinnedModelTitle(mo: ModelOverrides): string {
+  const names: [keyof ModelOverrides, string][] = [
+    ['orchestrator', 'chat'],
+    ['worker', 'research'],
+    ['vision', 'vision'],
+    ['coder', 'coding'],
+  ]
+  return names
+    .filter(([k]) => mo[k])
+    .map(([k, label]) => `${label}: ${mo[k]}`)
+    .join(' · ')
 }
 
 // "14:32" today, "Jul 9 · 14:32" otherwise — subtle per-message timestamps.

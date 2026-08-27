@@ -270,10 +270,21 @@ export function ProjectChip({ name }: { name: string }) {
 /** Admin-only "models pinned to this chat" badge. Renders purely from the data —
  * only admin chats ever carry overrides, so no role check is needed here. */
 export function ModelChip({ overrides }: { overrides: ModelOverrides }) {
-  const name = overrides.orchestrator ?? overrides.vision ?? ''
+  const name = overrides.orchestrator ?? overrides.worker ?? overrides.vision ?? overrides.coder ?? ''
+  const detail = (
+    [
+      ['orchestrator', 'chat'],
+      ['worker', 'research'],
+      ['vision', 'vision'],
+      ['coder', 'coding'],
+    ] as [keyof ModelOverrides, string][]
+  )
+    .filter(([k]) => overrides[k])
+    .map(([k, label]) => `${label}: ${overrides[k]}`)
+    .join(' · ')
   return (
     <span
-      title={`Models pinned to this chat — chat: ${overrides.orchestrator ?? 'default'} · vision: ${overrides.vision ?? 'default'}`}
+      title={`Models pinned to this chat — ${detail}`}
       className="flex max-w-[6rem] shrink-0 items-center gap-1 text-[11px] text-primary"
     >
       <FlaskConical className="size-3 shrink-0" />

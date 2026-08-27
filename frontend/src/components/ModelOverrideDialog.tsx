@@ -1,14 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Eye, FlaskConical } from 'lucide-react'
+import { Eye, EyeOff, FlaskConical } from 'lucide-react'
 import { api, type ModelOverrides } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { DialogHeader, Overlay } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/toast'
 
-/** Admin-only per-chat model swap — a test bench, not a user setting. "Default"
- * (empty) means the globally configured model for that role; picking one pins it
- * for THIS chat only. A vision-capable chat model reads images itself, so its
- * chats skip the separate vision model unless one is explicitly pinned here. */
+// The pinnable roles (embeddings stay global: chunks are embedded at upload time,
+// so a per-chat embedder would never match the stored vectors).
+const ROLES: { key: keyof ModelOverrides; label: string; hint: string }[] = [
+  { key: 'orchestrator', label: 'Chat model', hint: '' },
+  { key: 'worker', label: 'Research agents', hint: 'The parallel research workers.' },
+  { key: 'vision', label: 'Vision', hint: 'Answers questions about attached images when the chat model can’t see them itself.' },
+  { key: 'coder', label: 'Coding', hint: 'Writes code artifacts.' },
+]
+
+/** Admin-only per-chat model swap — a test bench, not a user setting. Only what you
+ * pin changes: unset roles follow the pinned chat model (so one pin moves the whole
+ * chat onto one brain), or the global config when no chat model is pinned. A
+ * vision-capable chat model reads images itself; a blind one keeps the global
+ * vision model even when pinned. */
 export function ModelOverrideDialog({
   current,
   onSave,
@@ -19,10 +29,14 @@ export function ModelOverrideDialog({
   onClose: () => void
 }) {
   const [available, setAvailable] = useState<string[]>([])
-  const [globals, setGlobals] = useState<Record<string, string>>({})
-  const [chat, setChat] = useState(current.orchestrator ?? '')
-  const [vision, setVision] = useState(current.vision ?? '')
-  // Capability tags of the picked chat model — drives the "can see images" hint.
+  const [resolved, setResolved] = useState<Record<string, string>>({})
+  const [picks, setPicks] = useState<Record<string, string>>({
+    orchestrator: current.orchestrator ?? '',
+    worker: current.worker ?? '',
+    vision: current.vision ?? '',
+    coder: current.coder ?? '',
+  })
+  // Capability tags of the picked chat model — drives the vision hint.
   const [chatCaps, setChatCaps] = useState<string[] | null>(null)
 
   useEffect(() => {
@@ -30,11 +44,12 @@ export function ModelOverrideDialog({
       .getModels()
       .then((d) => {
         setAvailable(d.available)
-        setGlobals(d.current)
+        setResolved(d.resolved)
       })
       .catch((e) => toast.error(String((e as Error).message ?? e)))
   }, [])
 
+  const chat = picks.orchestrator
   useEffect(() => {
     if (!chat) {
       setChatCaps(null)
@@ -52,28 +67,16 @@ export function ModelOverrideDialog({
 
   const chatSees = !!chatCaps?.includes('vision')
 
-  function select(
-    id: string,
-    value: string,
-    onChange: (v: string) => void,
-    defaultName: string | undefined,
-  ) {
-    return (
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <option value="">Default{defaultName ? ` — ${defaultName}` : ''}</option>
-        {value && !available.includes(value) && <option value={value}>{value}</option>}
-        {available.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-      </select>
-    )
+  // What "Default" means for a helper role right now: the pinned chat model takes
+  // over unset roles; without a pin they run on the global configuration.
+  function defaultLabel(key: string): string {
+    if (key === 'orchestrator') return `Default — ${resolved.orchestrator ?? ''}`
+    if (chat) {
+      if (key === 'vision' && chatCaps && !chatSees)
+        return `Default — ${resolved.vision ?? ''} (chat model can’t see)`
+      return 'Default — follows the chat model'
+    }
+    return `Default — ${resolved[key] ?? ''}`
   }
 
   return (
@@ -83,33 +86,48 @@ export function ModelOverrideDialog({
         <p className="flex items-start gap-2 text-[12px] text-muted-foreground">
           <FlaskConical className="mt-0.5 size-3.5 shrink-0 text-primary" />
           <span>
-            Admin test bench: pins different models to this chat only. Everyone else and
-            every other chat keeps the global configuration.
+            Admin test bench: pins models to this chat only. Roles you leave on Default
+            follow the pinned chat model — one pin moves the whole chat onto one model.
           </span>
         </p>
-        <div className="space-y-1.5">
-          <label className="text-[13px] font-semibold" htmlFor="override-chat">
-            Chat model
-          </label>
-          {select('override-chat', chat, setChat, globals.orchestrator)}
-          {chatSees && (
-            <p className="flex items-center gap-1.5 text-[11px] text-success">
-              <Eye className="size-3.5" />
-              This model can see images — it reads attachments itself, so no separate
-              vision model runs{vision ? ' (unless one is pinned below)' : ''}.
-            </p>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-[13px] font-semibold" htmlFor="override-vision">
-            Vision model
-          </label>
-          {select('override-vision', vision, setVision, globals.vision)}
-          <p className="text-[11px] text-muted-foreground">
-            Answers the look tool&apos;s questions about attached images. Pinning one keeps
-            the tool path even when the chat model could see for itself.
-          </p>
-        </div>
+        {ROLES.map((r) => (
+          <div key={r.key} className="space-y-1.5">
+            <label className="text-[13px] font-semibold" htmlFor={`override-${r.key}`}>
+              {r.label}
+            </label>
+            <select
+              id={`override-${r.key}`}
+              value={picks[r.key]}
+              onChange={(e) => setPicks((p) => ({ ...p, [r.key]: e.target.value }))}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">{defaultLabel(r.key)}</option>
+              {picks[r.key] && !available.includes(picks[r.key]) && (
+                <option value={picks[r.key]}>{picks[r.key]}</option>
+              )}
+              {available.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            {r.key === 'orchestrator' && chatCaps && (
+              <p
+                className={
+                  chatSees
+                    ? 'flex items-center gap-1.5 text-[11px] text-success'
+                    : 'flex items-center gap-1.5 text-[11px] text-muted-foreground'
+                }
+              >
+                {chatSees ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+                {chatSees
+                  ? 'This model can see images — it reads attachments itself, so no separate vision model runs.'
+                  : 'This model can’t see images — attached images keep going through the vision model below.'}
+              </p>
+            )}
+            {r.hint && <p className="text-[11px] text-muted-foreground">{r.hint}</p>}
+          </div>
+        ))}
       </div>
       <div className="flex justify-end gap-2 border-t px-5 py-3.5">
         <Button variant="outline" onClick={onClose}>
@@ -118,8 +136,7 @@ export function ModelOverrideDialog({
         <Button
           onClick={() => {
             const next: ModelOverrides = {}
-            if (chat) next.orchestrator = chat
-            if (vision) next.vision = vision
+            for (const r of ROLES) if (picks[r.key]) next[r.key] = picks[r.key]
             onSave(next)
           }}
         >

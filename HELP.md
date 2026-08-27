@@ -256,7 +256,9 @@ fine print: messages are necessarily readable by the server *while it answers yo
 New registrations wait for an admin's approval. Admins manage users (approve, promote,
 demote, delete, toggle image generation) and choose which Ollama models power each
 role — main, research agents, vision, coding, and embeddings — from the Admin panel,
-applied instantly. Admin → Search holds the Brave Search API key that powers web
+applied instantly. Only the main model is mandatory: research, vision and coding can
+be set to "Same as main model", and a vision-capable main then reads images directly
+with no separate vision model. Admin → Search holds the Brave Search API key that powers web
 research (with SearXNG as the automatic fallback when no key is set or Brave is
 unavailable) and warns when that key stops working — a spent monthly credit makes
 answers quietly worse, so it says so there. Each person's project-file allowance can be
@@ -266,10 +268,12 @@ tokens per model and images generated, filterable by period (today, last days, w
 month) — counts only, never what anyone wrote.
 
 Admins can also pin different models to a single chat: the flask button in the chat
-header picks a chat and/or vision model for that conversation only — handy for trying
-a new model without changing it for everyone. Pinned chats carry a small flask badge
-in the chats list. If the pinned chat model can see images itself, attachments go
-straight to it and no separate vision model runs.
+header picks the chat, research, vision and coding models for that conversation only —
+handy for trying a new model without changing it for everyone. Roles left on Default
+follow the pinned chat model, so pinning just the chat model moves the whole
+conversation onto it. Pinned chats carry a small flask badge in the chats list. If the
+pinned chat model can see images itself, attachments go straight to it and no separate
+vision model runs; if it can't, images keep going through the configured vision model.
 
 ## Install as an app
 

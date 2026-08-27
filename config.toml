@@ -12,12 +12,14 @@ base_url = "http://localhost:11434/v1"
 # On a dev box using the local daemon, pick the ":cloud"-aliased (or local) models in
 # the Admin panel instead — admin overrides live in the DB and win over these.
 # Must be tool-capable. Orchestrator is where to spend on quality (routing/decomposition).
+# It's the only mandatory model: the helper roles below may be "" (= same as main).
 orchestrator = "deepseek-v4-pro"
-# Cheap, fast model the parallel research workers run on.
+# Cheap, fast model the parallel research workers run on. "" = same as main.
 worker = "deepseek-v4-flash"
 # Must be vision-capable (gemma3/gemma4 are the multimodal family on Ollama Cloud).
+# "" = same as main — with a vision-capable main, images then go straight to it.
 vision = "gemma4:31b"
-# Writes code when the user asks for it; pick a strong coding model.
+# Writes code when the user asks for it; pick a strong coding model. "" = same as main.
 coder = "glm-5.2"
 # Embedding model for document RAG. Ollama Cloud serves NO embedding models — this
 # runs on the local embed appliance (see [ollama].embed_base_url / compose `embed`

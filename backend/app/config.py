@@ -31,11 +31,12 @@ class OllamaCfg(BaseModel):
 
 
 class ModelsCfg(BaseModel):
-    orchestrator: str
-    worker: str
-    vision: str
-    coder: str
-    embed: str  # embedding model for document RAG
+    orchestrator: str  # the main model — the only mandatory one
+    # Helper roles are specializations: "" (or omitted) = same as the main model.
+    worker: str = ""
+    vision: str = ""
+    coder: str = ""
+    embed: str  # embedding model for document RAG — a chat model can't do this job
 
 
 class SearchCfg(BaseModel):
