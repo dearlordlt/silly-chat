@@ -589,13 +589,16 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
     runTurn(message, base)
   }
 
-  // Re-run the last user message (e.g. after a failed reply) without retyping.
-  function retry() {
+  // Re-run the user message that produced the answer at `index` — same text, same
+  // attachments. That answer and everything after it are dropped (a different reply
+  // changes the context of every later turn), the same contract as editing a message.
+  function retryFrom(index: number) {
     if (busy) return
-    const idx = turns.reduce((acc, t, i) => (t.role === 'user' ? i : acc), -1)
-    const last = turns[idx]
-    if (idx < 0 || last.role !== 'user') return
-    runTurn(last.text, turns.slice(0, idx), last.attachments ?? [])
+    let u = index
+    while (u >= 0 && turns[u].role !== 'user') u--
+    const q = turns[u]
+    if (u < 0 || q.role !== 'user') return
+    runTurn(q.text, turns.slice(0, u), q.attachments ?? [])
   }
 
   // Run one turn: append the user message to `base` and stream the reply, with
@@ -1154,6 +1157,22 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                   {turn.ts != null && !turn.status && (
                     <div className="flex items-center gap-2">
                       <p className="text-[10px] text-muted-foreground/70">{fmtTime(turn.ts)}</p>
+                      {/* Retry on ANY answer — stopped, looped or just disappointing.
+                          Same contract as editing: later turns are dropped with it. */}
+                      {!busy && (
+                        <button
+                          onClick={() => retryFrom(i)}
+                          title={
+                            i < turns.length - 1
+                              ? 'Retry — regenerates this answer and drops everything after it'
+                              : 'Retry this answer'
+                          }
+                          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100 [&_svg]:size-3"
+                        >
+                          <RotateCw />
+                          Retry
+                        </button>
+                      )}
                       {turn.slots.some((s) => s.kind === 'filled') && !busy && (
                         <ExportButtons
                           subtle
@@ -1174,11 +1193,11 @@ export function Chat({ me, onLogout }: { me: Me; onLogout: () => void }) {
                         <span className="font-semibold text-destructive">Something went wrong.</span>{' '}
                         <span className="text-muted-foreground">{turn.error}</span>
                       </div>
-                      {i === turns.length - 1 && !busy && (
+                      {!busy && (
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={retry}
+                          onClick={() => retryFrom(i)}
                           className="shrink-0 rounded-full"
                         >
                           <RotateCw />

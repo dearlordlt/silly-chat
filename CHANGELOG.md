@@ -4,6 +4,15 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.27.0 — 2026-08-27
+
+- **Retry on every answer.** Hover any answer and a Retry appears next to its
+  timestamp — stopped turns, looped turns, broken connections, or an answer that's
+  just not it. It re-asks the same question with the same attachments; retrying an
+  older answer drops it and everything after (a different reply changes the context
+  of every later turn — the same contract as editing a message). The Retry on error
+  rows now works on older errors too, not only the last one.
+
 ## v1.26.2 — 2026-08-27
 
 - Fixes: a reasoning loop now stops the turn within seconds. When a model degenerates

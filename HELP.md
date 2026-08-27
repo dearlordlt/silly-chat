@@ -25,6 +25,11 @@ the server's default until you pick your own — none, low, medium, high or max.
 choice applies from the next message and stays with that chat. Higher effort means
 slower but more careful answers; not every model honors every value.
 
+Not happy with an answer — or the turn stopped or broke? Hover it and click **Retry**
+next to the timestamp: the same question is asked again as if freshly sent. Retrying
+an older answer also removes everything that came after it, since those turns were
+built on the old reply.
+
 ## Chat modes
 
 Pills under the input choose the flavor: **Search** (default — grounded, looks
