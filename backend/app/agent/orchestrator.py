@@ -24,6 +24,7 @@ Mode = Literal["search", "chat", "code", "images"]
 def build_orchestrator(
     mode: Mode = "search", timezone: str | None = None, image_gen: bool = False,
     project_prompt: str = "", project_files: str = "",
+    native_vision: bool = False,
 ) -> Agent[None, Reply]:
     from app.meta import genome
 
@@ -48,6 +49,6 @@ def build_orchestrator(
         # (NativeOutput's constrained decoding breaks tool calling entirely.)
         output_type=PromptedOutput(Reply),
         instructions=instructions,
-        tools=build_tools(image_gen),
+        tools=build_tools(image_gen, native_vision=native_vision),
         retries=limits.output_retries,
     )

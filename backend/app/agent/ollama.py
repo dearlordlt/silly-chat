@@ -25,19 +25,18 @@ def _provider() -> OllamaProvider:
 
 
 # model name -> raw /api/show payload, the source for context window and
-# capabilities. {} is cached too: an unreachable endpoint shouldn't be re-probed
-# every turn.
+# capabilities. Only successful probes are cached: a transient failure must not
+# quietly pin "no capabilities" (= no native vision) until the next restart.
 _show_cache: dict[str, dict] = {}
 
 
 async def _show(name: str) -> dict:
     """The Ollama /api/show metadata for a model (works for the local daemon and
-    Ollama Cloud alike). {} when the endpoint doesn't answer."""
+    Ollama Cloud alike). {} when the endpoint doesn't answer (not cached)."""
     if name in _show_cache:
         return _show_cache[name]
     s = get_settings()
     base = s.ollama.base_url.removesuffix("/v1").rstrip("/")
-    data: dict = {}
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.post(
@@ -49,6 +48,7 @@ async def _show(name: str) -> dict:
             data = resp.json()
     except Exception as exc:
         log.info("model metadata lookup failed for %s: %s", name, exc)
+        return {}
     _show_cache[name] = data
     return data
 

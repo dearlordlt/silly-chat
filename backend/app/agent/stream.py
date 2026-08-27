@@ -214,6 +214,11 @@ async def stream_chat(
         "vision" in await capabilities(runtime.model_for("orchestrator"))
         and "vision" not in (model_overrides or {})
     )
+    if attachments:
+        log.info(
+            "vision routing: native=%s orchestrator=%s", native_vision,
+            runtime.model_for("orchestrator"),
+        )
     # The "use the look tool first" nudge is only for images attached to THIS
     # message. Fallback images from earlier turns stay quietly available — the
     # history's vision notes usually already answer the question.
@@ -272,7 +277,10 @@ async def stream_chat(
             + "\n\n".join(chunks)
         )
 
-    agent = build_orchestrator(effective_mode, timezone, image_gen, project_prompt, project_files)
+    agent = build_orchestrator(
+        effective_mode, timezone, image_gen, project_prompt, project_files,
+        native_vision=native_vision,
+    )
     message_history = _build_history(
         history or [],
         "\n\n".join(x for x in (artifact_context, context) if x) or None,

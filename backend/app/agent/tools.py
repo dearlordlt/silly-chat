@@ -979,16 +979,22 @@ async def show_map(
         return f"(map failed: {exc})"
 
 
-def build_tools(image_gen: bool = False) -> list[Tool]:
+def build_tools(image_gen: bool = False, native_vision: bool = False) -> list[Tool]:
     tools = [
         Tool(research, name="research", description=get_prompt("tools/research")),
         Tool(find_images, name="find_images", description=get_prompt("tools/find_images")),
         Tool(write_code, name="write_code", description=get_prompt("tools/write_code")),
         Tool(make_document, name="make_document", description=get_prompt("tools/make_document")),
-        Tool(look, name="look", description=get_prompt("tools/look")),
         Tool(search_document, name="search_document", description=get_prompt("tools/search_document")),
         Tool(show_map, name="show_map", description=get_prompt("tools/show_map")),
     ]
+    # Native vision: the attachments ride inside the user message, so the look tool
+    # would just re-describe through the (other) vision model what the orchestrator
+    # already sees. Merely hinting "you can see them" isn't enough — an offered look
+    # tool still gets called ("what is in the image?" reads like a job for it) — so
+    # on native turns the tool simply isn't there.
+    if not native_vision:
+        tools.append(Tool(look, name="look", description=get_prompt("tools/look")))
     # Per-user feature (admin-granted) — only offered to users who may use it.
     if image_gen:
         tools.append(

@@ -4,6 +4,14 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.23.1 — 2026-08-27
+
+- Fixes: native vision no longer offers the look tool — a vision-capable chat model
+  was reading the image itself and then redundantly calling the vision model anyway,
+  which showed as an agent row and a second model in the header. Failed capability
+  probes are no longer cached, so a transient hiccup can't silently disable native
+  vision until the next restart. Image turns log their routing decision.
+
 ## v1.23.0 — 2026-08-27
 
 - **Per-chat models (admin).** A flask button in the chat header pins a different
