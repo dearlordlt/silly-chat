@@ -67,7 +67,7 @@ from app.schema import (
 from app.agent.images import ImageFetchError, fetch_image_bytes, guess_media_type
 from app.agent.ollama import coder_model, vision_model, worker_model
 from app.config import get_settings
-from app.logging_setup import get_logger
+from app.logging_setup import describe_exc, get_logger, pv
 from app.prompts.registry import get_prompt
 from app.schema import Source
 
@@ -158,7 +158,7 @@ async def _run_worker(subtask: str) -> Finding:
         )
     except Exception as exc:  # one worker failing shouldn't sink the whole answer
         agent_update(aid, status="Failed", state="error")
-        log.warning("worker failed [%s] %r: %s", aid, subtask[:60], exc)
+        log.warning("worker failed [%s] %s: %s", aid, pv(subtask), describe_exc(exc))
         return Finding(subtask=subtask, summary=f"(could not research: {exc})")
     finally:
         agent_var.reset(token)
@@ -182,7 +182,7 @@ async def research(subtasks: list[str]) -> list[Finding]:
                 ),
             )
         ]
-    log.info("research: %d subtask(s): %s", len(subtasks), [s[:40] for s in subtasks])
+    log.info("research: %d subtask(s): %s", len(subtasks), [pv(s) for s in subtasks])
     findings = list(await asyncio.gather(*(_run_worker(s) for s in subtasks)))
     record_findings([(f.subtask, f.summary) for f in findings])
     return findings
@@ -455,7 +455,7 @@ async def write_code(task: str, language: str = "code", artifact_id: str = "") -
         )
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
-        log.warning("coder failed: %s", exc)
+        log.warning("coder failed: %s", describe_exc(exc))
         return f"(could not write code: {exc})"
 
 
@@ -502,7 +502,7 @@ async def make_document(title: str, content_markdown: str) -> str:
         )
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
-        log.warning("make_document failed: %s", exc)
+        log.warning("make_document failed: %s", describe_exc(exc))
         return f"(could not create the document: {exc})"
 
 
@@ -692,7 +692,7 @@ async def generate_image(
         )
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
-        log.warning("generate_image failed: %s", exc)
+        log.warning("generate_image failed: %s", describe_exc(exc))
         return (
             f"IMAGE GENERATION FAILED — no image was created and the user sees NOTHING. "
             f"Reason: {exc}. Tell the user plainly that the image failed and why. Do NOT "
@@ -755,7 +755,7 @@ async def edit_image(instruction: str, source: str = "generated") -> str:
         )
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
-        log.warning("edit_image failed: %s", exc)
+        log.warning("edit_image failed: %s", describe_exc(exc))
         return (
             f"IMAGE EDIT FAILED — no image was created and the user sees NOTHING. "
             f"Reason: {exc}. Tell the user plainly that the edit failed and why. Do NOT "
@@ -793,7 +793,7 @@ async def look_generated(question: str, count: int = 1) -> str:
         return str(r.output) + (f"\n\n(Generation prompt(s), newest first: {prompts})" if prompts else "")
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
-        log.warning("look_generated failed: %s", exc)
+        log.warning("look_generated failed: %s", describe_exc(exc))
         return f"(could not view the generated image: {exc})"
 
 
@@ -840,7 +840,7 @@ async def look(question: str) -> str:
         return str(r.output)
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
-        log.warning("look failed: %s", exc)
+        log.warning("look failed: %s", describe_exc(exc))
         return f"(could not view the image: {exc})"
 
 
@@ -863,7 +863,7 @@ def _project_chunks() -> list[tuple[str, bytes]]:
     try:
         chunks = load_chunks(pid, user_var.get() or 0, dk_var.get())
     except Exception as exc:  # a broken project shouldn't take the turn down
-        log.warning("project chunks failed: %s", exc)
+        log.warning("project chunks failed: %s", describe_exc(exc))
         chunks = []
     project_docs_var.set(chunks)
     return chunks
@@ -886,7 +886,7 @@ async def search_document(query: str) -> str:
         return "\n\n---\n\n".join(passages) if passages else "Nothing relevant found in the document."
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
-        log.warning("search_document failed: %s", exc)
+        log.warning("search_document failed: %s", describe_exc(exc))
         return f"(could not search the document: {exc})"
 
 
@@ -975,7 +975,7 @@ async def show_map(
         return " ".join(parts)
     except Exception as exc:
         agent_update(aid, status="Failed", state="error")
-        log.warning("show_map failed: %s", exc)
+        log.warning("show_map failed: %s", describe_exc(exc))
         return f"(map failed: {exc})"
 
 

@@ -346,7 +346,7 @@ async def upload_file(
     up, n = await ingest_doc(
         session, user.id, raw, name, file.content_type or "", dk, project_id=pid
     )
-    log.info("project %s: +%s (%d chunks)", pid, name, n)
+    log.info("project %s: +doc %s (%d chunks)", pid, up.id, n)
     return {"file": _file_out(session, up).model_dump(mode="json"),
             "quota": _quota(session, user).model_dump()}
 

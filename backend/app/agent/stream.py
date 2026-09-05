@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
+import traceback
 from collections.abc import AsyncIterator
 
 from pydantic_ai import RunContext, capture_run_messages
@@ -60,7 +62,7 @@ from app.agent.activity import (
 from app.agent.clock import tz_var
 from app.agent.ollama import capabilities, orchestrator_model
 from app.agent.orchestrator import Mode, build_orchestrator, reasoning_settings
-from app.logging_setup import get_logger
+from app.logging_setup import describe_exc, get_logger, pv
 from app.schema import CodeBlock, GalleryBlock, Reply, TextBlock
 from app.usage import record_llm
 from app.schema import (
@@ -130,16 +132,22 @@ _MIN_HISTORY = 4  # newest messages always kept, whatever their size
 
 
 def _describe(messages) -> str:
-    """Compactly render the last few model messages for diagnostics."""
+    """Compactly render the shape of the last few model messages for diagnostics.
+
+    Tool names stay verbatim (they're ours); message/tool content goes through
+    pv() so the trace shows structure without leaking text into the logs.
+    """
     out = []
     for m in messages[-3:]:
         parts = []
         for p in getattr(m, "parts", []):
             name = type(p).__name__
+            tool = getattr(p, "tool_name", "")
             detail = getattr(p, "content", None)
             if detail is None:
-                detail = getattr(p, "args", None) or getattr(p, "tool_name", "")
-            parts.append(f"{name}({str(detail)[:160]!r})")
+                detail = getattr(p, "args", None)
+            label = f"{name}[{tool}]" if tool else name
+            parts.append(f"{label}({pv(detail) if detail is not None else ''})")
         out.append(f"{type(m).__name__}: {', '.join(parts)}")
     return " || ".join(out)
 
@@ -456,9 +464,10 @@ async def stream_chat(
         tok_p = project_var.set(project_id)
         tok_pp = project_prompt_var.set(project_prompt)
         tok_pd = project_docs_var.set(None)
+        t0 = time.monotonic()
         log.info(
-            "turn start: mode=%s history=%d reasoning=%s msg=%r",
-            mode, len(history or []), runtime.reasoning_effort(), message[:120],
+            "turn start: mode=%s history=%d reasoning=%s msg=%s",
+            mode, len(history or []), runtime.reasoning_effort(), pv(message),
         )
         # Native vision: the images ride IN the user message (fallback ones from
         # earlier turns too, so "the picture I sent" keeps working). The tool path
@@ -494,13 +503,24 @@ async def stream_chat(
                     # Surface what the model produced, then salvage the research into a
                     # plain-text answer instead of failing the whole turn.
                     log.error("model trace: %s", _describe(messages))
-                    log.warning("structured output failed (%s) — using text fallback", primary)
+                    log.warning(
+                        "structured output failed (%s) — using text fallback", describe_exc(primary)
+                    )
                     emit(AgentStatusEvent(message="Writing the answer…"))
                     output = await _text_fallback(message, findings, message_history)
-            log.info("turn ok: %d block(s), %d source(s)", len(output.blocks), len(sources))
+            log.info(
+                "turn ok: %d block(s), %d source(s), %.1fs, tokens in=%s out=%s",
+                len(output.blocks), len(sources), time.monotonic() - t0,
+                stats.get("input_tokens", "?"), stats.get("output_tokens", "?"),
+            )
             queue.put_nowait(("result", output))
         except Exception as exc:
-            log.exception("turn failed: %s", exc)
+            # Not log.exception: the exception *message* can echo prompt/output
+            # (provider error bodies) — the frames are our code and always safe.
+            log.error(
+                "turn failed: %s\n%s",
+                describe_exc(exc), "".join(traceback.format_tb(exc.__traceback__)),
+            )
             queue.put_nowait(("error", str(exc)))
         finally:
             emit_var.reset(tok_e)

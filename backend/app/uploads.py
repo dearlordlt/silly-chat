@@ -30,7 +30,7 @@ from app.auth.deps import ApprovedUser, SessionDep, SessionKey
 from app.config import ROOT, get_settings
 from app.db import engine
 from app.embeddings import embed_texts, pack
-from app.logging_setup import get_logger
+from app.logging_setup import describe_exc, get_logger
 from app.models import DocChunk, Upload, _utcnow
 
 log = get_logger("uploads")
@@ -143,7 +143,7 @@ def _extract_text(raw: bytes, content_type: str, name: str) -> str:
         else:
             text = raw.decode("utf-8", errors="replace")
     except Exception as exc:
-        log.warning("extract failed for %s: %s", name, exc)
+        log.warning("extract failed for %s doc: %s", Path(name).suffix or "?", describe_exc(exc))
         text = ""
     cap = get_settings().limits.doc_max_chars
     return text[:cap]
@@ -316,7 +316,7 @@ async def ingest_doc(
             emb = crypto.encrypt_bytes(dk, emb)
         session.add(DocChunk(upload_id=up.id, idx=i, text=ctext, embedding=emb))
     session.commit()
-    log.info("doc %s: %d chunks embedded", name, len(chunks))
+    log.info("doc %s (%s, %dkB): %d chunks embedded", up.id, Path(name).suffix or "?", len(raw) // 1024, len(chunks))
     return up, len(chunks)
 
 

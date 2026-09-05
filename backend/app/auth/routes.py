@@ -142,7 +142,7 @@ def login(creds: Credentials, session: SessionDep, response: Response) -> dict:
         if n:
             from app.logging_setup import get_logger
 
-            get_logger("auth").info("encrypted %d existing conversation(s) for %s", n, user.username)
+            get_logger("auth").info("encrypted %d existing conversation(s) for user %s", n, user.id)
     else:
         dk = crypto.unwrap_dk(user.wrapped_dk, creds.password)
         if dk is None:

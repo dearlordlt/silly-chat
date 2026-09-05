@@ -266,6 +266,11 @@ encrypted chats are gone for good; that impossibility is the whole guarantee. Ho
 fine print: messages are necessarily readable by the server *while it answers you*
 (they go to the model) — encryption protects what's stored.
 
+The same line holds for **server logs**: they record only shape — counts, durations,
+sizes, error types — never message text, search queries, uploaded filenames,
+usernames, or your IP address. So even where logs are collected for troubleshooting,
+there's nothing personal in them to find.
+
 ## Accounts & admin
 
 New registrations wait for an admin's approval. Admins manage users (approve, promote,

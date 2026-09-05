@@ -143,6 +143,9 @@ class AuthCfg(BaseModel):
 
 class LoggingCfg(BaseModel):
     level: str = "INFO"  # DEBUG for verbose tool/search tracing
+    # DEV ONLY: log message/query text verbatim. Prod logs must stay content-free
+    # (shape only) — they ship off-box in plaintext.
+    content: bool = False
 
 
 class Settings(BaseSettings):

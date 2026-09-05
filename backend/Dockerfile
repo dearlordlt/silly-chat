@@ -25,4 +25,7 @@ COPY config.toml /srv/config.toml
 COPY CHANGELOG.md HELP.md /srv/
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# No --proxy-headers: nothing in the app reads the client IP, and resolving it
+# from X-Forwarded-For would put real visitor IPs into the access log (which
+# ships to Loki). The privacy line: logs never carry IPs.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

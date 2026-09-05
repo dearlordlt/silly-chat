@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     from app import runtime
     from app.logging_setup import get_logger, setup_logging
 
-    setup_logging(get_settings().logging.level)
+    setup_logging(get_settings().logging.level, content=get_settings().logging.content)
     # Fail fast at boot if any referenced prompt file is missing.
     validate_prompts()
     init_db()

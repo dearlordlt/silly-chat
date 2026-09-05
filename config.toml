@@ -122,4 +122,5 @@ path = "data/silly.db"
 session_days = 30
 
 [logging]
-level = "INFO"  # set DEBUG for verbose tool/search tracing
+level = "INFO"   # set DEBUG for verbose tool/search tracing
+content = false  # DEV ONLY: log message/query text verbatim — never in prod (logs ship to Loki)

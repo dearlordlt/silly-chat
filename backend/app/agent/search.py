@@ -21,7 +21,7 @@ import httpx
 
 from app import runtime
 from app.config import get_settings
-from app.logging_setup import get_logger
+from app.logging_setup import describe_exc, get_logger, pv
 
 log = get_logger("search")
 
@@ -91,8 +91,8 @@ def _relevant(query: str, results: list, text_of) -> list:
             kept.append(r)
     if len(kept) != len(results):
         log.info(
-            "dropped %d/%d off-topic result(s) for %r",
-            len(results) - len(kept), len(results), query[:60],
+            "dropped %d/%d off-topic result(s) for %s",
+            len(results) - len(kept), len(results), pv(query),
         )
     return kept
 
@@ -114,7 +114,7 @@ async def _brave(path: str, params: dict) -> dict | None:
         # 402/429/403 = credit spent, spend cap, or rate limit. SearXNG picks up the
         # slack, but its results are far worse — so this is recorded for Admin →
         # Search rather than left to be discovered through bad answers.
-        log.warning("brave search failed (%s): %s — falling back to searxng", path, exc)
+        log.warning("brave search failed (%s): %s — falling back to searxng", path, describe_exc(exc))
         runtime.note_search(False, _why(exc))
         return None
 
@@ -149,7 +149,7 @@ async def _query(params: dict, pick) -> list:
                 resp.raise_for_status()
                 data = resp.json()
             except httpx.HTTPError as exc:
-                log.warning("searxng %s failed: %s", base, exc)
+                log.warning("searxng %s failed: %s", base, describe_exc(exc))
                 continue
             out = pick(data)
             if out:
@@ -195,7 +195,7 @@ async def search_text(query: str, limit: int = 8) -> list[TextResult]:
     try:
         return await _query({"q": query}, pick)
     except httpx.HTTPError as exc:
-        log.warning("searxng text search failed for %r: %s", query[:60], exc)
+        log.warning("searxng text search failed for %s: %s", pv(query), describe_exc(exc))
         return []
 
 
@@ -235,5 +235,5 @@ async def search_images(query: str, limit: int = 12) -> list[ImageResult]:
     try:
         return await _query({"q": query, "categories": "images"}, pick)
     except httpx.HTTPError as exc:
-        log.warning("searxng image search failed for %r: %s", query[:60], exc)
+        log.warning("searxng image search failed for %s: %s", pv(query), describe_exc(exc))
         return []

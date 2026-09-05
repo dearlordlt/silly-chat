@@ -12,7 +12,7 @@ import asyncio
 import httpx
 
 from app.config import get_settings
-from app.logging_setup import get_logger
+from app.logging_setup import describe_exc, get_logger, pv
 from app.schema import MapArea, MapLeg, MapPoint, MapRoute
 
 log = get_logger("maps")
@@ -49,7 +49,7 @@ async def geocode(query: str) -> MapPoint | None:
                 else None
             )
         except Exception as exc:
-            log.warning("geocode failed for %r: %s", query, exc)
+            log.warning("geocode failed for %s: %s", pv(query), describe_exc(exc))
             point = None
         _geocache[key] = point
         await asyncio.sleep(1)  # be a polite Nominatim citizen
@@ -96,7 +96,7 @@ async def outline(query: str) -> MapArea | None:
                 r.raise_for_status()
                 hits = r.json()
         except Exception as exc:
-            log.warning("outline failed for %r: %s", query, exc)
+            log.warning("outline failed for %s: %s", pv(query), describe_exc(exc))
             return None
         finally:
             await asyncio.sleep(1)
@@ -140,7 +140,7 @@ async def route(points: list[MapPoint], profile: str = "car") -> MapRoute | None
             geometry=geometry,
         )
     except Exception as exc:
-        log.warning("routing failed: %s", exc)
+        log.warning("routing failed: %s", describe_exc(exc))
         return None
 
 
@@ -218,5 +218,5 @@ async def transit(points: list[MapPoint]) -> MapRoute | None:
             legs=legs,
         )
     except Exception as exc:
-        log.warning("transit routing failed: %s", exc)
+        log.warning("transit routing failed: %s", describe_exc(exc))
         return None

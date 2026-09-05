@@ -4,6 +4,16 @@ Feature-level history. The topmost version heading is the app's current version 
 the UI, the API (`/api/meta`), and the assistant's own self-knowledge all derive
 from this file.
 
+## v1.28.0 — 2026-09-05
+
+- **Privacy-safe logging.** Server logs now carry only shape — lengths, counts,
+  durations, error types — never content: no message text, search queries, geocoded
+  places, uploaded filenames, usernames, or client IP addresses (uvicorn and nginx
+  access logs scrubbed/off; health-check noise dropped). Failed turns log the code
+  path, not the provider's error body. In exchange, every turn now logs its duration
+  and token usage. A dev-only `LOGGING__CONTENT=true` flag restores verbatim text
+  for local debugging.
+
 ## v1.27.2 — 2026-08-27
 
 - Fixes: editing a message and resending no longer drops its images. A question
